@@ -10,6 +10,9 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
+- **v3 (brief « graphismes organiques ») : `v3/index.html`**, version courante. Étapes 1 à 4 faites (arbre seul,
+  verger, personnage et commandes, boucle avec la difficulté). Reste l'étape 5 (apiculture) et 6. Test : `npm run smoke:v3`.
+  Règle du brief : aucune BoxGeometry visible.
 - **Prochaine étape** : le fondateur joue 10 minutes. Si c'est agréable, jalon 2 dans le vrai moteur
   (explique d'abord l'arbitrage moteur en trois lignes). Sinon, on s'arrête.
 - Tests : `npm test` (logique) et `npm run smoke` (navigateur). Lance-les avant chaque commit.

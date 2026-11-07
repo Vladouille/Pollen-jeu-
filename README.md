@@ -1,5 +1,21 @@
 # POLLEN
 
+## v3 — graphismes organiques et jouabilité (`v3/index.html`)
+
+Un seul fichier HTML. Étapes 1 à 4 du brief v3 faites :
+- **Arbres organiques** : tronc en tube courbe évasé à la base, trois niveaux de branches, feuillage en plans croisés
+  découpés en transparence (40 à 80 par arbre), chaque arbre différent. `?scene=arbre` montre un arbre seul.
+- **Aucune BoxGeometry** : planches et caisses biseautées, formes tournées, capsules, rochers arrondis.
+- **Terrain** en relief fractal, couleur selon la pente et l'altitude ; le sentier se creuse là où l'on passe.
+- **Guidage sans texte** : une fleur qui luit, une icône de main, un marqueur au bord de l'écran.
+- **Début lent** : tige de coton à une dose, fleurs sources dorées, panier de 6, marché à 50 m, endurance de 12 s,
+  fleurs qui disparaissent en 90 s, fruits qui s'abîment après 2 min (4 crédits frais, 2 abîmés).
+- **Marché** (charrette, auvent rayé, cageots, marchand, rai de lumière) et **établi** avec le pinceau à 250 crédits
+  (8 fleurs par charge, panier de 20).
+
+Test : `npm run smoke:v3`. Reste : apiculture (étape 5), parcelles, outils, saisons (étape 6).
+
+
 ## v2 — graphismes et jouabilité (`v2/index.html`)
 
 Un seul fichier HTML autonome (Three.js chargé depuis un CDN). Ouvre-le et joue : le personnage est debout
