@@ -1,4 +1,28 @@
-# POLLEN — prototype du jalon 1
+# POLLEN
+
+## v2 — graphismes et jouabilité (`v2/index.html`)
+
+Un seul fichier HTML autonome (Three.js chargé depuis un CDN). Ouvre-le et joue : le personnage est debout
+dans le verger, on marche tout de suite, sans menu.
+
+- **Rendu** : tone mapping ACES, ombres douces, ciel en dégradé, nuages, brume de distance, cycle jour/nuit
+  de 20 minutes, 50 000 brins d'herbe instanciés qui ondulent au vent, textures générées en code.
+- **Personnage** : agriculteur-apiculteur en primitives (chapeau de paille, salopette, bottes, voilette),
+  vu de dos, marche, course, geste de pollinisation et de secousse.
+- **Commandes** : ZQSD/WASD + souris (pointeur verrouillé au clic), Espace ou clic pour agir, E pour
+  vendre ou acheter. Sur téléphone : deux joysticks qui naissent sous les pouces, bouton Agir, bouton
+  contextuel, paysage obligatoire.
+- **Boucle** : polliniser, laisser pousser, secouer, ramasser, vendre au marché, acheter le pinceau
+  (250 crédits) et la parcelle voisine (150 crédits : la clôture tombe, la brume se lève).
+- **Sauvegarde** automatique toutes les 30 secondes (localStorage). `?neuf` repart de zéro.
+- Options : `?debug` (images/s), `?herbe=20000` (densité de l'herbe), `?vitesse=10`.
+
+Test : `npm run smoke:v2` (Chromium, clavier, souris et deux pouces simultanés).
+Pas encore fait (étape 5 du brief) : les 24 parcelles, les ruches, les six outils, les saisons, les succès.
+
+---
+
+## v1 — prototype du jalon 1
 
 > Un continent à polliniser. Une tige de coton pour commencer.
 

@@ -1,0 +1,1659 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#7fb2e0">
+<title>POLLEN</title>
+<style>
+  :root {
+    --ink: #fffaf0;
+    --shade: rgba(28, 24, 14, 0.42);
+    --gold: #ffd25a;
+    --gold-deep: #e7a923;
+    --pill: rgba(34, 30, 20, 0.38);
+    --font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #7fb2e0; overscroll-behavior: none; }
+  body { font: 15px/1.3 var(--font); color: var(--ink); touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas#c { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+  .hud { position: fixed; inset: 0; pointer-events: none; text-shadow: 0 1px 3px var(--shade); }
+  #credits {
+    position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(16px + env(safe-area-inset-right, 0px));
+    display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 10px; border-radius: 999px; background: var(--pill);
+    font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  #credits i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff2b0, var(--gold) 45%, var(--gold-deep)); box-shadow: 0 0 0 2px rgba(0,0,0,.15); }
+  #toast { position: absolute; top: calc(56px + env(safe-area-inset-top, 0px)); right: calc(22px + env(safe-area-inset-right, 0px)); font-size: 22px; font-weight: 700; color: var(--gold); opacity: 0; }
+  #toast.show { animation: rise 1.5s ease-out forwards; }
+  @keyframes rise { 0% { opacity: 0; transform: translateY(10px); } 15% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-22px); } }
+  #banner { position: absolute; left: 0; right: 0; top: 22%; text-align: center; font-size: 30px; font-weight: 700; letter-spacing: .04em; opacity: 0; }
+  #banner.show { animation: banner 2.6s ease-out forwards; }
+  @keyframes banner { 0% { opacity: 0; transform: scale(.9); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
+
+  #tool {
+    position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px; padding: 7px 16px; border-radius: 999px; background: var(--pill);
+    font-weight: 700; white-space: nowrap;
+  }
+  #doses { display: inline-flex; gap: 4px; }
+  .dose { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink); }
+  .dose.on { background: var(--gold); border-color: var(--gold); }
+  #pockets { font-variant-numeric: tabular-nums; }
+  #pockets.full { color: var(--gold); }
+  #keyhint { position: absolute; left: 50%; top: calc(50% + 64px); transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: var(--pill); font-weight: 700; white-space: nowrap; }
+  #keyhint kbd { font: inherit; display: inline-block; min-width: 22px; padding: 0 6px; margin-right: 6px; border-radius: 6px; background: var(--ink); color: #2a2618; text-shadow: none; text-align: center; }
+
+  /* Commandes tactiles */
+  .touch-ui { position: fixed; inset: 0; pointer-events: none; }
+  .stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255,250,240,.55); background: rgba(30,26,16,.18); }
+  .stick b { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(255,250,240,.75); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .btn {
+    position: absolute; pointer-events: auto; border: 0; border-radius: 50%; display: grid; place-items: center;
+    font: 700 13px/1.1 var(--font); color: #2a2618; text-align: center; touch-action: none;
+  }
+  #act { right: calc(34px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 84px; height: 84px; background: radial-gradient(circle at 40% 35%, #fff3c4, var(--gold) 55%, var(--gold-deep)); box-shadow: 0 4px 14px rgba(0,0,0,.3), inset 0 -3px 0 rgba(0,0,0,.12); }
+  #act:active, #act.down { transform: scale(.93); }
+  #ctx { right: calc(130px + env(safe-area-inset-right, 0px)); bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: auto; min-width: 64px; height: 46px; padding: 0 16px; border-radius: 999px; background: var(--ink); box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  #ctx.off { opacity: .55; }
+  .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  #rotate { position: fixed; inset: 0; display: grid; place-items: center; background: #2b3a2a; color: var(--ink); text-align: center; padding: 24px; z-index: 20; }
+  #rotate .phone { width: 46px; height: 78px; margin: 0 auto 20px; border: 4px solid var(--ink); border-radius: 10px; animation: turn 2s ease-in-out infinite; }
+  @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+  #rotate p { margin: 0; font-size: 20px; font-weight: 700; }
+  #debug { position: absolute; top: 10px; left: 10px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0,0,0,.45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; }
+  @media (prefers-reduced-motion: reduce) { #rotate .phone { animation: none; transform: rotate(-90deg); } }
+</style>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="c" aria-label="POLLEN, le verger"></canvas>
+
+<div class="hud">
+  <div id="credits"><i></i><span id="creditsVal">0</span></div>
+  <div id="toast"></div>
+  <div id="banner"></div>
+  <div id="keyhint" hidden></div>
+  <div id="tool"><span id="toolName">Tige de coton</span><span id="doses"></span><span id="pockets">0/12</span></div>
+  <pre id="debug" hidden></pre>
+</div>
+
+<div class="touch-ui" id="touchUi" hidden>
+  <div class="stick" id="stickL" hidden><b></b></div>
+  <div class="stick" id="stickR" hidden><b></b></div>
+  <button class="btn" id="ctx" type="button" hidden></button>
+  <button class="btn" id="act" type="button" aria-label="Agir">Agir</button>
+</div>
+
+<div id="rotate" hidden><div><div class="phone"></div><p>Tourne ton téléphone</p></div></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// =====================================================================
+// POLLEN v2 : un seul fichier. Rendu stylisé (lumière, ombres, brume,
+// densité), personnage à la troisième personne, commandes tactiles et
+// clavier-souris, boucle polliniser → récolter → vendre → acheter.
+// =====================================================================
+
+const params = new URLSearchParams(location.search);
+const DEBUG = params.has('debug');
+const SPEED = Number(params.get('vitesse')) || 1;
+const SAVE_KEY = 'pollen-v2';
+
+// ---------- Outils mathématiques ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const rng = mulberry32(20261107);
+const rand = (a, b) => a + (b - a) * rng();
+
+// ---------- Relief : la même fonction en JS et en GLSL ----------
+function H(x, z) {
+  const r = Math.hypot(x, z);
+  const und = Math.sin(x * 0.045) * Math.cos(z * 0.05) * 1.6 + Math.sin(x * 0.11 + 1.3) * Math.sin(z * 0.09 + 0.7) * 0.6;
+  const fl = ss(30, 90, r);
+  const hills = ss(80, 220, r) * (22 + 14 * Math.sin(Math.atan2(z, x) * 3 + 1) + 8 * Math.sin(x * 0.03) * Math.cos(z * 0.027));
+  return und * (0.2 + 0.8 * fl) + hills;
+}
+const HEIGHT_GLSL = /* glsl */`
+float terrainH(vec2 p) {
+  float r = length(p);
+  float und = sin(p.x * 0.045) * cos(p.y * 0.05) * 1.6 + sin(p.x * 0.11 + 1.3) * sin(p.y * 0.09 + 0.7) * 0.6;
+  float fl = smoothstep(30.0, 90.0, r);
+  float hills = smoothstep(80.0, 220.0, r) * (22.0 + 14.0 * sin(atan(p.y, p.x) * 3.0 + 1.0) + 8.0 * sin(p.x * 0.03) * cos(p.y * 0.027));
+  return und * (0.2 + 0.8 * fl) + hills;
+}`;
+
+// Chemins de terre battue (segments), partagés avec le shader de l'herbe.
+const PATHS = [[0, 22, 0, 9], [0, 15, 8.2, 15.5], [0, 9, 16, 6.5]];
+function pathDist(x, z) {
+  let best = 1e9;
+  for (const [ax, az, bx, bz] of PATHS) {
+    const vx = bx - ax, vz = bz - az;
+    const t = clamp(((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz), 0, 1);
+    best = Math.min(best, Math.hypot(x - ax - vx * t, z - az - vz * t));
+  }
+  return best;
+}
+const PATH_GLSL = `
+float segD(vec2 p, vec2 a, vec2 b) { vec2 v = b - a; float t = clamp(dot(p - a, v) / dot(v, v), 0.0, 1.0); return length(p - a - v * t); }
+float pathD(vec2 p) {
+  float d = 1e9;
+  ${PATHS.map(([ax, az, bx, bz]) => `d = min(d, segD(p, vec2(${ax.toFixed(2)}, ${az.toFixed(2)}), vec2(${bx.toFixed(2)}, ${bz.toFixed(2)})));`).join('\n  ')}
+  return d;
+}`;
+
+// ---------- Monde : parcelles et lieux ----------
+const PLOT_HALF = { x: 14.5, z: 11.5 };
+const PLOTS = [
+  { id: 0, cx: 0, cz: -2, owned: true, price: 0, name: 'Verger des Tilleuls' },
+  { id: 1, cx: 32, cz: -2, owned: false, price: 150, name: 'Verger du Ruisseau' },
+];
+const MARKET = { x: 11, z: 16 };
+const BARN = { x: -17, z: 17 };
+const SIGN = { x: 16.6, z: 6.6 };
+const SPAWN = { x: 0, z: 19 };
+const PRICES = { apple: 3, brush: 250 };
+const TOOLS = [
+  { name: 'Tige de coton', doses: 2 },
+  { name: 'Pinceau', doses: 8 },
+];
+const POCKETS = 12;
+
+// =====================================================================
+// Rendu
+// =====================================================================
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+renderer.setPixelRatio(pixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0xcfe3f2, 0.0085);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1400);
+
+// Lumière : trois sources, pas plus.
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.03;
+Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 160 });
+sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0xa8d0f0, 0x5d5a32, 0.6);
+const ambient = new THREE.AmbientLight(0xffffff, 0.15);
+scene.add(hemi, ambient);
+
+// ---------- Textures générées en code ----------
+function valueNoise(seed) {
+  const r = mulberry32(seed);
+  const N = 256, perm = new Uint8Array(512), val = new Float32Array(N);
+  for (let i = 0; i < N; i++) { perm[i] = i; val[i] = r(); }
+  for (let i = N - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+  for (let i = 0; i < N; i++) perm[i + N] = perm[i];
+  const s = (t) => t * t * (3 - 2 * t);
+  return (x, y, period = 256) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const X0 = ((xi % period) + period) % period & 255, X1 = (((xi + 1) % period) + period) % period & 255;
+    const Y0 = ((yi % period) + period) % period & 255, Y1 = (((yi + 1) % period) + period) % period & 255;
+    const v = (a, b) => val[perm[a + perm[b]]];
+    const u = s(xf), w = s(yf);
+    return lerp(lerp(v(X0, Y0), v(X1, Y0), u), lerp(v(X0, Y1), v(X1, Y1), u), w);
+  };
+}
+const noiseA = valueNoise(7);
+function fbm(x, y, oct = 4, period = 256) {
+  let a = 0.5, f = 1, s = 0, n = 0;
+  for (let o = 0; o < oct; o++) { s += a * noiseA(x * f, y * f, period * f); n += a; a *= 0.5; f *= 2; }
+  return s / n;
+}
+function canvasTex(size, paint, { repeat = 1, srgb = true } = {}) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const g = cv.getContext('2d');
+  const img = g.createImageData(size, size);
+  paint(img.data, size, g);
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repeat, repeat);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+const fill = (d, i, r, g, b, a = 255) => { d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a; };
+// Grain clair : multiplie les couleurs des sommets du terrain.
+const grainTex = canvasTex(256, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = 0.72 + 0.28 * fbm(x / 22, y / 22, 4, n / 22) + (Math.random() - 0.5) * 0.12;
+    const c = clamp(v * 255, 0, 255);
+    fill(d, (y * n + x) * 4, c, c * 0.98, c * 0.94);
+  }
+}, { repeat: 90 });
+// Veines de bois.
+function woodTex(base, seed = 1) {
+  return canvasTex(128, (d, n) => {
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const v = 0.78 + 0.22 * Math.sin(y * 0.35 + fbm(x / 9 + seed, y / 40, 3, 64) * 9) * 0.5 + 0.12 * fbm(x / 4, y / 24, 2, 64) + (Math.random() - 0.5) * 0.06;
+      fill(d, (y * n + x) * 4, base[0] * v, base[1] * v, base[2] * v);
+    }
+  });
+}
+const woodBrown = woodTex([150, 104, 66], 1);
+const woodGrey = woodTex([168, 150, 128], 3);
+const barnRed = woodTex([170, 58, 44], 5);
+const barkTex = canvasTex(128, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = 0.6 + 0.4 * fbm(x / 3, y / 18, 3, 64) + (Math.random() - 0.5) * 0.08;
+    fill(d, (y * n + x) * 4, 108 * v, 84 * v, 62 * v);
+  }
+});
+const leafTex = canvasTex(128, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = 0.7 + 0.3 * fbm(x / 6, y / 6, 3, 64) + (Math.random() - 0.5) * 0.15;
+    const c = clamp(v * 255, 0, 255);
+    fill(d, (y * n + x) * 4, c, c, c);
+  }
+});
+const strawTex = canvasTex(64, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = 0.78 + 0.22 * Math.sin((x + y) * 1.1) * Math.sin((x - y) * 1.1) + (Math.random() - 0.5) * 0.1;
+    fill(d, (y * n + x) * 4, 232 * v, 196 * v, 120 * v);
+  }
+});
+const denimTex = canvasTex(64, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = 0.82 + 0.12 * ((x + y) % 3 === 0 ? 1 : 0) + (Math.random() - 0.5) * 0.12;
+    fill(d, (y * n + x) * 4, 70 * v, 98 * v, 146 * v);
+  }
+});
+const plaidTex = canvasTex(64, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const a = (Math.floor(x / 8) % 2), b = (Math.floor(y / 8) % 2);
+    const v = 0.9 + (Math.random() - 0.5) * 0.08;
+    const [r, g, bl] = a && b ? [120, 30, 28] : a || b ? [182, 64, 50] : [230, 210, 185];
+    fill(d, (y * n + x) * 4, r * v, g * v, bl * v);
+  }
+}, { repeat: 1 });
+const stripeTex = canvasTex(128, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const red = Math.floor(x / 16) % 2 === 0;
+    const v = 0.9 + 0.1 * fbm(x / 6, y / 6, 2, 64);
+    fill(d, (y * n + x) * 4, ...(red ? [200 * v, 62 * v, 52 * v] : [246 * v, 236 * v, 214 * v]));
+  }
+});
+const metalTex = canvasTex(64, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const v = 0.75 + 0.25 * fbm(x / 5, y / 5, 3, 32) + (Math.random() - 0.5) * 0.1;
+    const c = clamp(v * 210, 0, 255);
+    fill(d, (y * n + x) * 4, c, c, c * 1.02);
+  }
+});
+const softDot = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const cloudTex = canvasTex(256, (d, n) => {
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const dx = (x - n / 2) / (n / 2), dy = (y - n / 2) / (n / 2);
+    const fall = clamp(1 - Math.hypot(dx * 1.0, dy * 1.6), 0, 1);
+    const v = fbm(x / 28, y / 28, 5, n / 28);
+    const a = clamp((v * 1.3 - 0.45) * 2.6, 0, 1) * fall * fall;
+    const shade = 215 + 40 * clamp(1 - dy, 0, 1) * 0.5;
+    fill(d, (y * n + x) * 4, shade, shade, shade + 6, a * 255);
+  }
+}, { repeat: 1 });
+cloudTex.wrapS = cloudTex.wrapT = THREE.ClampToEdgeWrapping;
+
+const std = (o) => new THREE.MeshStandardMaterial(o);
+
+// ---------- Ciel ----------
+const skyUniforms = {
+  uZen: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uHor: { value: new THREE.Color() },
+  uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color() }, uSunVis: { value: 1 },
+};
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(1000, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyUniforms,
+    vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }`,
+    fragmentShader: `
+      uniform vec3 uZen, uMid, uHor, uSunDir, uSunCol; uniform float uSunVis; varying vec3 vDir;
+      void main(){
+        vec3 d = normalize(vDir); float h = d.y;
+        vec3 col = mix(uMid, uZen, smoothstep(0.12, 0.75, h));
+        col = mix(uHor, col, smoothstep(-0.03, 0.22, h));
+        col = mix(col, uHor * 0.92, smoothstep(0.0, -0.25, h));
+        float s = max(dot(d, uSunDir), 0.0);
+        col += uSunCol * uSunVis * (pow(s, 900.0) * 6.0 + pow(s, 60.0) * 0.45 + pow(s, 8.0) * 0.22 * (1.0 - smoothstep(0.0, 0.5, h)));
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  }),
+);
+sky.frustumCulled = false;
+sky.renderOrder = -10;
+scene.add(sky);
+
+// Étoiles (visibles la nuit).
+const starGeo = new THREE.BufferGeometry();
+{
+  const p = [];
+  for (let i = 0; i < 900; i++) {
+    const u = rng() * 2 - 1, th = rng() * Math.PI * 2, y = Math.abs(u) * 0.95 + 0.05;
+    const rr = Math.sqrt(1 - y * y);
+    p.push(Math.cos(th) * rr * 900, y * 900, Math.sin(th) * rr * 900);
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+}
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+stars.frustumCulled = false;
+scene.add(stars);
+
+// Nuages : plans texturés par bruit, qui dérivent.
+const clouds = [];
+for (let i = 0; i < 12; i++) {
+  const m = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.9 });
+  const s = new THREE.Sprite(m);
+  const w = rand(140, 260);
+  s.scale.set(w, w * 0.42, 1);
+  s.position.set(rand(-600, 600), rand(110, 170), rand(-600, 600));
+  s.userData.speed = rand(1.2, 2.6);
+  clouds.push(s);
+  scene.add(s);
+}
+
+// ---------- Cycle jour/nuit : vingt minutes réelles ----------
+const DAY_SECONDS = 1200;
+const C = (h) => new THREE.Color(h);
+// t : 0 minuit, 0.25 lever, 0.5 midi, 0.75 coucher.
+const KEYS = [
+  { t: 0.0, zen: C(0x070d22), mid: C(0x101b38), hor: C(0x1e2c4c), sun: C(0x9fb4ff), si: 0.32, hs: C(0x2a3c66), hg: C(0x1a1a14), hi: 0.32 },
+  { t: 0.2, zen: C(0x0e1838), mid: C(0x2a3160), hor: C(0x55466e), sun: C(0x9fb4ff), si: 0.3, hs: C(0x3a4878), hg: C(0x24221a), hi: 0.34 },
+  { t: 0.255, zen: C(0x2d4f92), mid: C(0xc77f86), hor: C(0xff9a58), sun: C(0xff8a4a), si: 1.4, hs: C(0x9a8aa0), hg: C(0x4d4228), hi: 0.45 },
+  { t: 0.31, zen: C(0x3a77cc), mid: C(0x9ec3e8), hor: C(0xf7d5aa), sun: C(0xffc98c), si: 2.3, hs: C(0xa9cdee), hg: C(0x5d5a32), hi: 0.58 },
+  { t: 0.5, zen: C(0x2c6fcc), mid: C(0x78b2ea), hor: C(0xcfe3f2), sun: C(0xfff0d8), si: 2.6, hs: C(0xa8d0f0), hg: C(0x5d5a32), hi: 0.62 },
+  { t: 0.68, zen: C(0x3370c6), mid: C(0x86b6e4), hor: C(0xf2d7b8), sun: C(0xffd09a), si: 2.4, hs: C(0xaccbe6), hg: C(0x5d5a32), hi: 0.58 },
+  { t: 0.745, zen: C(0x34508e), mid: C(0xe0806c), hor: C(0xff8c45), sun: C(0xff7a3c), si: 1.5, hs: C(0xa08aa0), hg: C(0x4d4228), hi: 0.45 },
+  { t: 0.8, zen: C(0x141f48), mid: C(0x5a3e6a), hor: C(0xa85a58), sun: C(0x9fb4ff), si: 0.3, hs: C(0x3a4878), hg: C(0x24221a), hi: 0.34 },
+  { t: 1.0, zen: C(0x070d22), mid: C(0x101b38), hor: C(0x1e2c4c), sun: C(0x9fb4ff), si: 0.32, hs: C(0x2a3c66), hg: C(0x1a1a14), hi: 0.32 },
+];
+const sky_ = { zen: new THREE.Color(), mid: new THREE.Color(), hor: new THREE.Color(), sun: new THREE.Color(), hs: new THREE.Color(), hg: new THREE.Color(), si: 1, hi: 0.6 };
+const sunDir = new THREE.Vector3();
+let dayT = 0.3;
+let daylight = 1;
+function updateSky() {
+  let k = 0;
+  while (KEYS[k + 1].t < dayT) k++;
+  const a = KEYS[k], b = KEYS[k + 1];
+  const f = ss(0, 1, (dayT - a.t) / (b.t - a.t));
+  for (const key of ['zen', 'mid', 'hor', 'sun', 'hs', 'hg']) sky_[key].copy(a[key]).lerp(b[key], f);
+  sky_.si = lerp(a.si, b.si, f);
+  sky_.hi = lerp(a.hi, b.hi, f);
+  // Soleil : culmine vers 52°, se lève à l'est (x+), se couche à l'ouest.
+  const ang = (dayT - 0.25) * Math.PI * 2;
+  sunDir.set(Math.cos(ang), Math.sin(ang) * 0.79, 0.45).normalize();
+  daylight = ss(-0.06, 0.12, sunDir.y);
+  const lightDir = daylight > 0.02 ? sunDir : _moon.set(-sunDir.x, Math.max(0.35, -sunDir.y), -0.3).normalize();
+  sun.color.copy(sky_.sun);
+  sun.intensity = sky_.si;
+  _lightDir.copy(lightDir);
+  hemi.color.copy(sky_.hs);
+  hemi.groundColor.copy(sky_.hg);
+  hemi.intensity = sky_.hi;
+  skyUniforms.uZen.value.copy(sky_.zen);
+  skyUniforms.uMid.value.copy(sky_.mid);
+  skyUniforms.uHor.value.copy(sky_.hor);
+  skyUniforms.uSunDir.value.copy(sunDir);
+  skyUniforms.uSunCol.value.copy(sky_.sun);
+  skyUniforms.uSunVis.value = ss(-0.12, 0.02, sunDir.y);
+  scene.fog.color.copy(sky_.hor);
+  stars.material.opacity = 1 - ss(-0.15, 0.05, sunDir.y);
+  for (const c of clouds) c.material.color.copy(sky_.hor).lerp(_white, 0.35 + 0.4 * daylight).multiplyScalar(0.35 + 0.65 * Math.max(daylight, 0.15));
+}
+const _moon = new THREE.Vector3();
+const _lightDir = new THREE.Vector3(0, 1, 0);
+const _white = new THREE.Color(1, 1, 1);
+
+// =====================================================================
+// Terrain
+// =====================================================================
+const plotOf = (x, z) => PLOTS.find((p) => Math.abs(x - p.cx) < PLOT_HALF.x && Math.abs(z - p.cz) < PLOT_HALF.z);
+{
+  const size = 640, seg = 200;
+  const g = new THREE.PlaneGeometry(size, size, seg, seg);
+  g.rotateX(-Math.PI / 2);
+  const pos = g.attributes.position;
+  const col = new Float32Array(pos.count * 3);
+  const grass = new THREE.Color(0x4f7d2a), grassDry = new THREE.Color(0x8c9a3c), rock = new THREE.Color(0x857a6a), dirt = new THREE.Color(0x8a6a44), orchardSoil = new THREE.Color(0x5c7a2c);
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    const y = H(x, z);
+    pos.setY(i, y);
+    c.copy(grass).lerp(grassDry, ss(0.35, 0.75, fbm(x / 40 + 50, z / 40 + 50, 3)));
+    c.lerp(rock, ss(14, 30, y) * (0.6 + 0.4 * fbm(x / 9, z / 9, 2)));
+    if (plotOf(x, z)) c.lerp(orchardSoil, 0.5);
+    c.lerp(dirt, 1 - ss(0.9, 1.7, pathDist(x, z)));
+    const mkt = Math.max(Math.abs(x - MARKET.x) - 3.2, Math.abs(z - MARKET.z) - 2.6);
+    c.lerp(dirt, 1 - ss(0, 1.2, mkt));
+    const barn = Math.max(Math.abs(x - BARN.x) - 6, Math.abs(z - BARN.z) - 5.2);
+    c.lerp(dirt, (1 - ss(0, 1.5, barn)) * 0.8);
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  const ground = new THREE.Mesh(g, std({ vertexColors: true, map: grainTex, roughness: 0.95, metalness: 0 }));
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+
+// =====================================================================
+// Herbe : 50 000 brins instanciés, qui suivent le joueur et ondulent
+// =====================================================================
+const GRASS_R = 34;
+const GRASS_N = clamp(Number(params.get('herbe')) || 50000, 1000, 200000); // ?herbe= pour régler la densité
+const windUniforms = { uTime: { value: 0 }, uCenter: { value: new THREE.Vector2() }, uR: { value: GRASS_R } };
+let grassMesh;
+{
+  const g = new THREE.BufferGeometry();
+  // Un brin : 4 tronçons qui s'affinent, pointe unique.
+  const ys = [0, 0.3, 0.58, 0.82], w = [0.04, 0.034, 0.025, 0.014];
+  const p = [], cl = [], idx = [];
+  const base = new THREE.Color(0x3d6418), tip = new THREE.Color(0xa8c955);
+  ys.forEach((y, k) => {
+    p.push(-w[k], y, 0, w[k], y, 0);
+    const c = base.clone().lerp(tip, y);
+    cl.push(c.r, c.g, c.b, c.r, c.g, c.b);
+  });
+  p.push(0, 1, 0);
+  cl.push(tip.r, tip.g, tip.b);
+  for (let k = 0; k < 3; k++) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  idx.push(6, 7, 8);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cl, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(p.length).fill(0).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  g.setIndex(idx);
+  const off = new Float32Array(GRASS_N * 3);
+  for (let i = 0; i < GRASS_N; i++) off.set([rng() * GRASS_R * 2, rng() * GRASS_R * 2, rng()], i * 3);
+  g.setAttribute('aOff', new THREE.InstancedBufferAttribute(off, 3));
+  const mat = std({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide });
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, windUniforms);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+        attribute vec3 aOff; uniform float uTime; uniform vec2 uCenter; uniform float uR;
+        ${HEIGHT_GLSL}
+        ${PATH_GLSL}
+        float plotMask(vec2 p){ return 0.0; }`)
+      .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);')
+      .replace('#include <begin_vertex>', `
+        vec2 rel = mod(aOff.xy - uCenter + uR, 2.0 * uR) - uR;
+        vec2 wp = uCenter + rel;
+        float rnd = aOff.z;
+        float fade = 1.0 - smoothstep(uR * 0.62, uR, length(rel));
+        fade *= smoothstep(0.7, 1.8, pathD(wp));
+        vec2 mk = abs(wp - vec2(${MARKET.x.toFixed(1)}, ${MARKET.z.toFixed(1)})) - vec2(2.8, 2.2);
+        fade *= smoothstep(0.0, 0.8, max(mk.x, mk.y));
+        vec2 bk = abs(wp - vec2(${BARN.x.toFixed(1)}, ${BARN.z.toFixed(1)})) - vec2(5.2, 4.4);
+        fade *= smoothstep(0.0, 1.2, max(bk.x, bk.y));
+        float hgt = (0.2 + 0.3 * fract(rnd * 7.13)) * fade;
+        float tY = position.y;
+        vec3 p = position;
+        p.y *= hgt;
+        p.x *= 0.8 + 0.6 * fract(rnd * 3.7);
+        float ang = rnd * 6.2831;
+        float ca = cos(ang), sa = sin(ang);
+        p.xz = mat2(ca, -sa, sa, ca) * p.xz;
+        float gust = sin(uTime * 1.3 + wp.x * 0.09 + wp.y * 0.06) * 0.5 + 0.5;
+        float wv = sin(uTime * 2.2 + wp.x * 0.35 + wp.y * 0.21 + rnd * 2.0) * 0.35 + gust * 0.65;
+        p.x += wv * 0.32 * tY * tY * hgt;
+        p.z += wv * 0.12 * tY * tY * hgt + sin(uTime * 3.0 + rnd * 9.0) * 0.03 * tY;
+        vec3 transformed = vec3(wp.x + p.x, terrainH(wp) + p.y - 0.02, wp.y + p.z);
+        #ifdef USE_COLOR
+
+        vColor.rgb *= mix(vec3(0.78, 0.92, 0.62), vec3(1.08, 1.02, 0.78), fract(rnd * 13.7));
+        vColor.rgb *= 0.86 + 0.28 * (sin(wp.x * 0.07) * cos(wp.y * 0.06) * 0.5 + 0.5);
+        if (rnd > 0.982 && tY > 0.95) {
+          float k = fract(rnd * 91.0);
+          vColor.rgb = k < 0.4 ? vec3(1.0, 0.86, 0.25) : k < 0.75 ? vec3(0.98, 0.96, 1.0) : vec3(0.72, 0.5, 0.95);
+        }
+        #endif
+      `);
+
+  };
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh) => {
+    prev(sh);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
+  };
+  grassMesh = new THREE.InstancedMesh(g, mat, GRASS_N);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < GRASS_N; i++) grassMesh.setMatrixAt(i, m);
+  grassMesh.frustumCulled = false;
+  grassMesh.receiveShadow = true;
+  scene.add(grassMesh);
+}
+
+// =====================================================================
+// Décor lointain : forêt et rochers sur les collines
+// =====================================================================
+{
+  const N = 420;
+  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 2.2, 6).translate(0, 1.1, 0), std({ map: barkTex, roughness: 0.9 }), N);
+  const pine = new THREE.InstancedMesh(new THREE.ConeGeometry(1.6, 5, 7).translate(0, 4.4, 0), std({ map: leafTex, roughness: 0.85, flatShading: true }), N);
+  const round = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(2.0, 0).translate(0, 3.6, 0), std({ map: leafTex, roughness: 0.85, flatShading: true }), N);
+  let np = 0, nr = 0;
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(), c = new THREE.Color();
+  for (let i = 0; i < N; i++) {
+    let x, z, tries = 0;
+    do {
+      const a = rng() * Math.PI * 2, r = 62 + Math.pow(rng(), 0.7) * 170;
+      x = Math.cos(a) * r; z = Math.sin(a) * r; tries++;
+    } while ((pathDist(x, z) < 4 || Math.hypot(x - 32, z + 2) < 26) && tries < 20);
+    const y = H(x, z);
+    const sc = rand(0.8, 1.5);
+    q.setFromAxisAngle(v.set(0, 1, 0), rng() * 6.28);
+    m.compose(v.set(x, y - 0.2, z), q, s.set(sc, sc * rand(0.9, 1.3), sc));
+    trunk.setMatrixAt(i, m);
+    if (y > 9 || rng() < 0.45) {
+      pine.setMatrixAt(np, m); pine.setColorAt(np, c.setHSL(rand(0.27, 0.33), rand(0.35, 0.5), rand(0.18, 0.26))); np++;
+    } else {
+      round.setMatrixAt(nr, m); round.setColorAt(nr, c.setHSL(rand(0.2, 0.28), rand(0.45, 0.6), rand(0.26, 0.36))); nr++;
+    }
+  }
+  pine.count = np; round.count = nr;
+  for (const o of [trunk, pine, round]) { o.castShadow = true; o.receiveShadow = true; scene.add(o); }
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), std({ map: leafTex, color: 0x9a948a, roughness: 0.92, flatShading: true }), 70);
+  for (let i = 0; i < 70; i++) {
+    const a = rng() * 6.28, r = rand(40, 200);
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (pathDist(x, z) < 3 || plotOf(x, z)) { rocks.setMatrixAt(i, m.makeScale(0, 0, 0)); continue; }
+    const sc = rand(0.4, 1.8);
+    q.setFromEuler(new THREE.Euler(rng() * 3, rng() * 3, rng() * 3));
+    rocks.setMatrixAt(i, m.compose(v.set(x, H(x, z) + sc * 0.2, z), q, s.set(sc * rand(1, 1.6), sc * rand(0.5, 0.9), sc)));
+  }
+  rocks.castShadow = rocks.receiveShadow = true;
+  scene.add(rocks);
+}
+
+// =====================================================================
+// Vergers : pommiers, fleurs, fruits
+// =====================================================================
+const BUD = 0, OPEN = 1, GROWING = 2, RIPE = 3, WILTED = 4;
+const FLOWERS_PER_TREE = 12;
+const CANOPY_Y = 2.55, CANOPY_R = 1.0;
+const trees = [];
+for (const plot of PLOTS) {
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) {
+    const x = plot.cx + (c - 1.5) * 6.4 + rand(-0.4, 0.4), z = plot.cz + (r - 1) * 6.2 + rand(-0.4, 0.4);
+    trees.push({ x, z, y: H(x, z), plot: plot.id, shake: 0, sway: rng() * 6.28 });
+  }
+}
+const trunkMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.11, 0.19, 1.9, 7).translate(0, 0.95, 0), std({ map: barkTex, roughness: 0.75 }), trees.length);
+const BLOBS = [[0, 0, 0, 1.0], [0.55, -0.15, 0.25, 0.68], [-0.5, -0.1, -0.3, 0.7], [0.1, 0.45, -0.25, 0.62], [-0.2, -0.3, 0.55, 0.6]];
+const canopyMat = std({ map: leafTex, roughness: 0.8, flatShading: true });
+canopyMat.onBeforeCompile = (sh) => {
+  Object.assign(sh.uniforms, { uTime: windUniforms.uTime });
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', '#include <common>\nuniform float uTime;')
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vec4 wpos = instanceMatrix * vec4(position, 1.0);
+      transformed.x += sin(uTime * 1.7 + wpos.x * 0.6 + wpos.z * 0.3 + position.y * 2.0) * 0.035;
+      transformed.z += cos(uTime * 1.3 + wpos.z * 0.5 + position.x * 2.0) * 0.03;`);
+};
+const blobMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), canopyMat, trees.length * BLOBS.length);
+const LEAF = new THREE.Color(0x4f8a2e), LEAF_GREY = new THREE.Color(0x77786f);
+const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpS = new THREE.Vector3(), tmpV = new THREE.Vector3(), tmpC = new THREE.Color();
+const ID_Q = new THREE.Quaternion();
+trees.forEach((t, i) => {
+  trunkMesh.setMatrixAt(i, tmpM.compose(new THREE.Vector3(t.x, t.y - 0.05, t.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.28), tmpS.set(1, 1, 1)));
+  t.leaf = new THREE.Color().setHSL(rand(0.24, 0.29), rand(0.48, 0.6), rand(0.3, 0.36));
+});
+function writeTree(i, time) {
+  const t = trees[i];
+  const sh = t.shake > 0 ? Math.sin(t.shake * 38) * 0.12 * t.shake : 0;
+  BLOBS.forEach(([bx, by, bz, br], k) => {
+    tmpM.compose(tmpV.set(t.x + bx + sh, t.y + CANOPY_Y + by + Math.abs(sh) * 0.3, t.z + bz + sh * 0.6), ID_Q, tmpS.set(br, br * 0.92, br));
+    blobMesh.setMatrixAt(i * BLOBS.length + k, tmpM);
+  });
+}
+function colorTree(i, greyAmount) {
+  const t = trees[i];
+  BLOBS.forEach((_, k) => blobMesh.setColorAt(i * BLOBS.length + k, tmpC.copy(t.leaf).multiplyScalar(1 - 0.08 * k).lerp(LEAF_GREY, greyAmount)));
+  blobMesh.instanceColor.needsUpdate = true;
+}
+trees.forEach((t, i) => { writeTree(i, 0); colorTree(i, PLOTS[t.plot].owned ? 0 : 1); });
+for (const m of [trunkMesh, blobMesh]) { m.castShadow = true; m.receiveShadow = true; scene.add(m); }
+
+// Fleurs : données dans des tableaux typés, rendu instancié.
+const NF = trees.length * FLOWERS_PER_TREE;
+const F = {
+  state: new Uint8Array(NF), timer: new Float32Array(NF), growth: new Float32Array(NF),
+  tree: new Uint16Array(NF), pos: new Float32Array(NF * 3), nrm: new Float32Array(NF * 3),
+};
+trees.forEach((t, ti) => {
+  const placed = [];
+  for (let k = 0; k < FLOWERS_PER_TREE; k++) {
+    const i = ti * FLOWERS_PER_TREE + k;
+    let d;
+    for (let tries = 0; tries < 50; tries++) {
+      const th = rng() * Math.PI * 2, yy = rand(-0.82, 0.5), rr = Math.sqrt(1 - yy * yy);
+      d = new THREE.Vector3(Math.cos(th) * rr, yy, Math.sin(th) * rr);
+      if (placed.every((q) => q.distanceTo(d) > 0.42)) break;
+    }
+    placed.push(d);
+    F.tree[i] = ti;
+    F.nrm.set([d.x, d.y, d.z], i * 3);
+    F.pos.set([t.x + d.x * (CANOPY_R + 0.05), t.y + CANOPY_Y + d.y * (CANOPY_R + 0.05), t.z + d.z * (CANOPY_R + 0.05)], i * 3);
+    if (rng() < 0.4) { F.state[i] = OPEN; F.timer[i] = rand(40, 95); } else { F.state[i] = BUD; F.timer[i] = rand(3, 30); }
+  }
+});
+const flowerGeo = (() => {
+  const s = new THREE.Shape();
+  for (let k = 0; k <= 60; k++) {
+    const a = (k / 60) * Math.PI * 2;
+    const r = 0.11 * (0.45 + 0.55 * Math.abs(Math.cos(a * 2.5)));
+    k ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const g = new THREE.ShapeGeometry(s, 1);
+  // Légère coupe : les pétales se relèvent vers l'extérieur.
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, (x * x + y * y) * 2.2); }
+  g.computeVertexNormals();
+  return g;
+})();
+const flowerMesh = new THREE.InstancedMesh(flowerGeo, std({ roughness: 0.6, side: THREE.DoubleSide, emissive: 0x332a20 }), NF);
+const heartMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.03, 8, 6), std({ color: 0xffc23a, roughness: 0.5, emissive: 0x553300 }), NF);
+const fruitMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 14, 10), std({ roughness: 0.38, metalness: 0.05 }), NF);
+const GROUND_MAX = 400;
+const groundFruitMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.11, 12, 9), std({ color: 0xc8321f, roughness: 0.38 }), GROUND_MAX);
+for (const m of [flowerMesh, heartMesh, fruitMesh, groundFruitMesh]) { m.frustumCulled = false; scene.add(m); }
+fruitMesh.castShadow = true;
+groundFruitMesh.castShadow = true;
+groundFruitMesh.count = 0;
+const flowerQ = [];
+const ZAX = new THREE.Vector3(0, 0, 1);
+for (let i = 0; i < NF; i++) flowerQ.push(new THREE.Quaternion().setFromUnitVectors(ZAX, new THREE.Vector3(F.nrm[i * 3], F.nrm[i * 3 + 1], F.nrm[i * 3 + 2])));
+const FCOL = {
+  bud: new THREE.Color(0xe07a9e), open: new THREE.Color(0xfff2f6), source: new THREE.Color(0xffd36a),
+  pollinated: new THREE.Color(0xffc23a), wilted: new THREE.Color(0x7a5a38),
+  young: new THREE.Color(0x8fc04a), ripe: new THREE.Color(0xd2321e),
+};
+const fruits = []; // fruits au sol
+
+// =====================================================================
+// Constructions : marché, grange, clôtures, panneau, brume
+// =====================================================================
+function box(w, h, d, mat, x, y, z, parent, cast = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = cast; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+function textTexture(lines, { w = 512, h = 256, bg = '#f3e6c8', fg = '#3a2a18', size = 72 } = {}) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(90,60,30,${Math.random() * 0.06})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 8); }
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  lines.forEach((l, k) => { g.font = `bold ${k ? size * 0.72 : size}px "Trebuchet MS", sans-serif`; g.fillText(l, w / 2, h / 2 + (k - (lines.length - 1) / 2) * size * 1.05); });
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+const woodMat = std({ map: woodBrown, roughness: 0.7 });
+const greyWoodMat = std({ map: woodGrey, roughness: 0.75 });
+const colliders = []; // boîtes {x, z, hx, hz} et cercles {x, z, r}
+
+// Marché.
+const market = new THREE.Group();
+market.position.set(MARKET.x, H(MARKET.x, MARKET.z), MARKET.z);
+market.rotation.y = -Math.PI / 2;
+scene.add(market);
+box(3.4, 1.0, 1.1, woodMat, 0, 0.5, 0, market);
+box(3.6, 0.08, 1.3, greyWoodMat, 0, 1.04, 0, market);
+for (const [px, pz] of [[-1.7, -0.6], [1.7, -0.6], [-1.7, 1.2], [1.7, 1.2]]) box(0.12, 2.6, 0.12, woodMat, px, 1.3, pz, market);
+{
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.06, 2.6), std({ map: stripeTex, roughness: 0.85 }));
+  roof.position.set(0, 2.62, 0.3); roof.rotation.x = -0.18; roof.castShadow = true; market.add(roof);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), std({ map: textTexture(['MARCHÉ'], { h: 128, size: 80 }), roughness: 0.8 }));
+  sign.position.set(0, 2.25, -0.68); sign.rotation.y = Math.PI; market.add(sign);
+  const sign2 = sign.clone(); sign2.rotation.y = 0; sign2.position.z = -0.6; market.add(sign2);
+  // Caisses de pommes sur l'étal.
+  const crate = std({ map: woodGrey, roughness: 0.75 });
+  for (const cx of [-1.1, 0, 1.1]) box(0.9, 0.3, 0.6, crate, cx, 1.23, 0.05, market);
+  const apples = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 10, 8), std({ color: 0xc8321f, roughness: 0.4 }), 36);
+  let n = 0;
+  for (const cx of [-1.1, 0, 1.1]) for (let a = 0; a < 12; a++) apples.setMatrixAt(n++, tmpM.makeTranslation(cx + ((a % 4) - 1.5) * 0.2, 1.43 + (a > 7 ? 0.08 : 0), 0.05 + (Math.floor(a / 4) - 1) * 0.17));
+  apples.castShadow = true; market.add(apples);
+  box(0.6, 0.6, 0.6, crate, -2.4, 0.3, 0.6, market);
+  box(0.6, 0.6, 0.6, crate, -2.3, 0.9, 0.5, market);
+}
+colliders.push({ x: MARKET.x, z: MARKET.z + 0.3, hx: 1.0, hz: 1.9 });
+
+// Grange.
+{
+  const barn = new THREE.Group();
+  barn.position.set(BARN.x, H(BARN.x, BARN.z) - 0.1, BARN.z);
+  barn.rotation.y = 0.35;
+  scene.add(barn);
+  const red = std({ map: barnRed, roughness: 0.72 });
+  const shape = new THREE.Shape([new THREE.Vector2(-4, 0), new THREE.Vector2(4, 0), new THREE.Vector2(4, 4.2), new THREE.Vector2(0, 6.8), new THREE.Vector2(-4, 4.2)]);
+  const body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 8, bevelEnabled: false }).translate(0, 0, -4), red);
+  body.castShadow = body.receiveShadow = true; barn.add(body);
+  const roofMat = std({ map: metalTex, color: 0x5a524c, roughness: 0.45, metalness: 0.6 });
+  for (const s of [-1, 1]) {
+    const r = new THREE.Mesh(new THREE.BoxGeometry(4.95, 0.14, 8.6), roofMat);
+    r.position.set(s * 2.05, 5.55, 0); r.rotation.z = -s * Math.atan2(2.6, 4); r.castShadow = true; barn.add(r);
+  }
+  const trim = std({ color: 0xf2ece0, roughness: 0.7 });
+  box(3.0, 3.4, 0.08, std({ map: woodBrown, color: 0x7a5434, roughness: 0.75 }), 0, 1.7, 4.03, barn);
+  box(0.12, 3.5, 0.12, trim, -1.55, 1.75, 4.08, barn); box(0.12, 3.5, 0.12, trim, 1.55, 1.75, 4.08, barn);
+  box(3.2, 0.12, 0.12, trim, 0, 3.45, 4.08, barn);
+  const xb = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 0.1), trim); xb.position.set(0, 1.7, 4.1); xb.rotation.z = 0.85; barn.add(xb);
+  const xb2 = xb.clone(); xb2.rotation.z = -0.85; barn.add(xb2);
+  box(1.2, 1.2, 0.1, std({ color: 0xffe2a0, emissive: 0x000000, roughness: 0.3, metalness: 0.2 }), 0, 5.0, 4.03, barn);
+  barn.userData.window = barn.children[barn.children.length - 1];
+  // Bottes de foin.
+  const hay = std({ map: strawTex, roughness: 0.95 });
+  for (const [hx, hz] of [[5.2, 2.5], [5.4, 1.1], [5.25, 1.8]]) {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.1, 14).rotateZ(Math.PI / 2), hay);
+    b.position.set(hx, hz === 1.8 ? 1.65 : 0.6, hz === 1.8 ? 1.8 : hz); b.castShadow = b.receiveShadow = true; barn.add(b);
+  }
+  colliders.push({ x: BARN.x, z: BARN.z, r: 5.4 });
+  colliders.push({ x: BARN.x + Math.cos(0.35) * 5.3 + Math.sin(0.35) * 1.8, z: BARN.z - Math.sin(0.35) * 5.3 + Math.cos(0.35) * 1.8, r: 1.0 });
+}
+
+// Clôtures des parcelles à vendre, panneau, brume.
+const plotFx = {};
+for (const plot of PLOTS) {
+  if (plot.owned) continue;
+  const posts = [];
+  const step = 2.4;
+  const { x: hx, z: hz } = PLOT_HALF;
+  const pushSide = (x0, z0, x1, z1) => {
+    const L = Math.hypot(x1 - x0, z1 - z0), n = Math.round(L / step);
+    for (let k = 0; k < n; k++) {
+      const t = k / n, x = lerp(x0, x1, t), z = lerp(z0, z1, t);
+      posts.push({ x, z, ang: Math.atan2(x1 - x0, z1 - z0), len: L / n, out: new THREE.Vector2(x - plot.cx, z - plot.cz).normalize() });
+    }
+  };
+  pushSide(plot.cx - hx, plot.cz - hz, plot.cx + hx, plot.cz - hz);
+  pushSide(plot.cx + hx, plot.cz - hz, plot.cx + hx, plot.cz + hz);
+  pushSide(plot.cx + hx, plot.cz + hz, plot.cx - hx, plot.cz + hz);
+  pushSide(plot.cx - hx, plot.cz + hz, plot.cx - hx, plot.cz - hz);
+  const postMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.13, 1.15, 0.13).translate(0, 0.575, 0), woodMat, posts.length);
+  const railMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.06, 0.1, 1).translate(0, 0, 0.5), greyWoodMat, posts.length * 2);
+  postMesh.castShadow = railMesh.castShadow = true;
+  scene.add(postMesh, railMesh);
+  const mist = [];
+  for (let k = 0; k < 14; k++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, opacity: 0.75, color: 0xe8ece6 }));
+    const w = rand(9, 15);
+    s.scale.set(w, w * 0.55, 1);
+    s.position.set(plot.cx + rand(-hx + 3, hx - 3), H(plot.cx, plot.cz) + rand(1.6, 3.6), plot.cz + rand(-hz + 3, hz - 3));
+    s.userData.base = s.position.clone();
+    s.userData.ph = rng() * 6.28;
+    mist.push(s); scene.add(s);
+  }
+  plotFx[plot.id] = { posts, postMesh, railMesh, mist, fall: -1 };
+  writeFence(plot.id, 0);
+}
+function writeFence(id, f) {
+  const fx = plotFx[id];
+  fx.posts.forEach((p, k) => {
+    const y = H(p.x, p.z);
+    const tilt = ss(0, 1, f) * 1.5;
+    const axis = tmpV.set(p.out.y, 0, -p.out.x);
+    tmpQ.setFromAxisAngle(axis, tilt);
+    const sink = ss(0.6, 1, f) * 1.4;
+    fx.postMesh.setMatrixAt(k, tmpM.compose(new THREE.Vector3(p.x, y - sink, p.z), tmpQ, tmpS.set(1, 1, 1)));
+    for (let r = 0; r < 2; r++) {
+      const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.ang).premultiply(tmpQ);
+      const off = new THREE.Vector3(0, 0.45 + r * 0.42, 0).applyQuaternion(tmpQ);
+      fx.railMesh.setMatrixAt(k * 2 + r, tmpM.compose(new THREE.Vector3(p.x + off.x, y + off.y - sink, p.z + off.z), q2, tmpS.set(1, 1, p.len)));
+    }
+  });
+  fx.postMesh.instanceMatrix.needsUpdate = true;
+  fx.railMesh.instanceMatrix.needsUpdate = true;
+  fx.postMesh.visible = fx.railMesh.visible = f < 1;
+}
+// Panneau « À vendre ».
+const forSale = new THREE.Group();
+{
+  const p = PLOTS[1];
+  forSale.position.set(SIGN.x, H(SIGN.x, SIGN.z), SIGN.z);
+  forSale.rotation.y = -Math.PI / 2 + 0.25;
+  box(0.14, 2.0, 0.14, woodMat, -0.9, 1.0, 0, forSale);
+  box(0.14, 2.0, 0.14, woodMat, 0.9, 1.0, 0, forSale);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.05, 0.08), [greyWoodMat, greyWoodMat, greyWoodMat, greyWoodMat, std({ map: textTexture(['À VENDRE', `${p.price} crédits`], { size: 76 }), roughness: 0.8 }), greyWoodMat]);
+  board.position.set(0, 1.55, 0.06); board.castShadow = true; forSale.add(board);
+  scene.add(forSale);
+  colliders.push({ x: SIGN.x, z: SIGN.z, r: 0.5 });
+}
+
+// =====================================================================
+// Personnage : agriculteur-apiculteur en primitives assemblées
+// =====================================================================
+const skin = std({ color: 0xe2b08a, roughness: 0.7 });
+const denim = std({ map: denimTex, roughness: 0.85 });
+const plaid = std({ map: plaidTex, roughness: 0.85 });
+const boots = std({ color: 0x4a3020, roughness: 0.6 });
+const straw = std({ map: strawTex, roughness: 0.9 });
+const hero = new THREE.Group();
+const body = new THREE.Group();
+hero.add(body);
+scene.add(hero);
+const mk = (geo, mat, x, y, z, parent) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+const legs = [], arms = [];
+for (const s of [-1, 1]) {
+  const leg = new THREE.Group(); leg.position.set(0.11 * s, 0.92, 0); body.add(leg);
+  mk(new THREE.CylinderGeometry(0.085, 0.075, 0.82, 8).translate(0, -0.41, 0), denim, 0, 0, 0, leg);
+  mk(new THREE.BoxGeometry(0.15, 0.13, 0.27), boots, 0, -0.85, 0.04, leg);
+  legs.push(leg);
+}
+mk(new THREE.BoxGeometry(0.4, 0.22, 0.24), denim, 0, 0.98, 0, body);
+const torso = mk(new THREE.BoxGeometry(0.42, 0.5, 0.24), plaid, 0, 1.33, 0, body);
+mk(new THREE.BoxGeometry(0.3, 0.3, 0.02), denim, 0, 1.24, 0.125, body); // bavette
+for (const s of [-1, 1]) mk(new THREE.BoxGeometry(0.05, 0.42, 0.02), denim, 0.11 * s, 1.36, 0.125, body);
+for (const s of [-1, 1]) mk(new THREE.BoxGeometry(0.05, 0.42, 0.02), denim, 0.11 * s, 1.36, -0.125, body);
+mk(new THREE.SphereGeometry(0.018, 6, 4), std({ color: 0xd9c27a, metalness: 0.8, roughness: 0.35 }), 0.11, 1.38, 0.138, body);
+mk(new THREE.SphereGeometry(0.018, 6, 4), std({ color: 0xd9c27a, metalness: 0.8, roughness: 0.35 }), -0.11, 1.38, 0.138, body);
+for (const s of [-1, 1]) {
+  const arm = new THREE.Group(); arm.position.set(0.27 * s, 1.52, 0); body.add(arm);
+  mk(new THREE.CylinderGeometry(0.065, 0.055, 0.5, 8).translate(0, -0.25, 0), plaid, 0, 0, 0, arm);
+  mk(new THREE.SphereGeometry(0.06, 8, 6), skin, 0, -0.54, 0, arm);
+  arms.push(arm);
+}
+const head = new THREE.Group(); head.position.set(0, 1.62, 0); body.add(head);
+mk(new THREE.CylinderGeometry(0.06, 0.07, 0.08, 8), skin, 0, 0.02, 0, head);
+mk(new THREE.SphereGeometry(0.15, 14, 10).scale(1, 1.12, 1), skin, 0, 0.17, 0, head);
+mk(new THREE.SphereGeometry(0.025, 6, 4), skin, 0, 0.16, 0.15, head);
+mk(new THREE.BoxGeometry(0.2, 0.06, 0.12), std({ color: 0x8a5a3a, roughness: 0.9 }), 0, 0.27, -0.06, head);
+const hat = new THREE.Group(); hat.position.set(0, 0.29, 0); head.add(hat);
+mk(new THREE.CylinderGeometry(0.36, 0.38, 0.025, 20), straw, 0, 0, 0, hat);
+mk(new THREE.CylinderGeometry(0.15, 0.17, 0.15, 16), straw, 0, 0.08, 0, hat);
+mk(new THREE.CylinderGeometry(0.172, 0.172, 0.04, 16), std({ color: 0x8a2c22, roughness: 0.7 }), 0, 0.03, 0, hat);
+// Voilette d'apiculteur : roulée sous le chapeau, se rabat près des ruches.
+const veil = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.4, 20, 1, true).translate(0, -0.2, 0), std({ color: 0x2a2a28, roughness: 0.9, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }));
+veil.scale.y = 0.08;
+hat.add(veil);
+// Outils dans la main droite.
+const handR = arms[0];
+const swab = new THREE.Group();
+mk(new THREE.CylinderGeometry(0.008, 0.008, 0.34, 6).rotateX(Math.PI / 2), std({ color: 0xf6f2ea, roughness: 0.6 }), 0, 0, 0, swab);
+const swabTips = [mk(new THREE.SphereGeometry(0.024, 8, 6).scale(1, 1, 1.6), std({ color: 0xffffff, roughness: 0.95 }), 0, 0, 0.17, swab), mk(new THREE.SphereGeometry(0.024, 8, 6).scale(1, 1, 1.6), std({ color: 0xffffff, roughness: 0.95 }), 0, 0, -0.17, swab)];
+const brush = new THREE.Group();
+mk(new THREE.CylinderGeometry(0.014, 0.012, 0.36, 8).rotateX(Math.PI / 2), std({ map: woodBrown, color: 0xc0392b, roughness: 0.45 }), 0, 0, 0, brush);
+mk(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 8).rotateX(Math.PI / 2), std({ map: metalTex, roughness: 0.4, metalness: 0.8 }), 0, 0, 0.2, brush);
+const bristles = mk(new THREE.ConeGeometry(0.03, 0.1, 10).rotateX(-Math.PI / 2), std({ color: 0xf0e4c8, roughness: 0.95 }), 0, 0, 0.27, brush);
+for (const t of [swab, brush]) { t.position.set(0, -0.56, 0.06); handR.add(t); }
+let toolLevel = 0;
+function showTool() { swab.visible = toolLevel === 0; brush.visible = toolLevel === 1; }
+showTool();
+
+// =====================================================================
+// Particules : pollen en suspension, éclats, poussière, pétales
+// =====================================================================
+function makePoints(n, color, size, blending = THREE.AdditiveBlending, opacity = 1) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ color, size, map: softDot, transparent: true, depthWrite: false, blending, opacity }));
+  p.frustumCulled = false;
+  scene.add(p);
+  return p;
+}
+const motes = makePoints(260, 0xffd36a, 0.045, THREE.AdditiveBlending, 0.8);
+const moteData = Array.from({ length: 260 }, () => ({ x: rand(-16, 16), y: rand(0.3, 2.6), z: rand(-16, 16), ph: rng() * 6.28, sp: rand(0.2, 0.6) }));
+const sparks = makePoints(500, 0xffcf4a, 0.09);
+const sparkData = [];
+const dust = makePoints(200, 0xb8a080, 0.22, THREE.NormalBlending, 0.45);
+const dustData = [];
+function burst(x, y, z, n, spread = 1, list = sparkData, max = 500) {
+  for (let k = 0; k < n && list.length < max; k++) {
+    list.push({ x, y, z, vx: (rng() - 0.5) * 2 * spread, vy: rng() * 1.6 * spread, vz: (rng() - 0.5) * 2 * spread, life: rand(0.5, 1.1) });
+  }
+}
+function stepPoints(points, list, dt, grav) {
+  const arr = points.geometry.attributes.position.array;
+  for (let k = list.length - 1; k >= 0; k--) {
+    const p = list[k];
+    if ((p.life -= dt) <= 0) { list.splice(k, 1); continue; }
+    p.vy -= grav * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
+  }
+  for (let k = 0; k < list.length; k++) { arr[k * 3] = list[k].x; arr[k * 3 + 1] = list[k].y; arr[k * 3 + 2] = list[k].z; }
+  points.geometry.setDrawRange(0, list.length);
+  points.geometry.attributes.position.needsUpdate = true;
+}
+const petalMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(0.05, 6).scale(1, 0.6, 1), std({ color: 0xffd6e2, roughness: 0.6, side: THREE.DoubleSide }), 70);
+petalMesh.frustumCulled = false;
+scene.add(petalMesh);
+const petals = Array.from({ length: 70 }, () => ({ x: rand(-16, 16), y: rand(0, 4), z: rand(-14, 10), r: rng() * 6, s: rand(0.6, 1.2) }));
+
+// =====================================================================
+// Audio synthétisé
+// =====================================================================
+const audio = (() => {
+  let ctx = null, master = null;
+  const PENTA = [0, 2, 4, 7, 9, 12, 14];
+  let n = 0;
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.55; master.connect(ctx.destination);
+    const src = ctx.createBufferSource(); src.buffer = noise(4); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380;
+    const g = ctx.createGain(); g.gain.value = 0.045;
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.08; lg.gain.value = 0.03;
+    lfo.connect(lg).connect(g.gain); src.connect(f).connect(g).connect(master); src.start(); lfo.start();
+  }
+  function noise(sec) { const b = ctx.createBuffer(1, ctx.sampleRate * sec, ctx.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; }
+  function tone(fr, t, dur, type = 'sine', gain = 0.2, slide = 0) {
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(fr, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(fr * slide, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function hiss(t, dur, freq, gain) {
+    const s = ctx.createBufferSource(); s.buffer = noise(dur + 0.1);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(master); s.start(t);
+  }
+  const on = (fn) => (...a) => { if (ctx) fn(ctx.currentTime, ...a); };
+  return {
+    init,
+    charge: on((t) => { hiss(t, 0.25, 3000, 0.1); tone(520, t, 0.18, 'triangle', 0.07, 1.5); }),
+    pollinate: on((t) => { const s = PENTA[(n++ + Math.floor(Math.random() * 3)) % 7]; const f = 660 * 2 ** (s / 12) * (0.99 + Math.random() * 0.02); tone(f, t, 0.24, 'sine', 0.18); tone(f * 2, t, 0.12, 'sine', 0.04); }),
+    shake: on((t) => { hiss(t, 0.5, 900, 0.22); tone(90, t, 0.25, 'sine', 0.25, 0.6); }),
+    pickup: on((t) => tone(880 + Math.random() * 120, t, 0.07, 'triangle', 0.09)),
+    sell: on((t) => { [0, 4, 7, 12].forEach((s, k) => tone(523 * 2 ** (s / 12), t + k * 0.09, 0.3, 'triangle', 0.16)); tone(1046, t + 0.36, 0.5, 'sine', 0.1); }),
+    buy: on((t) => { [0, 4, 7, 11, 12, 16, 19, 24].forEach((s, k) => tone(392 * 2 ** (s / 12), t + k * 0.08, 0.5, 'triangle', 0.13)); hiss(t + 0.1, 1.6, 600, 0.12); }),
+    denied: on((t) => tone(180, t, 0.1, 'square', 0.035)),
+    step: on((t) => hiss(t, 0.06, 500 + Math.random() * 300, 0.03)),
+  };
+})();
+
+// =====================================================================
+// État du jeu et sauvegarde
+// =====================================================================
+const state = { credits: 0, pockets: 0, doses: 0, source: -1, firstSaleAt: null, elapsed: 0, actions: 0 };
+function save() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, credits: state.credits, pockets: state.pockets, tool: toolLevel, owned: PLOTS.filter((p) => p.owned).map((p) => p.id), dayT }));
+  } catch { /* stockage indisponible : on joue sans sauvegarde */ }
+}
+function load() {
+  if (params.has('neuf')) return;
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (!s || s.v !== 1) return;
+    state.credits = s.credits | 0; state.pockets = clamp(s.pockets | 0, 0, POCKETS); toolLevel = clamp(s.tool | 0, 0, 1); dayT = Number(s.dayT) || dayT;
+    for (const id of s.owned || []) { const p = PLOTS[id]; if (p && !p.owned) { p.owned = true; revealPlot(p, true); } }
+    showTool();
+  } catch { /* sauvegarde illisible : nouvelle partie */ }
+}
+
+function revealPlot(plot, instant) {
+  const fx = plotFx[plot.id];
+  if (!fx) return;
+  fx.fall = instant ? 1 : 0;
+  if (instant) {
+    writeFence(plot.id, 1);
+    for (const s of fx.mist) s.visible = false;
+    trees.forEach((t, i) => t.plot === plot.id && colorTree(i, 0));
+    forSale.visible = false;
+  }
+}
+
+// =====================================================================
+// Joueur, caméra, commandes
+// =====================================================================
+const player = { x: SPAWN.x, z: SPAWN.z, y: H(SPAWN.x, SPAWN.z), face: Math.PI, vx: 0, vz: 0, phase: 0, speed: 0, act: 0, actKind: '', actTarget: null };
+const cam = { yaw: 0, pitch: 0.28, dist: 4.4 };
+const keys = {};
+const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+let touchMode = isTouch;
+const sticks = { L: null, R: null };
+let paused = false;
+
+addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (e.repeat) return;
+  audio.init();
+  if (e.code === 'Space') { e.preventDefault(); doAction(); }
+  if (e.code === 'KeyE') interact();
+});
+addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+// Souris : verrouillage du pointeur au clic ; sinon glisser pour regarder.
+let dragging = false;
+canvas.addEventListener('mousedown', (e) => {
+  audio.init();
+  if (touchMode) return;
+  if (document.pointerLockElement === canvas) { if (e.button === 0) doAction(); return; }
+  dragging = true;
+  const p = canvas.requestPointerLock?.();
+  if (p && p.catch) p.catch(() => {});
+});
+addEventListener('mouseup', () => { dragging = false; });
+addEventListener('mousemove', (e) => {
+  if (touchMode) return;
+  if (document.pointerLockElement === canvas || dragging) {
+    cam.yaw -= e.movementX * 0.0026;
+    cam.pitch = clamp(cam.pitch + e.movementY * 0.0022, -0.25, 1.05);
+  }
+});
+addEventListener('wheel', (e) => { cam.dist = clamp(cam.dist + Math.sign(e.deltaY) * 0.4, 3, 7); }, { passive: true });
+
+// Tactile : deux joysticks qui naissent là où le pouce se pose.
+const touchUi = document.getElementById('touchUi');
+const stickEls = { L: document.getElementById('stickL'), R: document.getElementById('stickR') };
+const actBtn = document.getElementById('act');
+const ctxBtn = document.getElementById('ctx');
+const STICK_R = 54;
+function setTouchMode(on) {
+  touchMode = on;
+  touchUi.hidden = !on;
+}
+setTouchMode(isTouch);
+addEventListener('touchstart', (e) => {
+  if (!touchMode) setTouchMode(true);
+  audio.init();
+  for (const t of e.changedTouches) {
+    if (t.target === actBtn || t.target === ctxBtn) continue;
+    const side = t.clientX < innerWidth / 2 ? 'L' : 'R';
+    if (sticks[side]) continue;
+    sticks[side] = { id: t.identifier, ox: t.clientX, oy: t.clientY, x: 0, y: 0 };
+    const el = stickEls[side];
+    el.hidden = false; el.style.left = t.clientX + 'px'; el.style.top = t.clientY + 'px';
+    el.firstChild.style.transform = '';
+  }
+  if (e.target === canvas || e.target === touchUi) e.preventDefault();
+}, { passive: false });
+addEventListener('touchmove', (e) => {
+  for (const t of e.changedTouches) for (const side of ['L', 'R']) {
+    const s = sticks[side];
+    if (!s || s.id !== t.identifier) continue;
+    let dx = (t.clientX - s.ox) / STICK_R, dy = (t.clientY - s.oy) / STICK_R;
+    const len = Math.hypot(dx, dy);
+    if (len > 1) { dx /= len; dy /= len; }
+    s.x = dx; s.y = dy;
+    stickEls[side].firstChild.style.transform = `translate(${dx * STICK_R}px, ${dy * STICK_R}px)`;
+  }
+  e.preventDefault();
+}, { passive: false });
+function endTouch(e) {
+  for (const t of e.changedTouches) for (const side of ['L', 'R']) {
+    if (sticks[side] && sticks[side].id === t.identifier) { sticks[side] = null; stickEls[side].hidden = true; }
+  }
+}
+addEventListener('touchend', endTouch);
+addEventListener('touchcancel', endTouch);
+// Zone morte de 10 %, réponse quadratique.
+function shape(s) {
+  if (!s) return { x: 0, y: 0, m: 0 };
+  const len = Math.hypot(s.x, s.y);
+  if (len < 0.1) return { x: 0, y: 0, m: 0 };
+  const m = Math.pow((Math.min(len, 1) - 0.1) / 0.9, 2);
+  return { x: s.x / len, y: s.y / len, m, raw: len };
+}
+actBtn.addEventListener('touchstart', (e) => { e.preventDefault(); audio.init(); actBtn.classList.add('down'); doAction(); }, { passive: false });
+actBtn.addEventListener('touchend', () => actBtn.classList.remove('down'));
+actBtn.addEventListener('click', () => doAction());
+ctxBtn.addEventListener('touchstart', (e) => { e.preventDefault(); audio.init(); interact(); }, { passive: false });
+ctxBtn.addEventListener('click', () => interact());
+
+// Paysage obligatoire sur téléphone.
+const rotateEl = document.getElementById('rotate');
+function checkOrientation() {
+  const portrait = touchMode && innerHeight > innerWidth;
+  rotateEl.hidden = !portrait;
+  paused = portrait;
+  if (portrait) { sticks.L = sticks.R = null; stickEls.L.hidden = stickEls.R.hidden = true; }
+}
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  checkOrientation();
+});
+addEventListener('orientationchange', () => setTimeout(checkOrientation, 200));
+
+// =====================================================================
+// Collisions et interactions
+// =====================================================================
+function collide(p) {
+  const R = 0.32;
+  for (const t of trees) {
+    const dx = p.x - t.x, dz = p.z - t.z, d = Math.hypot(dx, dz), min = 0.85 + R;
+    if (d < min && d > 1e-5) { p.x = t.x + (dx / d) * min; p.z = t.z + (dz / d) * min; }
+  }
+  for (const c of colliders) {
+    if (c.r) {
+      const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = c.r + R;
+      if (d < min && d > 1e-5) { p.x = c.x + (dx / d) * min; p.z = c.z + (dz / d) * min; }
+    } else {
+      const lx = p.x - c.x, lz = p.z - c.z, hx = c.hx + R, hz = c.hz + R;
+      if (Math.abs(lx) < hx && Math.abs(lz) < hz) {
+        if (hx - Math.abs(lx) < hz - Math.abs(lz)) p.x = c.x + Math.sign(lx || 1) * hx; else p.z = c.z + Math.sign(lz || 1) * hz;
+      }
+    }
+  }
+  for (const pl of PLOTS) {
+    if (pl.owned) continue;
+    const lx = p.x - pl.cx, lz = p.z - pl.cz, hx = PLOT_HALF.x + R, hz = PLOT_HALF.z + R;
+    if (Math.abs(lx) < hx && Math.abs(lz) < hz) {
+      if (hx - Math.abs(lx) < hz - Math.abs(lz)) p.x = pl.cx + Math.sign(lx || 1) * hx; else p.z = pl.cz + Math.sign(lz || 1) * hz;
+    }
+  }
+  const B = 150;
+  p.x = clamp(p.x, -B, B); p.z = clamp(p.z, -B, B);
+}
+
+const REACH = 2.5;
+const flowerPos = (i, v = new THREE.Vector3()) => v.set(F.pos[i * 3], F.pos[i * 3 + 1], F.pos[i * 3 + 2]);
+let target = null; // {kind: 'flower', i} | {kind: 'tree', t}
+let hintFlower = -1;
+let hintDone = false;
+function treeRipe(ti) { for (let k = 0; k < FLOWERS_PER_TREE; k++) if (F.state[ti * FLOWERS_PER_TREE + k] === RIPE) return true; return false; }
+function findTarget() {
+  const cx = player.x, cy = player.y + 1.3, cz = player.z;
+  const fx = Math.sin(player.face), fz = Math.cos(player.face);
+  // L'arbre le plus proche porte des pommes mûres : on le secoue d'abord.
+  let nearT = -1, nearD = 2.7;
+  trees.forEach((t, ti) => {
+    if (!PLOTS[t.plot].owned) return;
+    const d = Math.hypot(t.x - cx, t.z - cz);
+    if (d < nearD) { nearD = d; nearT = ti; }
+  });
+  if (nearT >= 0 && treeRipe(nearT)) return { kind: 'tree', t: nearT };
+  let best = null, bestScore = 1e9;
+  const needSource = state.doses === 0;
+  for (let ti = 0; ti < trees.length; ti++) {
+    const t = trees[ti];
+    if (!PLOTS[t.plot].owned) continue;
+    if (Math.hypot(t.x - cx, t.z - cz) > REACH + 1.4) continue;
+    for (let k = 0; k < FLOWERS_PER_TREE; k++) {
+      const i = ti * FLOWERS_PER_TREE + k;
+      if (F.state[i] !== OPEN || (!needSource && i === state.source)) continue;
+      const dx = F.pos[i * 3] - cx, dy = F.pos[i * 3 + 1] - cy, dz = F.pos[i * 3 + 2] - cz;
+      const d = Math.hypot(dx, dy, dz);
+      if (d > REACH) continue;
+      // La fleur doit regarder vers le joueur (pas de l'autre côté du feuillage).
+      const facing = (F.nrm[i * 3] * -dx + F.nrm[i * 3 + 2] * -dz) / (Math.hypot(dx, dz) || 1);
+      if (facing < -0.15) continue;
+      const front = (dx * fx + dz * fz) / (Math.hypot(dx, dz) || 1);
+      const score = d - front * 0.6 - facing * 0.3;
+      if (score < bestScore) { bestScore = score; best = { kind: 'flower', i }; }
+    }
+  }
+  if (!best) {
+    let bd = 2.8;
+    trees.forEach((t, ti) => {
+      if (!PLOTS[t.plot].owned || !treeRipe(ti)) return;
+      const d = Math.hypot(t.x - cx, t.z - cz);
+      if (d < bd) { bd = d; best = { kind: 'tree', t: ti }; }
+    });
+  }
+  return best;
+}
+function doAction() {
+  if (paused || player.act > 0) return;
+  const tg = target;
+  if (!tg) { audio.denied(); return; }
+  if (tg.kind === 'flower') {
+    const i = tg.i;
+    const p = flowerPos(i);
+    player.face = Math.atan2(p.x - player.x, p.z - player.z);
+    player.act = 0.42; player.actKind = 'reach'; player.actTarget = p;
+    hintDone = true;
+    state.actions++;
+    if (state.doses > 0 && i !== state.source) {
+      F.state[i] = GROWING; F.growth[i] = 0;
+      state.doses--; if (!state.doses) state.source = -1;
+      audio.pollinate(); burst(p.x, p.y, p.z, 16, 0.6);
+    } else {
+      state.doses = TOOLS[toolLevel].doses; state.source = i;
+      audio.charge(); burst(p.x, p.y, p.z, 26, 0.9);
+    }
+  } else if (tg.kind === 'tree') {
+    const t = trees[tg.t];
+    player.face = Math.atan2(t.x - player.x, t.z - player.z);
+    player.act = 0.6; player.actKind = 'shake';
+    shakeTree(tg.t);
+  }
+}
+function shakeTree(ti) {
+  const t = trees[ti];
+  t.shake = 0.7;
+  let n = 0;
+  for (let k = 0; k < FLOWERS_PER_TREE; k++) {
+    const i = ti * FLOWERS_PER_TREE + k;
+    if (F.state[i] !== RIPE) continue;
+    const dx = F.nrm[i * 3], dz = F.nrm[i * 3 + 2], d = Math.hypot(dx, dz) || 1, sp = rand(0.8, 2.0);
+    if (fruits.length < GROUND_MAX) fruits.push({ x: F.pos[i * 3], y: F.pos[i * 3 + 1], z: F.pos[i * 3 + 2], vx: (dx / d) * sp, vy: rand(0, 1.4), vz: (dz / d) * sp, rest: false });
+    F.state[i] = BUD; F.growth[i] = 0; F.timer[i] = rand(15, 35);
+    n++;
+  }
+  audio.shake();
+  for (let k = 0; k < 10; k++) burst(t.x + rand(-1, 1), t.y + CANOPY_Y + rand(-0.6, 0.6), t.z + rand(-1, 1), 1, 0.4, dustData, 200);
+  return n;
+}
+
+function context() {
+  const dm = Math.hypot(player.x - MARKET.x, player.z - MARKET.z);
+  if (dm < 4.2) {
+    if (state.pockets > 0) return { kind: 'sell', label: `Vendre ${state.pockets}`, ok: true };
+    if (toolLevel === 0) return { kind: 'brush', label: `Pinceau · ${PRICES.brush}`, ok: state.credits >= PRICES.brush };
+    return null;
+  }
+  const ds = Math.hypot(player.x - SIGN.x, player.z - SIGN.z);
+  if (forSale.visible && ds < 3.6) {
+    const p = PLOTS[1];
+    return { kind: 'plot', plot: p, label: `Acheter · ${p.price}`, ok: state.credits >= p.price };
+  }
+  return null;
+}
+function interact() {
+  if (paused) return;
+  const c = context();
+  if (!c) return;
+  if (!c.ok) { audio.denied(); flash(c.kind === 'brush' ? `Il te manque ${PRICES.brush - state.credits} crédits` : `Il te manque ${c.plot.price - state.credits} crédits`); return; }
+  if (c.kind === 'sell') {
+    const earned = state.pockets * PRICES.apple;
+    state.credits += earned; state.pockets = 0;
+    if (state.firstSaleAt === null) state.firstSaleAt = state.elapsed;
+    audio.sell(); toast(`+${earned}`);
+    burst(MARKET.x, H(MARKET.x, MARKET.z) + 1.6, MARKET.z, 30, 1);
+  } else if (c.kind === 'brush') {
+    state.credits -= PRICES.brush; toolLevel = 1; state.doses = 0; state.source = -1; showTool();
+    audio.buy(); banner('Pinceau : 8 fleurs par charge');
+    burst(player.x, player.y + 1.4, player.z, 40, 1);
+  } else if (c.kind === 'plot') {
+    state.credits -= c.plot.price; c.plot.owned = true;
+    revealPlot(c.plot, false);
+    audio.buy(); banner(c.plot.name);
+    const p = c.plot;
+    for (let k = 0; k < 120; k++) burst(p.cx + rand(-13, 13), H(p.cx, p.cz) + rand(0.5, 3), p.cz + rand(-10, 10), 1, 0.8);
+  }
+  save();
+}
+
+// =====================================================================
+// Interface
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+const ui = { credits: $('creditsVal'), doses: $('doses'), pockets: $('pockets'), toolName: $('toolName'), toast: $('toast'), banner: $('banner'), keyhint: $('keyhint'), debug: $('debug') };
+if (DEBUG) ui.debug.hidden = false;
+let shownCredits = 0;
+let lastDoses = -1, lastTool = -1;
+function toast(t) { ui.toast.textContent = t; ui.toast.classList.remove('show'); void ui.toast.offsetWidth; ui.toast.classList.add('show'); }
+function banner(t) { ui.banner.textContent = t; ui.banner.classList.remove('show'); void ui.banner.offsetWidth; ui.banner.classList.add('show'); }
+let flashT = 0;
+function flash(t) { ui.keyhint.hidden = false; ui.keyhint.textContent = t; flashT = 1.6; }
+function updateUI(dt) {
+  shownCredits += (state.credits - shownCredits) * Math.min(1, dt * 7);
+  if (Math.abs(state.credits - shownCredits) < 0.5) shownCredits = state.credits;
+  ui.credits.textContent = Math.round(shownCredits).toLocaleString('fr-FR');
+  if (lastDoses !== state.doses || lastTool !== toolLevel) {
+    const max = TOOLS[toolLevel].doses;
+    ui.doses.innerHTML = Array.from({ length: max }, (_, k) => `<span class="dose${k < state.doses ? ' on' : ''}"></span>`).join('');
+    ui.toolName.textContent = TOOLS[toolLevel].name;
+    lastDoses = state.doses; lastTool = toolLevel;
+  }
+  ui.pockets.textContent = `${state.pockets}/${POCKETS}`;
+  ui.pockets.classList.toggle('full', state.pockets >= POCKETS);
+
+  const c = context();
+  if (touchMode) {
+    ctxBtn.hidden = !c;
+    if (c) { ctxBtn.textContent = c.label; ctxBtn.classList.toggle('off', !c.ok); }
+    actBtn.textContent = target ? (target.kind === 'tree' ? 'Secouer' : state.doses > 0 && target.i !== state.source ? 'Polliniser' : 'Pollen') : 'Agir';
+  }
+  if (flashT > 0) { flashT -= dt; if (flashT <= 0) ui.keyhint.hidden = true; }
+  else if (!touchMode) {
+    const label = c ? c.label : target ? (target.kind === 'tree' ? 'Secouer' : state.doses > 0 && target.i !== state.source ? 'Polliniser' : 'Prendre le pollen') : '';
+    const key = c ? 'E' : 'Clic';
+    ui.keyhint.hidden = !label;
+    if (label) ui.keyhint.innerHTML = `<kbd>${key}</kbd>${label}`;
+  } else ui.keyhint.hidden = true;
+}
+
+// =====================================================================
+// Boucle
+// =====================================================================
+const aimRing = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.19, 28), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, depthTest: false, side: THREE.DoubleSide }));
+aimRing.renderOrder = 20;
+scene.add(aimRing);
+const hintGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softDot, color: 0xffd36a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+hintGlow.scale.set(0.9, 0.9, 1);
+scene.add(hintGlow);
+
+function simulate(dt) {
+  state.elapsed += dt;
+  for (let i = 0; i < NF; i++) {
+    if (!PLOTS[trees[F.tree[i]].plot].owned) continue;
+    switch (F.state[i]) {
+      case BUD: if ((F.timer[i] -= dt) <= 0) { F.state[i] = OPEN; F.timer[i] = rand(65, 95); } break;
+      case OPEN: if ((F.timer[i] -= dt) <= 0) { F.state[i] = WILTED; F.timer[i] = 25; if (state.source === i) state.source = -1; } break;
+      case WILTED: if ((F.timer[i] -= dt) <= 0) { F.state[i] = BUD; F.timer[i] = rand(4, 30); } break;
+      case GROWING: if ((F.growth[i] += dt / 110) >= 1) { F.growth[i] = 1; F.state[i] = RIPE; } break;
+    }
+  }
+  for (const fr of fruits) {
+    if (fr.rest) continue;
+    fr.vy -= 14 * dt; fr.x += fr.vx * dt; fr.y += fr.vy * dt; fr.z += fr.vz * dt;
+    const gy = H(fr.x, fr.z) + 0.11;
+    if (fr.y <= gy) {
+      fr.y = gy;
+      fr.vy = Math.abs(fr.vy) > 1 ? -fr.vy * 0.35 : 0;
+      const k = Math.max(0, 1 - 4 * dt); fr.vx *= k; fr.vz *= k;
+      if (!fr.vy && Math.hypot(fr.vx, fr.vz) < 0.05) fr.rest = true;
+    }
+    for (const t of trees) {
+      const dx = fr.x - t.x, dz = fr.z - t.z, d = Math.hypot(dx, dz);
+      if (d < 0.3 && fr.y < t.y + 1.5) { fr.x = t.x + (dx / (d || 1)) * 0.3; fr.z = t.z + (dz / (d || 1)) * 0.3; }
+    }
+  }
+  // Ramassage en marchant dessus.
+  for (let k = fruits.length - 1; k >= 0; k--) {
+    if (state.pockets >= POCKETS) break;
+    const fr = fruits[k];
+    if (fr.y - H(fr.x, fr.z) > 0.6) continue;
+    if (Math.hypot(fr.x - player.x, fr.z - player.z) < 1.25) { fruits.splice(k, 1); state.pockets++; audio.pickup(); burst(fr.x, fr.y, fr.z, 4, 0.3); }
+  }
+}
+
+const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+let stepT = 0, dustT = 0;
+function movePlayer(dt) {
+  fwd.set(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
+  right.set(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw));
+  let mx = 0, mz = 0, run = false;
+  if (keys.KeyW || keys.ArrowUp) mz += 1;
+  if (keys.KeyS || keys.ArrowDown) mz -= 1;
+  if (keys.KeyA || keys.ArrowLeft) mx -= 1;
+  if (keys.KeyD || keys.ArrowRight) mx += 1;
+  let mag = Math.hypot(mx, mz);
+  if (mag) { mx /= mag; mz /= mag; mag = 1; }
+  run = keys.ShiftLeft || keys.ShiftRight;
+  const L = shape(sticks.L);
+  if (L.m > 0) { mx = L.x; mz = -L.y; mag = Math.max(0.25, L.m); run = L.raw > 0.92; }
+  const R = shape(sticks.R);
+  if (R.m > 0) { cam.yaw -= R.x * R.m * 2.6 * dt; cam.pitch = clamp(cam.pitch + R.y * R.m * 1.6 * dt, -0.25, 1.05); }
+
+  const maxSpeed = (run ? 7.2 : 3.6) * mag;
+  const dirX = fwd.x * mz + right.x * mx, dirZ = fwd.z * mz + right.z * mx;
+  const accel = 1 - Math.exp(-dt * 10);
+  const busy = player.act > 0 ? 0.2 : 1;
+  player.vx = lerp(player.vx, dirX * maxSpeed * busy, accel);
+  player.vz = lerp(player.vz, dirZ * maxSpeed * busy, accel);
+  player.x += player.vx * dt; player.z += player.vz * dt;
+  collide(player);
+  player.y = lerp(player.y, H(player.x, player.z), 1 - Math.exp(-dt * 20));
+  player.speed = Math.hypot(player.vx, player.vz);
+  if (player.speed > 0.3 && player.act <= 0) {
+    const want = Math.atan2(player.vx, player.vz);
+    let d = want - player.face; d = Math.atan2(Math.sin(d), Math.cos(d));
+    player.face += d * (1 - Math.exp(-dt * 12));
+  }
+  if (player.speed > 0.4) {
+    player.phase += dt * (3.2 + player.speed * 1.35);
+    stepT -= dt;
+    if (stepT <= 0) { stepT = Math.PI / (3.2 + player.speed * 1.35); audio.step(); }
+    dustT -= dt;
+    if (dustT <= 0 && player.speed > 4.5) { dustT = 0.12; burst(player.x - player.vx * 0.05, player.y + 0.08, player.z - player.vz * 0.05, 3, 0.35, dustData, 200); }
+  }
+}
+
+function animateHero(dt, time) {
+  hero.position.set(player.x, player.y, player.z);
+  hero.rotation.y = player.face;
+  const run = player.speed > 4.6;
+  const amp = clamp(player.speed / 3.6, 0, 1) * (run ? 0.95 : 0.6);
+  const s = Math.sin(player.phase);
+  legs[0].rotation.x = s * amp; legs[1].rotation.x = -s * amp;
+  arms[0].rotation.x = -s * amp * 0.9; arms[1].rotation.x = s * amp * 0.9;
+  arms[0].rotation.z = 0.08; arms[1].rotation.z = -0.08;
+  body.position.y = Math.abs(Math.cos(player.phase)) * 0.05 * amp + (player.speed < 0.3 ? Math.sin(time * 2) * 0.006 : 0);
+  body.rotation.x = run ? 0.16 : player.speed * 0.012;
+  head.rotation.x = -body.rotation.x * 0.6;
+  if (player.act > 0) {
+    player.act -= dt;
+    const k = player.actKind === 'reach' ? Math.sin(clamp(1 - player.act / 0.42, 0, 1) * Math.PI) : 1;
+    if (player.actKind === 'reach') {
+      const t = player.actTarget;
+      const up = t ? clamp((t.y - player.y - 1.4) * 0.9, -0.3, 1.0) : 0.3;
+      arms[0].rotation.x = lerp(arms[0].rotation.x, -1.5 - up, k);
+      arms[0].rotation.z = lerp(0.08, -0.15, k);
+    } else {
+      const w = Math.sin(time * 30) * 0.25;
+      arms[0].rotation.x = -2.5 + w; arms[1].rotation.x = -2.5 - w;
+      body.rotation.x = -0.1;
+    }
+  }
+  // Voilette : rabattue près des ruches (aucune ruche encore : elle reste roulée).
+  veil.scale.y = lerp(veil.scale.y, 0.08, 1 - Math.exp(-dt * 6));
+  swabTips[0].material.color.set(state.doses >= 1 && toolLevel === 0 ? 0xffc93a : 0xffffff);
+  swabTips[1].material.color.set(state.doses >= 2 && toolLevel === 0 ? 0xffc93a : 0xffffff);
+  bristles.material.color.set(state.doses > 0 && toolLevel === 1 ? 0xffc93a : 0xf0e4c8);
+}
+
+const camTarget = new THREE.Vector3(), camPos = new THREE.Vector3();
+function updateCamera(dt) {
+  const tx = player.x + right.x * 0.55, tz = player.z + right.z * 0.55;
+  camTarget.set(tx, player.y + 1.65, tz);
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  camPos.set(tx + Math.sin(cam.yaw) * cp * cam.dist, player.y + 1.65 + sp * cam.dist, tz + Math.cos(cam.yaw) * cp * cam.dist);
+  const gy = H(camPos.x, camPos.z) + 0.5;
+  if (camPos.y < gy) camPos.y = gy;
+  const k = 1 - Math.exp(-dt * 14);
+  camera.position.lerp(camPos, k);
+  camera.lookAt(camTarget);
+}
+
+function writeFlowers(time) {
+  for (let i = 0; i < NF; i++) {
+    const st = F.state[i];
+    const owned = PLOTS[trees[F.tree[i]].plot].owned;
+    flowerPos(i, tmpV);
+    let s = 1, col = FCOL.open;
+    if (!owned) s = 0;
+    else if (st === BUD) { s = 0.42; col = FCOL.bud; }
+    else if (st === OPEN) { col = i === state.source ? FCOL.source : FCOL.open; if (F.timer[i] < 12) s = 1 + Math.sin(time * 14 + i) * 0.1; }
+    else if (st === GROWING) { s = lerp(0.85, 0.35, F.growth[i]); col = FCOL.pollinated; }
+    else if (st === RIPE) s = 0;
+    else if (st === WILTED) { s = 0.55; col = FCOL.wilted; tmpV.y -= 0.05; }
+    tmpS.set(s, s, s);
+    flowerMesh.setMatrixAt(i, tmpM.compose(tmpV, flowerQ[i], tmpS));
+    flowerMesh.setColorAt(i, col);
+    const hs = st === OPEN || st === BUD ? s : 0;
+    tmpS.set(hs, hs, hs);
+    tmpV.x += F.nrm[i * 3] * 0.015; tmpV.y += F.nrm[i * 3 + 1] * 0.015; tmpV.z += F.nrm[i * 3 + 2] * 0.015;
+    heartMesh.setMatrixAt(i, tmpM.compose(tmpV, ID_Q, tmpS));
+    if (owned && (st === GROWING || st === RIPE)) {
+      const g = F.growth[i], r = 0.04 + 0.075 * g;
+      flowerPos(i, tmpV);
+      tmpV.x += F.nrm[i * 3] * r * 0.6; tmpV.z += F.nrm[i * 3 + 2] * r * 0.6; tmpV.y -= r * 0.9;
+      fruitMesh.setMatrixAt(i, tmpM.compose(tmpV, ID_Q, tmpS.set(r, r * 1.05, r)));
+      fruitMesh.setColorAt(i, tmpC.copy(FCOL.young).lerp(FCOL.ripe, st === RIPE ? 1 : g * g));
+    } else fruitMesh.setMatrixAt(i, tmpM.makeScale(0, 0, 0));
+  }
+  flowerMesh.instanceMatrix.needsUpdate = true; flowerMesh.instanceColor.needsUpdate = true;
+  heartMesh.instanceMatrix.needsUpdate = true;
+  fruitMesh.instanceMatrix.needsUpdate = true; if (fruitMesh.instanceColor) fruitMesh.instanceColor.needsUpdate = true;
+  const n = Math.min(fruits.length, GROUND_MAX);
+  for (let k = 0; k < n; k++) groundFruitMesh.setMatrixAt(k, tmpM.makeTranslation(fruits[k].x, fruits[k].y, fruits[k].z));
+  groundFruitMesh.count = n;
+  groundFruitMesh.instanceMatrix.needsUpdate = true;
+}
+
+function updateFx(dt, time) {
+  // Pollen en suspension autour du joueur, visible dans la lumière.
+  const arr = motes.geometry.attributes.position.array;
+  moteData.forEach((m, k) => {
+    m.x += Math.sin(time * m.sp + m.ph) * 0.12 * dt + 0.25 * dt; m.y += Math.cos(time * m.sp * 1.3 + m.ph) * 0.1 * dt; m.z += Math.cos(time * m.sp + m.ph) * 0.12 * dt;
+    let rx = ((m.x - player.x + 16) % 32 + 32) % 32 - 16, rz = ((m.z - player.z + 16) % 32 + 32) % 32 - 16;
+    m.x = player.x + rx; m.z = player.z + rz;
+    arr[k * 3] = m.x; arr[k * 3 + 1] = H(m.x, m.z) + m.y; arr[k * 3 + 2] = m.z;
+  });
+  motes.geometry.attributes.position.needsUpdate = true;
+  motes.material.opacity = 0.2 + 0.4 * daylight;
+  stepPoints(sparks, sparkData, dt, 1.6);
+  stepPoints(dust, dustData, dt, -0.3);
+  // Pétales emportés par le vent au-dessus du verger.
+  petals.forEach((p, k) => {
+    p.x += (0.9 + Math.sin(time * 0.7 + k) * 0.4) * dt; p.y -= 0.22 * dt; p.z += Math.sin(time * 0.9 + k * 1.7) * 0.4 * dt; p.r += dt * 2.5;
+    if (p.x > 18 || p.y < 0) { const t = trees[(k * 7) % 12]; p.x = t.x + rand(-1, 1); p.y = t.y + CANOPY_Y + rand(-0.4, 0.6); p.z = t.z + rand(-1, 1); }
+    const gy = H(p.x, p.z);
+    tmpQ.setFromEuler(new THREE.Euler(p.r, p.r * 0.7, p.r * 0.3));
+    petalMesh.setMatrixAt(k, tmpM.compose(tmpV.set(p.x, Math.max(p.y + (gy > p.y ? gy : 0), gy + 0.02), p.z), tmpQ, tmpS.set(p.s, p.s, p.s)));
+  });
+  petalMesh.instanceMatrix.needsUpdate = true;
+  for (const c of clouds) { c.position.x += c.userData.speed * dt; if (c.position.x > 700) c.position.x = -700; }
+  // Achat d'une parcelle : la clôture tombe, la brume se lève, les arbres reprennent leur couleur.
+  for (const id in plotFx) {
+    const fx = plotFx[id];
+    fx.mist.forEach((s) => {
+      if (!s.visible) return;
+      s.position.x = s.userData.base.x + Math.sin(time * 0.2 + s.userData.ph) * 0.8;
+      if (fx.fall >= 0) { s.position.y += dt * (1.5 + fx.fall * 4); s.material.opacity = 0.75 * (1 - ss(0, 0.9, fx.fall)); if (fx.fall >= 1) s.visible = false; }
+    });
+    if (fx.fall >= 0 && fx.fall < 1) {
+      fx.fall = Math.min(1, fx.fall + dt / 2.4);
+      writeFence(+id, ss(0, 0.55, fx.fall) * 0.62 + ss(0.55, 1, fx.fall) * 0.38);
+      trees.forEach((t, i) => t.plot === +id && colorTree(i, 1 - ss(0.2, 0.9, fx.fall)));
+      if (fx.fall > 0.3) forSale.visible = false;
+      if (fx.fall >= 1) writeFence(+id, 1);
+    }
+  }
+}
+
+// Ombres : caméra d'ombre serrée autour du joueur, calée sur la grille des texels.
+function updateShadow() {
+  const step = 56 / 2048;
+  const cx = Math.round(player.x / step) * step, cz = Math.round(player.z / step) * step;
+  sun.target.position.set(cx, player.y, cz);
+  sun.position.set(cx + _lightDir.x * 70, player.y + _lightDir.y * 70, cz + _lightDir.z * 70);
+}
+
+// Fréquence d'images : pixelRatio ramené à 1 sous 50 img/s.
+let fps = 60, fpsAcc = 0, fpsN = 0, fpsWindow = 0, perfChecks = 0;
+function perf(dt) {
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc >= 2) {
+    fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; perfChecks++;
+    if (perfChecks >= 2 && fps < 50 && pixelRatio > 1) { pixelRatio = 1; renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); }
+    else if (perfChecks >= 4 && fps < 40 && pixelRatio === 1 && grassMesh.count > GRASS_N / 2) { grassMesh.count = Math.floor(GRASS_N / 2); }
+  }
+}
+
+let last = performance.now();
+let saveT = 30;
+function frame(now) {
+  const raw = (now - last) / 1000;
+  const dt = Math.min(0.05, raw);
+  last = now;
+  const time = now / 1000;
+  perf(raw);
+  if (!paused) {
+    dayT = (dayT + (dt * SPEED) / DAY_SECONDS) % 1;
+    movePlayer(dt);
+    simulate(dt * SPEED);
+    if ((saveT -= dt) <= 0) { saveT = 30; save(); }
+  }
+  updateSky();
+  windUniforms.uTime.value = time;
+  windUniforms.uCenter.value.set(player.x, player.z);
+  trees.forEach((t, i) => { if (t.shake > 0) { t.shake = Math.max(0, t.shake - dt); writeTree(i, time); } });
+  blobMesh.instanceMatrix.needsUpdate = true;
+  target = paused ? null : findTarget();
+  animateHero(dt, time);
+  updateCamera(dt);
+  writeFlowers(time);
+  updateFx(dt, time);
+  updateShadow();
+  sky.position.copy(camera.position);
+  stars.position.copy(camera.position);
+
+  // Repères : anneau sur la cible, halo sur la toute première fleur.
+  if (target && target.kind === 'flower') {
+    flowerPos(target.i, aimRing.position);
+    aimRing.quaternion.copy(flowerQ[target.i]);
+    const p = 1 + Math.sin(time * 6) * 0.08; aimRing.scale.set(p, p, p);
+    aimRing.material.color.set(state.doses > 0 && target.i !== state.source ? 0xffe08a : 0xffffff);
+    aimRing.visible = true;
+  } else aimRing.visible = false;
+  if (!hintDone && hintFlower >= 0 && F.state[hintFlower] === OPEN) {
+    flowerPos(hintFlower, hintGlow.position);
+    const s = 0.7 + Math.sin(time * 3.5) * 0.18; hintGlow.scale.set(s, s, 1); hintGlow.visible = true;
+  } else hintGlow.visible = false;
+
+  updateUI(dt);
+  if (DEBUG) ui.debug.textContent = `${fps.toFixed(0)} img/s · ratio ${pixelRatio} · herbe ${grassMesh.count}\nheure ${(dayT * 24).toFixed(1)} h · ×${SPEED}\n1re vente ${state.firstSaleAt === null ? '—' : state.firstSaleAt.toFixed(0) + ' s'}`;
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+// La fleur ouverte la plus proche du point de départ est la seule aide du jeu.
+{
+  let bd = 1e9;
+  for (let i = 0; i < NF; i++) {
+    if (!PLOTS[trees[F.tree[i]].plot].owned) continue;
+    if (F.nrm[i * 3 + 2] < 0.3 || F.pos[i * 3 + 1] - H(F.pos[i * 3], F.pos[i * 3 + 2]) > 2.9) continue;
+    const d = Math.hypot(F.pos[i * 3] - SPAWN.x, F.pos[i * 3 + 2] - SPAWN.z);
+    if (d < bd) { bd = d; hintFlower = i; }
+  }
+  F.state[hintFlower] = OPEN; F.timer[hintFlower] = 400;
+  // Une voisine ouverte sur le même arbre, pour que la première charge serve tout de suite.
+  const ti = F.tree[hintFlower];
+  for (let k = 0; k < FLOWERS_PER_TREE; k++) { const i = ti * FLOWERS_PER_TREE + k; if (i !== hintFlower && F.nrm[i * 3 + 2] > 0) { F.state[i] = OPEN; F.timer[i] = 300; break; } }
+}
+
+load();
+checkOrientation();
+updateSky();
+camera.position.set(player.x, player.y + 3, player.z + 5);
+requestAnimationFrame(frame);
+addEventListener('pagehide', save);
+addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+
+// Accès pour les tests automatisés.
+window.pollen = {
+  state, player, cam, F, trees, PLOTS, fruits, MARKET, SIGN, sticks,
+  get target() { return target; }, get dayT() { return dayT; }, set dayT(v) { dayT = v; },
+  get toolLevel() { return toolLevel; },
+  doAction, interact, simulate, H, hintFlower: () => hintFlower,
+  fps: () => fps, renderer,
+};
+</script>
+</body>
+</html>

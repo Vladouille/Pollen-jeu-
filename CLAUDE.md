@@ -7,6 +7,9 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 
 - **Jalon 1 (le noyau) : prototype web fait** (Three.js, `src/`). Décision prise avec le fondateur : prototyper
   la boucle dans le navigateur, où elle peut être lancée et testée, avant de choisir Unity ou Godot.
+- **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
+  Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
+  six outils, saisons, succès. Test : `npm run smoke:v2`.
 - **Prochaine étape** : le fondateur joue 10 minutes. Si c'est agréable, jalon 2 dans le vrai moteur
   (explique d'abord l'arbitrage moteur en trois lignes). Sinon, on s'arrête.
 - Tests : `npm test` (logique) et `npm run smoke` (navigateur). Lance-les avant chaque commit.
