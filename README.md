@@ -1,5 +1,20 @@
 # POLLEN
 
+## v4 — pollinisation et automatisation à la première personne (`v4/index.html`)
+
+Version courante. Un seul fichier HTML. Étapes 1 à 4 du brief v4 :
+1. **La grille** : 7 765 tuiles hexagonales de 2 m ; fanées grises ou fleuries en couleur, cinq espèces
+   (lavande, colza, tournesol, trèfle, bruyère), fleurs instanciées dans un rayon de 42 m, aplats colorés au-delà.
+   `?scene=grille` : caméra libre, moitié fleurie, moitié fanée.
+2. **Première personne** : mains gantées et outil, joystick gauche et glissement du pouce droit, clavier-souris.
+3. **Pollinisation** : clic maintenu (3 s avec la tige de coton), jauge circulaire, floraison en vague, abeilles, réservoir.
+4. **Boucle** : ruchettes à 40 crédits posées par le joueur, qui renvoient seules le pollen vers la base ; comptoir de
+   l'office (vider, vendre) ; hangar à outils (pinceau à 300 crédits, les quatre suivants visibles mais verrouillés).
+
+Options : `?neuf` (nouvelle partie), `?debug`, `?rayon=20` (moins de fleurs). Test : `npm run smoke:v4`.
+Reste : étape 5 (miellerie, chaîne de transformation, électricité, carte), étape 6 (construction, convoyeurs, ruches autonomes).
+
+
 ## v3 — graphismes organiques et jouabilité (`v3/index.html`)
 
 Un seul fichier HTML. Étapes 1 à 4 du brief v3 faites :

@@ -7,6 +7,7 @@
     "test": "node --test tests/sim.test.mjs",
     "smoke": "node tests/smoke.mjs",
     "smoke:v2": "node tests/v2-smoke.mjs",
-    "smoke:v3": "node tests/v3-smoke.mjs"
+    "smoke:v3": "node tests/v3-smoke.mjs",
+    "smoke:v4": "node tests/v4-smoke.mjs"
   }
 }
