@@ -15,7 +15,8 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   (esthétique et interface poste par poste) : refusé, comme la v6. Direction originale validée par le fondateur
   (« fais-le en plusieurs semaines ») : palette POLLEN blanc cassé #ECE8DF, graphite #2F3338, jaune pollen #F4B41A,
   vert sève lumineux #53D17A ; arêtes chanfreinées (RoundedBoxGeometry), socles à gradins, rainures de panneaux.
-  Étape 1 faite (terrain hexagonal, collecteur, caméra libre). Prochaine : 2. Test : `npm run smoke:v9`.
+  Six étapes faites (le fondateur a dit « fais tout sans m'attendre »). Code dans `v9/src`, assemblé par
+  `node v9/construire.mjs` ; ne pas modifier `v9/index.html` à la main. Test : `npm run smoke:v9`.
 - **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, mise de côté par la v9. Plus rien de dessiné en code : les
   modèles CC0 sont chargés depuis `v8/models` et `v8/hdri` (noms dans `v8/LISEZMOI.md`), avec des formes de substitution
   si un fichier manque. Boucle complète : polliniser (panier), vendre au marché, acheter le pinceau à l'atelier.

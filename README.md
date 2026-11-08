@@ -1,16 +1,30 @@
 # POLLEN
 
-## v9 — la station agricole (`v9/index.html`), étape 1 sur 6
+## v9 — la station agricole (`v9/index.html`), six étapes faites
 
-Direction graphique propre à POLLEN : matériel manufacturé, arêtes chanfreinées, socles à gradins avec bande lumineuse,
-panneaux blancs à rainures et liseré, quatre couleurs pour tout le matériel (blanc cassé, graphite, jaune pollen, vert
-sève). Étape 1 : terrain de tuiles hexagonales sèches (beige) et pollinisées (vertes, fleurs de lavande, colza et trèfle),
-soleil à 35°, ombres nettes, ciel de jour, et le collecteur (écran, bouton, fente d'insertion). Caméra libre : glisser
-pour tourner, molette ou pincement pour zoomer. Test : `npm run smoke:v9`.
+Un seul fichier, ordinateur et téléphone (paysage forcé). Code découpé dans `v9/src`, assemblé par
+`node v9/construire.mjs`. Direction graphique propre à POLLEN : matériel chanfreiné, socles à gradins avec bande
+lumineuse, quatre couleurs (blanc cassé, graphite, jaune pollen, vert sève).
+
+- **Commandes** : ZQSD/WASD et souris (premier clic : verrouille le pointeur), clic maintenu pour agir, E pour utiliser,
+  1 à 7 ou molette pour l'outil, B construire, R tourner la pièce, Tab contrats. Téléphone : joystick à gauche, regard à
+  droite, boutons ● et E, raccourcis à toucher.
+- **Boucle** : viser une tuile sèche et maintenir, la tuile passe au vert et ses fleurs se redressent ; vider la charge au
+  collecteur ; acheter l'outil suivant au comptoir (présentoirs grisés si trop chers, l'outil passe en main).
+- **Activités** : arracher les chardons, irriguer les tuiles arides avec un tuyau déroulé depuis la pompe, ruches (miel,
+  pollinisation autour d'elles), essaims sauvages (ruche gratuite), balises de relevé (révèlent les fleurs dorées, 50 fois
+  le prix).
+- **Automatisation** : convoyeurs, extracteur (pollen → miel), maturateur (miel → miel de cru), panneaux solaires,
+  batterie, quai d'expédition ; la pollinisatrice (six roues, pollinise en roulant) ; trois contrats payés double à la
+  station ; un événement toutes les 10 à 15 min annoncé 30 s avant (orage, floraison, panne, acheteur ×3) ; nuit avec
+  lampe frontale ; une nouveauté toutes les 8 minutes ; sauvegarde dans le navigateur toutes les 30 s (`?neuf` pour
+  repartir de zéro).
+- `?mode=pc` ou `?mode=mobile` force l'appareil, `?debug` affiche triangles et appels de dessin.
+  Test : `npm run smoke:v9` (scénarios dans `tests/v9-activites.js` et `tests/v9-automatisation.js`).
 
 ## v8 — vrais modèles 3D et boucle complète (`v8/index.html`)
 
-Version courante. Même scène que la v7, agrandie à 80 m, mais les objets viennent de fichiers : fleur, marché, atelier,
+Mise de côté par la v9. Même scène que la v7, agrandie à 80 m, mais les objets viennent de fichiers : fleur, marché, atelier,
 tige de coton et pinceau en GLB, ciel en HDRI (voir `v8/LISEZMOI.md` pour les noms et le lancement par un serveur).
 Écran de chargement avec barre ; un fichier absent est remplacé par une forme de substitution et signalé.
 
