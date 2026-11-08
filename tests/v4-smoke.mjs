@@ -16,7 +16,11 @@ const check = (ok, label) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}`); 
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 async function open(ctxOpts, query = '?debug&neuf&rayon=12') {
   const ctx = await browser.newContext(ctxOpts);
-  await ctx.route('https://cdn.jsdelivr.net/**', (r) => r.fulfill({ body: three, contentType: 'text/javascript' }));
+  await ctx.route('https://cdn.jsdelivr.net/**', async (r) => {
+    const m = r.request().url().match(/examples\/jsm\/(.*)$/);
+    if (m) return r.fulfill({ body: await readFile(join(root, 'vendor', 'jsm', m[1])), contentType: 'text/javascript' });
+    return r.fulfill({ body: three, contentType: 'text/javascript' });
+  });
   const page = await ctx.newPage(); const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 300)));
@@ -39,12 +43,15 @@ try {
     check(n.bloomed > n.tiles * 0.3 && n.bloomed < n.tiles * 0.7, `moitié fleurie (${n.bloomed}), moitié fanée`);
     check(n.flowers > 15000, `${n.flowers} fleurs instanciées autour de la caméra`);
     check((await boxes(g.page)) === 0, 'aucune BoxGeometry');
+    const rare = await g.page.evaluate(() => window.pollen.tiles.rare.filter(Boolean).length);
+    check(rare >= 25 && rare <= 55, `fleurs dorées : ${rare} tuiles (une sur deux cents)`);
     check(g.errors.length === 0, `aucune erreur (grille)${g.errors.length ? ' : ' + g.errors.join(' | ') : ''}`);
     await g.ctx.close();
   }
 
   // ---------- PC ----------
-  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 720 } });
+  const { ctx, page, errors } = await open({ viewport: { width: 1280, height: 720 } }, '?debug&neuf&rayon=12&fx');
+  check(await page.evaluate(() => window.pollen.usePost), 'post-traitement actif (bloom, profondeur de champ, vignette)');
   check((await boxes(page)) === 0, 'aucune BoxGeometry dans la base');
   await until(page, () => /Polliniser/.test(document.getElementById('label').textContent), null, 20000);
   check(/Polliniser/.test(await label(page)), `au départ, le réticule vise une tuile fanée : « ${await label(page)} »`);
@@ -57,13 +64,16 @@ try {
   const tile = await page.evaluate(() => { const P = window.pollen, a = P.aim; return a && a.kind === 'tile' ? a.i : -1; });
   check(tile >= 0, 'une tuile est visée');
   const bees0 = await page.evaluate(() => window.pollen.bees());
+  const bloomed0 = await page.evaluate(() => window.pollen.tiles.bloom.filter(Boolean).length);
   await page.keyboard.down('Space');
   check(await until(page, () => window.pollen.gauge.p > 0.15, null, 60000), 'maintenir : la jauge circulaire se remplit');
   await snap(page, '1-jauge');
-  check(await until(page, (i) => window.pollen.tiles.bloom[i] === 1, tile, 120000), 'jauge pleine : la tuile fleurit');
+  // Le joueur glisse encore un peu après avoir lâché la touche : on compte les floraisons plutôt qu'une tuile précise.
+  check(await until(page, (n0) => window.pollen.tiles.bloom.filter(Boolean).length > n0, bloomed0, 120000), 'jauge pleine : la tuile fleurit');
   await page.keyboard.up('Space');
   const after = await page.evaluate(() => ({ tank: window.pollen.state.tank }));
   check(after.tank === 1, `le pollen s'ajoute au réservoir (${after.tank})`);
+  check((await page.evaluate(() => window.pollen.streak)) === 1 && (await page.evaluate(() => window.pollen.gloveDust)) > 0, 'série sonore lancée, les gants prennent la poudre de pollen');
   await page.waitForTimeout(1500);
   await snap(page, '2-floraison');
   check((await page.evaluate(() => window.pollen.bees())) > bees0, 'des abeilles arrivent sur la tuile');
@@ -113,6 +123,8 @@ try {
   await page.waitForTimeout(300);
   await snap(page, '4-ruchette');
   check(await until(page, (s0) => window.pollen.state.stock > s0 + 0.5, stock0, 60000), 'la ruchette envoie le pollen vers la base');
+  const lv = await page.evaluate(() => { const r = window.pollen.ruchettes[0]; r.fill = 50; return new Promise((ok) => setTimeout(() => ok(r.group.userData.level), 3000)); });
+  check(lv >= 2, `pleine, la ruche monte de ${lv} hausses`);
   // Pinceau.
   await goTo(B.hangar.x + 2.2, B.hangar.z + 2.6, B.hangar.x, hy, B.hangar.z);
   await until(page, () => /Ouvrir/.test(document.getElementById('label').textContent), null, 20000);
