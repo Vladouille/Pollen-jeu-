@@ -95,6 +95,15 @@ try {
     check(b.vert === 1 && b.charge === 0.5 && b.jauge.startsWith('0,5'), `${cible} : maintenir l'action pollinise : tuile verte, charge ${b.jauge}`);
     check(b.vendre && b.vendre.startsWith('Vendre') && b.etiquette && b.credits > 0 && b.vide, `${cible} : « ${b.vendre} » au collecteur, étiquette E, ${b.credits} cr`);
     check(b.grise && b.abordable && b.outil === 'brosse' && b.reste === 50 && b.slots === 2, `${cible} : présentoir grisé puis abordable, brosse achetée et en main tout de suite`);
+    // --- Étape 5 : les activités (le scénario complet est dans tests/v9-activites.js) ---
+    if (cible === 'pc') {
+      const a = await page.evaluate(await readFile(join(root, 'tests', 'v9-activites.js'), 'utf8'));
+      check(a.badgeChardon.includes('arracher') && a.desherbe, 'pc : désherber : maintenir sur les chardons les arrache (+2 cr)');
+      check(a.pompe === 'Brancher le tuyau' && !a.pollAvant && a.irrigue === 1 && a.pollApres && a.tuyau > 5, `pc : irriguer : tuyau branché à la pompe, déroulé (${a.tuyau} points), la tuile aride devient pollinisable`);
+      check(a.ruche && a.pots >= 1 && a.pollRuche > 3 && a.miel === a.pots && a.gainMiel === 40 * a.pots, `pc : ruche achetée, ${a.pollRuche} tuiles pollinisées par les abeilles, miel récolté et vendu (+${a.gainMiel} cr)`);
+      check(a.essaim && a.capt.startsWith('Capturer') && a.ruches === 2, 'pc : essaim sauvage capturé : une ruche gratuite');
+      check(a.baliseGain === 100 && a.revelees > 0 && a.doree >= 150, `pc : balise activée, ${a.revelees} fleurs dorées révélées, une dorée vaut ${a.doree} cr`);
+    }
     const shot = await page.screenshot({ timeout: 240000 });
     check(shot.length > 30000, `${cible} : l'image n'est pas vide (${(shot.length / 1024).toFixed(0)} Ko)`);
     check(erreurs.length === 0, `${cible} : console vide${erreurs.length ? ' : ' + erreurs.join(' | ') : ''}`);
