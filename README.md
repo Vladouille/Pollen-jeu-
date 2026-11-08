@@ -4,8 +4,9 @@
 
 Brief v5 : repartir de zéro, deux fichiers qui partagent exactement le même code de jeu. Le code est écrit une seule
 fois dans `v5/src/jeu.js` ; `node v5/construire.mjs` (ou `npm run build:v5`) génère les deux fichiers en y ajoutant
-`v5/src/config-pc.js` ou `v5/src/config-mobile.js` (qualité, et plus tard contrôles). Ne modifie jamais les fichiers
-générés à la main.
+la qualité (`v5/src/config-pc.js` ou `config-mobile.js`) et les contrôles (`controles-pc.js` ou `controles-mobile.js`).
+Les contrôles remplissent un objet d'entrée `E` que le jeu lit ; ils ne touchent à rien d'autre. Ne modifie jamais
+les fichiers générés à la main.
 
 | | PC | Mobile |
 |---|---|---|
@@ -18,7 +19,22 @@ générés à la main.
 **Étape 1 (le rendu)** faite : vallée de 18 907 tuiles hexagonales, moitié fanée, moitié fleurie ; trèfle, pissenlit et
 colza avec cinq variantes de forme chacun, étamines et pollen, nervures, teinte ±12 %, taille ±20 %, inclinaison 0-10°,
 quelques fleurs cassées ; herbe sèche ou verte selon la tuile ; vent en rafales ; abeilles ; soleil rasant à 25°.
-Caméra libre : glisser pour tourner, molette ou pincement pour zoomer, ZQSD pour se déplacer.
+
+**Étape 2 (le joueur)** faite : première personne, œil à 1,65 m. Deux mains en gants de cuir fauve (paume bombée,
+doigts en trois segments aux articulations renflées, longueurs inégales, coutures, bouts plus clairs, poignet de toile,
+manche de combinaison) ; la droite tient la tige de coton, la gauche entre plus bas et plus en retrait. Respiration
+à l'arrêt, balancier à contretemps en marchant, léger retard sur le regard. Marche 4 m/s, course 6,8 m/s, accélération
+douce, relief suivi, pente maximale ~40° (le relief actuel ne dépasse pas ~26°), bord de carte, 180 rochers avec
+collision. L'herbe et les fleurs s'écartent sous les pas. Pas qui craquent sur le sec et s'étouffent sur le fleuri.
+
+| | PC | Mobile |
+|---|---|---|
+| Marcher | ZQSD (ou WASD, touches physiques), flèches | pouce gauche : joystick qui naît où on pose le pouce, zone morte 10 %, réponse progressive |
+| Courir | Maj | joystick poussé à fond |
+| Regarder | souris, pointeur verrouillé au clic (glisser si refusé) | pouce droit glissé, en même temps que le gauche |
+| Outil | molette, 1 à 6 | (roue au pouce : étape 3) |
+| Carte, interagir | M, E | (boutons : étape 3) |
+| Orientation | — | paysage imposé : plein écran + verrouillage tenté ; sinon « Tourne ton téléphone » et pause |
 
 Options d'URL pour une machine qui peine : `?herbe=30000`, `?rayon=30` (rayon des fleurs), `?msaa=2`, `?debug`.
 Test : `npm run smoke:v5`.

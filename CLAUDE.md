@@ -11,8 +11,9 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
 - **v5 (brief « version finale, mobile et PC ») : `v5/`**, version courante. Deux fichiers générés depuis un seul code
-  (`v5/src/jeu.js` + `config-pc.js` / `config-mobile.js`, `npm run build:v5`). Livraison en six étapes, le fondateur
-  dit « étape suivante ». Étape 1 (rendu) faite. Test : `npm run smoke:v5`.
+  (`v5/src/jeu.js` + `config-*.js` + `controles-*.js`, `npm run build:v5`). Livraison en six étapes, le fondateur
+  dit « étape suivante ». Étapes 1 (rendu) et 2 (joueur : mains gantées, déplacement, collision, relief, contrôles
+  PC et tactiles) faites. Prochaine : 3, la boucle. Test : `npm run smoke:v5`.
 - **v4 (brief « modèle appliqué ») : `v4/index.html`** : première personne, grille hexagonale de tuiles
   fanées/fleuries, ruchettes posées par le joueur, base (comptoir, hangar). Étapes 1 à 4 faites. Reste 5 (miellerie,
   transformation, électricité, carte) et 6 (automatisation). Test : `npm run smoke:v4`.

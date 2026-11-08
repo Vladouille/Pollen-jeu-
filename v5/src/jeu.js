@@ -2,7 +2,10 @@
 // POLLEN v5 — code de jeu commun aux versions PC et mobile.
 // Étape 1 : le rendu. Terrain en relief, tuiles hexagonales, trois espèces
 // instanciées, moitié fanée et moitié fleurie, vent, soleil, ombres, brume,
-// post-traitement. Caméra libre.
+// post-traitement.
+// Étape 2 : le joueur. Première personne, mains gantées, déplacement, collisions,
+// relief suivi. Les contrôles (controles-pc.js / controles-mobile.js) remplissent
+// l'objet d'entrée E ; tout le reste est commun aux deux fichiers.
 // =====================================================================
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -126,7 +129,7 @@ const scene = new THREE.Scene();
 const HORIZON = C(0xf2cc9c);
 // La brume ferme la vue à la distance d'affichage choisie pour la plateforme.
 scene.fog = new THREE.FogExp2(HORIZON, 2.0 / Q.distance);
-const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 1200);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.04, 1200);
 scene.add(camera);
 
 // Lumière rasante : soleil à 25°, chaud, intensité 2,5 ; hémisphère 0,6.
@@ -223,7 +226,7 @@ const stateU = { uState: { value: stateTex }, uLush: { value: SPECIES.map((s) =>
 // Herbe : brins placés autour de la caméra dans le shader. Sèche et rase sur les
 // tuiles fanées, verte et haute sur les fleuries : la frontière se lit dans l'herbe aussi.
 // ---------------------------------------------------------------------
-const windU = { uTime: { value: 0 }, uCenter: { value: new THREE.Vector2() }, uR: { value: Q.rayonHerbe }, uWind: { value: new THREE.Vector2(0.8, 0.6) } };
+const windU = { uTime: { value: 0 }, uCenter: { value: new THREE.Vector2() }, uR: { value: Q.rayonHerbe }, uWind: { value: new THREE.Vector2(0.8, 0.6) }, uPlayer: { value: new THREE.Vector2(1e5, 1e5) } };
 let grass;
 {
   const g = new THREE.BufferGeometry();
@@ -244,7 +247,7 @@ let grass;
     Object.assign(sh.uniforms, windU, stateU);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
-        attribute vec3 aOff; uniform float uTime; uniform vec2 uCenter; uniform float uR; uniform vec2 uWind;
+        attribute vec3 aOff; uniform float uTime; uniform vec2 uCenter; uniform float uR; uniform vec2 uWind; uniform vec2 uPlayer;
         varying vec3 vGrass;
         ${HEIGHT_GLSL}
         ${HEX_GLSL}`)
@@ -263,6 +266,9 @@ let grass;
         float wv = (gust * 0.8 + 0.2 * sin(uTime * 3.1 + rnd * 9.0)) * mix(0.25, 1.0, lush);
         p.xz += uWind * wv * 0.35 * tY * tY * hgt;
         p.y -= wv * 0.05 * tY * tY * hgt;
+        // L'herbe se couche sous les pas du joueur.
+        vec2 dp = wp - uPlayer; float push = 1.0 - smoothstep(0.15, 0.85, length(dp));
+        p.xz += normalize(dp + 1e-4) * push * 0.3 * tY * hgt; p.y *= 1.0 - push * 0.45;
         vec3 transformed = vec3(wp.x + p.x, terrainH(wp) + p.y - 0.01, wp.y + p.z);
         vec3 dryC = mix(vec3(0.52, 0.47, 0.36), vec3(0.78, 0.72, 0.56), tY) * (0.85 + 0.25 * fract(rnd * 13.7));
         vec3 lushC = mix(vec3(0.17, 0.32, 0.08), vec3(0.52, 0.74, 0.24), tY) * (0.85 + 0.3 * fract(rnd * 13.7));
@@ -387,7 +393,7 @@ function flowerGeo(sp, v) {
   g.computeBoundingSphere();
   return g;
 }
-const flowerU = { uTime: windU.uTime, uWind: windU.uWind };
+const flowerU = { uTime: windU.uTime, uWind: windU.uWind, uPlayer: windU.uPlayer };
 const meshes = []; // [sp][v]
 for (let sp = 0; sp < NSP; sp++) {
   meshes.push([]);
@@ -402,7 +408,7 @@ for (let sp = 0; sp < NSP; sp++) {
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
           attribute vec4 aOff; attribute vec2 aBloom; attribute float aPart; attribute float aU;
-          uniform float uTime; uniform vec2 uWind; uniform vec3 uPetal, uDry, uHeart, uLeaf; uniform float uH;
+          uniform float uTime; uniform vec2 uWind; uniform vec2 uPlayer; uniform vec3 uPetal, uDry, uHeart, uLeaf; uniform float uH;
           varying vec3 vCol;
           mat3 rotAxis(vec3 a, float t) { float c = cos(t), s = sin(t), k = 1.0 - c; return mat3(c + a.x*a.x*k, a.y*a.x*k + a.z*s, a.z*a.x*k - a.y*s, a.x*a.y*k - a.z*s, c + a.y*a.y*k, a.z*a.y*k + a.x*s, a.x*a.z*k + a.y*s, a.y*a.z*k - a.x*s, c + a.z*a.z*k); }`)
         .replace('#include <beginnormal_vertex>', `
@@ -429,6 +435,9 @@ for (let sp = 0; sp < NSP; sp++) {
           float gust = sin(dot(aOff.xz, uWind) * 0.16 - uTime * 1.6) * 0.5 + 0.5;
           float w = (gust * 0.75 + 0.25 * sin(uTime * 3.3 + rnd * 9.0)) * mix(0.15, 1.0, b);
           p.xz += uWind * w * 0.09 * hf * hf * (uH * 2.0 + 0.3);
+          // Les fleurs s'écartent au passage du joueur.
+          vec2 dp = aOff.xz - uPlayer; float push = 1.0 - smoothstep(0.2, 0.9, length(dp));
+          p.xz += normalize(dp + 1e-4) * push * 0.35 * hf * (uH + 0.2); p.y *= 1.0 - push * 0.25 * hf;
           vec3 transformed = p + aOff.xyz;
           float tint = 0.88 + 0.24 * fract(rnd * 13.1);                       // teinte de ±12 %
           float veinK = 1.0 - 0.28 * pow(1.0 - min(abs(aU), 1.0), 6.0);       // nervure plus sombre au milieu
@@ -589,18 +598,190 @@ composer.addPass(finish);
 composer.addPass(new OutputPass());
 
 // ---------------------------------------------------------------------
-// Caméra libre (étape 1) : glisser pour tourner, molette ou pincement pour s'approcher
+// Rochers arrondis : de quoi se cogner, et de quoi donner l'échelle
 // ---------------------------------------------------------------------
-const cam = { x: 0, z: 0, yaw: 2.3, pitch: 0.22, dist: 16, auto: true };
-let drag = null, pinch = null;
-canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; cam.auto = false; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; });
-canvas.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.id || pinch) return; cam.yaw -= (e.clientX - drag.x) * 0.005; cam.pitch = clamp(cam.pitch + (e.clientY - drag.y) * 0.004, 0.04, 1.3); drag.x = e.clientX; drag.y = e.clientY; });
-addEventListener('pointerup', () => { drag = null; canvas.style.cursor = 'grab'; });
-canvas.addEventListener('wheel', (e) => { cam.dist = clamp(cam.dist * (1 + Math.sign(e.deltaY) * 0.1), 3, 80); e.preventDefault(); }, { passive: false });
-canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }, { passive: true });
-canvas.addEventListener('touchmove', (e) => { if (e.touches.length === 2 && pinch) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); cam.dist = clamp(cam.dist * pinch / d, 3, 80); pinch = d; } e.preventDefault(); }, { passive: false });
-canvas.addEventListener('touchend', () => { pinch = null; });
-addEventListener('keydown', (e) => { const s = 2; if (e.code === 'KeyW' || e.code === 'ArrowUp') { cam.x -= Math.sin(cam.yaw) * s; cam.z -= Math.cos(cam.yaw) * s; } if (e.code === 'KeyS' || e.code === 'ArrowDown') { cam.x += Math.sin(cam.yaw) * s; cam.z += Math.cos(cam.yaw) * s; } if (e.code === 'KeyA' || e.code === 'ArrowLeft') cam.yaw += 0.08; if (e.code === 'KeyD' || e.code === 'ArrowRight') cam.yaw -= 0.08; cam.auto = false; });
+const SPAWN = { x: 6.4, z: 4.8, yaw: 0.93 }; // côté fleuri, face à la frontière, la vallée grise devant
+const colliders = [];
+{
+  const rockH = (x, y) => fbm(x / 9, y / 9, 4) + 0.25 * vnoise(x / 2, y / 2);
+  const rockMat = new THREE.MeshStandardMaterial({
+    // Grès gris-brun, veines sombres et taches de lichen ocre : lisible sur le sol pâle.
+    map: texFrom(128, 128, (x, y) => {
+      const h = rockH(x, y), vein = 1 - 0.35 * Math.pow(1 - Math.abs(vnoise(x / 6, y / 11) * 2 - 1), 8), v = (0.42 + 0.3 * h + (Math.random() - 0.5) * 0.06) * vein;
+      const lichen = ss(0.68, 0.74, vnoise(x / 5 + 40, y / 5)) * 0.8;
+      return [255 * lerp(v * 0.92, 0.72, lichen * 0.6), 255 * lerp(v * 0.86, 0.6, lichen * 0.6), 255 * lerp(v * 0.78, 0.3, lichen * 0.6)];
+    }, true, 2),
+    normalMap: normalFrom(128, 128, rockH, 4, 2), roughness: 0.92,
+  });
+  const rockGeo = (seed) => {
+    const g = new THREE.SphereGeometry(1, 28, 18), p = g.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const k = 0.78 + 0.42 * fbm(v.x * 1.3 + seed, v.y * 1.3 + v.z * 1.1 + seed * 2, 3); p.setXYZ(i, v.x * k * 1.15, v.y * k * 0.7, v.z * k); }
+    g.computeVertexNormals(); return g;
+  };
+  const per = 60;
+  const ims = [1, 7, 13].map((sd) => { const m = new THREE.InstancedMesh(rockGeo(sd), rockMat, per); m.count = 0; m.castShadow = m.receiveShadow = true; scene.add(m); return m; });
+  const R = mulberry(77);
+  const place = (x, z, s) => {
+    const m = ims[colliders.length % 3]; if (m.count >= per) return;
+    _q.setFromEuler(_e.set((R() - 0.5) * 0.3, R() * 6.28, (R() - 0.5) * 0.3));
+    m.setMatrixAt(m.count++, _m.compose(V(x, H(x, z) - 0.22 * s, z), _q, V(s * (0.9 + R() * 0.3), s, s * (0.9 + R() * 0.3))));
+    colliders.push({ x, z, r: s * 1.05 });
+  };
+  // Quelques blocs près du départ, pour l'échelle et pour sentir la collision tout de suite.
+  for (const [dx, dz, s] of [[-7, -9, 1.3], [5, -11, 0.8], [-12, 2, 1.0], [9, 6, 0.6]]) place(SPAWN.x + dx, SPAWN.z + dz, s);
+  for (let k = 0; colliders.length < per * 3 && k < 400; k++) {
+    const a = R() * 6.283, r = 12 + Math.sqrt(R()) * 220, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (Math.hypot(x - SPAWN.x, z - SPAWN.z) < 9) continue;
+    place(x, z, 0.35 + Math.pow(R(), 2) * 1.4);
+  }
+  ims.forEach((m) => { m.instanceMatrix.needsUpdate = true; });
+}
+
+// ---------------------------------------------------------------------
+// Les mains : gants de cuir fauve, paume bombée, doigts en trois segments avec
+// articulations renflées, longueurs inégales, courbure au repos, coutures, bouts
+// plus clairs, poignet de toile froissé, manche de la combinaison.
+// ---------------------------------------------------------------------
+const leatherH = (x, y) => fbm(x / 3, y / 3, 3) * 0.7 + 0.3 * vnoise(x / 1.2, y / 1.2);
+const leatherTex = texFrom(128, 128, (x, y) => { const v = 0.8 + 0.2 * leatherH(x, y) + (Math.random() - 0.5) * 0.05; return [188 * v, 144 * v, 98 * v]; }, true, 2);
+const glove = new THREE.MeshStandardMaterial({ map: leatherTex, normalMap: normalFrom(128, 128, leatherH, 2.2, 2), normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.78 });
+const gloveTip = glove.clone(); gloveTip.color.setRGB(1.22, 1.16, 1.06); // cuir usé, plus clair au bout des doigts
+const seamMat = new THREE.MeshStandardMaterial({ color: 0x5e3e20, roughness: 0.9 });
+const canvasMat = new THREE.MeshStandardMaterial({ map: texFrom(64, 64, (x, y) => { const v = 0.82 + 0.1 * ((x + y) % 4 < 2 ? 1 : 0) + 0.08 * vnoise(x / 4, y / 4); return [226 * v, 214 * v, 186 * v]; }, true, 3), roughness: 0.95 });
+const suitMat = new THREE.MeshStandardMaterial({ map: texFrom(64, 64, (x, y) => { const v = 0.9 + 0.07 * Math.sin(x * 0.4 + vnoise(x / 6, y / 6) * 5) + 0.03 * vnoise(x / 2, y / 2); return [246 * v, 243 * v, 234 * v]; }, true, 2), roughness: 0.92 });
+function piece(geo, mat, parent, x, y, z, rx = 0, ry = 0, rz = 0) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); parent.add(m); return m; }
+function makeHand(side, grip) {
+  const g = new THREE.Group();
+  piece(new THREE.SphereGeometry(0.05, 22, 16).scale(1, 1.16, 0.52), glove, g, 0, 0, 0);
+  piece(new THREE.TorusGeometry(0.0503, 0.0016, 4, 56).scale(1, 1.16, 1), seamMat, g, 0, 0, 0); // couture sur la tranche
+  const lens = [0.037, 0.042, 0.039, 0.03]; // index, majeur, annulaire, auriculaire
+  lens.forEach((L, k) => {
+    const root = new THREE.Group(); root.position.set((0.033 - k * 0.022) * side, 0.053 - Math.abs(k - 1.3) * 0.005, 0.004); root.rotation.z = (k - 1.5) * 0.07 * side; g.add(root);
+    let parent = root, off = 0;
+    [0.45, 0.32, 0.23].forEach((f, s) => {
+      const seg = new THREE.Group(); seg.position.y = off; parent.add(seg);
+      const len = L * f, r = 0.0106 - s * 0.0013;
+      piece(new THREE.SphereGeometry(r * 1.2, 10, 8), glove, seg, 0, 0, 0); // articulation renflée
+      piece(new THREE.CapsuleGeometry(r, len, 3, 8).translate(0, len / 2 + 0.003, 0), s === 2 ? gloveTip : glove, seg, 0, 0, 0);
+      seg.rotation.x = -(grip ? [0.95, 0.85, 0.55][s] : (0.16 + s * 0.09) * (1 + k * 0.1));
+      parent = seg; off = len + 0.008;
+    });
+  });
+  const th = new THREE.Group(); th.position.set(0.043 * side, -0.006, 0.016); th.rotation.set(-0.6, 0, -side * (grip ? 1.2 : 0.95)); g.add(th);
+  piece(new THREE.SphereGeometry(0.0145, 10, 8), glove, th, 0, 0, 0);
+  piece(new THREE.CapsuleGeometry(0.0124, 0.022, 3, 8).translate(0, 0.016, 0), glove, th, 0, 0, 0);
+  const th2 = new THREE.Group(); th2.position.y = 0.032; th2.rotation.x = -0.35; th.add(th2);
+  piece(new THREE.CapsuleGeometry(0.0113, 0.017, 3, 8).translate(0, 0.012, 0), gloveTip, th2, 0, 0, 0);
+  piece(new THREE.CylinderGeometry(0.047, 0.052, 0.05, 18), canvasMat, g, 0, -0.06, 0); // poignet en toile
+  const el = new THREE.TorusGeometry(0.049, 0.0055, 6, 36);
+  { const p = el.attributes.position; for (let i = 0; i < p.count; i++) { const a = Math.atan2(p.getY(i), p.getX(i)), k = 1 + 0.07 * Math.sin(a * 11); p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * (1 + 0.15 * Math.sin(a * 7))); } el.computeVertexNormals(); }
+  piece(el, canvasMat, g, 0, -0.087, 0, Math.PI / 2, 0, 0); // élastique froissé
+  piece(new THREE.CylinderGeometry(0.057, 0.064, 0.16, 16), suitMat, g, 0, -0.18, 0); // manche de la combinaison
+  g.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
+  // Pivot au poignet : ordre YXZ (lacet écran, puis bascule doigts vers l'avant) ;
+  // le modèle intérieur tourne sur l'axe des doigts pour présenter le dos de la main.
+  const pivot = new THREE.Group(); pivot.rotation.order = 'YXZ'; pivot.add(g); pivot.userData.model = g;
+  return pivot;
+}
+// La tige de coton, effilochée et jaunie par le pollen.
+function makeSwab() {
+  const g = new THREE.Group();
+  piece(new THREE.CylinderGeometry(0.0045, 0.0045, 0.26, 8), new THREE.MeshStandardMaterial({ color: 0xf2ece0, roughness: 0.6 }), g, 0, 0, 0);
+  const fluff = (col) => {
+    const geo = new THREE.SphereGeometry(0.015, 16, 12).scale(1, 1.75, 1), p = geo.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const k = 1 + 0.12 * (vnoise(v.x * 600 + 7, v.y * 450 + v.z * 380) - 0.5) * 2; p.setXYZ(i, v.x * k, v.y * k, v.z * k); }
+    geo.computeVertexNormals(); return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: col, roughness: 1 }));
+  };
+  const tip = fluff(0xf3e2b0); tip.position.y = 0.13; g.add(tip);
+  const tip2 = fluff(0xfbf5e6); tip2.position.y = -0.13; g.add(tip2);
+  g.userData.tip = tip;
+  g.traverse((o) => { o.castShadow = false; });
+  return g;
+}
+const viewmodel = new THREE.Group(); camera.add(viewmodel);
+const handR = makeHand(-1, true), handL = makeHand(1, false);
+viewmodel.add(handR, handL);
+// La tige traverse le poing, côté paume ; la tête jaunie dépasse côté pouce.
+const swab = makeSwab(); swab.position.set(-0.07, 0.048, -0.026); swab.rotation.set(0.15, 0, Math.PI / 2); handR.userData.model.add(swab);
+const HAND_R = { x: 0.19, y: -0.2, z: -0.4, rx: -1.15, ry: 0.32, tw: 0.6 };
+const HAND_L = { x: -0.25, y: -0.255, z: -0.47, rx: -1.3, ry: -0.3, tw: -0.45 }; // la gauche plus basse et plus en retrait
+handR.userData.model.rotation.y = HAND_R.tw; handL.userData.model.rotation.y = HAND_L.tw;
+
+// ---------------------------------------------------------------------
+// Son : vent continu, pas qui craquent sur le sec et s'étouffent dans l'herbe
+// ---------------------------------------------------------------------
+const audio = (() => {
+  let ctx = null, master = null, buf = null;
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.5; master.connect(ctx.destination);
+    buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 420;
+    const g = ctx.createGain(); g.gain.value = 0.05;
+    const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 0.07; lg.gain.value = 0.03;
+    l.connect(lg).connect(g.gain); s.connect(f).connect(g).connect(master); s.start(); l.start();
+  }
+  function pas(sec) {
+    if (!ctx) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = sec ? 2600 + Math.random() * 900 : 700 + Math.random() * 300; f.Q.value = sec ? 1.2 : 0.7;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(sec ? 0.07 : 0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + (sec ? 0.12 : 0.09));
+    s.connect(f).connect(g).connect(master); s.start(t, Math.random()); s.stop(t + 0.2);
+  }
+  return { init, pas };
+})();
+
+// ---------------------------------------------------------------------
+// Le joueur. L'objet d'entrée E est rempli par controles-pc.js ou controles-mobile.js.
+// ---------------------------------------------------------------------
+const E = { mx: 0, mz: 0, course: false, dYaw: 0, dPitch: 0, outil: 0, action: false, interagir: false, carte: false, pause: false };
+installerControles(E, canvas, audio.init);
+const player = { x: SPAWN.x, z: SPAWN.z, y: H(SPAWN.x, SPAWN.z), yaw: SPAWN.yaw, pitch: -0.08, vx: 0, vz: 0, bob: 0, eye: 1.65, speed: 0 };
+const WALK = 4.0, RUN = 6.8, MAX_SLOPE = 0.85; // pente franchissable : environ 40°
+const climbable = (x, z) => Math.hypot(x, z) < MAP_R - 6 && (H(x, z) - H(player.x, player.z)) / Math.max(1e-3, Math.hypot(x - player.x, z - player.z)) < MAX_SLOPE;
+function collide(p) {
+  for (const c of colliders) { const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), min = c.r + 0.35; if (d < min && d > 1e-5) { p.x = c.x + (dx / d) * min; p.z = c.z + (dz / d) * min; } }
+}
+let lookSway = 0, lookSwayP = 0;
+function updatePlayer(dt) {
+  const dYaw = E.dYaw, dPitch = E.dPitch; E.dYaw = 0; E.dPitch = 0;
+  player.yaw -= dYaw; player.pitch = clamp(player.pitch - dPitch, -1.45, 1.4);
+  // Les mains traînent un peu derrière le regard.
+  lookSway = lerp(lookSway, clamp(dYaw * 4, -0.1, 0.1), 1 - Math.exp(-dt * 12));
+  lookSwayP = lerp(lookSwayP, clamp(dPitch * 4, -0.08, 0.08), 1 - Math.exp(-dt * 12));
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
+  let mx = E.mx, mz = E.mz; const m = Math.hypot(mx, mz); if (m > 1) { mx /= m; mz /= m; }
+  const sp = E.course ? RUN : WALK, k = 1 - Math.exp(-dt * 9);
+  player.vx = lerp(player.vx, (fx * mz + rx * mx) * sp, k); player.vz = lerp(player.vz, (fz * mz + rz * mx) * sp, k);
+  let nx = player.x + player.vx * dt, nz = player.z + player.vz * dt;
+  if (!climbable(nx, nz)) { // trop raide : on glisse le long de la pente si possible
+    if (climbable(nx, player.z)) nz = player.z; else if (climbable(player.x, nz)) nx = player.x; else { nx = player.x; nz = player.z; player.vx *= 0.3; player.vz *= 0.3; }
+  }
+  const p = { x: nx, z: nz }; collide(p); player.x = p.x; player.z = p.z;
+  player.y = lerp(player.y, H(player.x, player.z), 1 - Math.exp(-dt * 16));
+  player.speed = Math.hypot(player.vx, player.vz);
+  if (player.speed > 0.3) {
+    const before = player.bob; player.bob += dt * player.speed * 1.75;
+    if (Math.floor(before / Math.PI) !== Math.floor(player.bob / Math.PI)) { const [q, r] = toHex(player.x, player.z), i = idxOf(q, r); audio.pas(!(i >= 0 && T.bloom[i])); }
+  } else player.bob = lerp(player.bob, Math.round(player.bob / Math.PI) * Math.PI, 1 - Math.exp(-dt * 6));
+}
+function updateCamera() {
+  const a = clamp(player.speed / WALK, 0, 1.6), sb = Math.sin(player.bob);
+  camera.position.set(player.x + Math.cos(player.yaw) * sb * 0.02 * a, player.y + player.eye + Math.abs(sb) * 0.045 * a - 0.02 * a, player.z - Math.sin(player.yaw) * sb * 0.02 * a);
+  camera.rotation.set(player.pitch, player.yaw, sb * 0.006 * a, 'YXZ');
+  camera.updateMatrixWorld();
+}
+function updateHands(time) {
+  const a = clamp(player.speed / WALK, 0, 1.6), sb = Math.sin(player.bob), cb = Math.abs(Math.cos(player.bob));
+  const breathe = Math.sin(time * 1.4) * 0.004, breathe2 = Math.sin(time * 1.4 + 1.1) * 0.004;
+  // À la marche, les deux mains se balancent à contretemps ; à l'arrêt, elles respirent.
+  handR.position.set(HAND_R.x + sb * 0.014 * a - lookSway * 0.3, HAND_R.y - cb * 0.012 * a + breathe + lookSwayP * 0.25, HAND_R.z);
+  handR.rotation.set(HAND_R.rx + sb * 0.04 * a, HAND_R.ry + lookSway, -lookSway * 0.5);
+  handL.position.set(HAND_L.x - sb * 0.012 * a - lookSway * 0.3, HAND_L.y - (1 - cb) * 0.012 * a + breathe2 + lookSwayP * 0.25, HAND_L.z);
+  handL.rotation.set(HAND_L.rx - sb * 0.04 * a, HAND_L.ry + lookSway, -lookSway * 0.5);
+}
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); finish.uniforms.uRes.value.set(innerWidth, innerHeight);
@@ -611,16 +792,6 @@ addEventListener('resize', () => {
 // ---------------------------------------------------------------------
 for (let i = 0; i < NT; i++) { writeTile(i); if (T.x[i] * 0.8 + T.z[i] * 0.6 + Math.sin(T.z[i] * 0.06) * 7 + Math.sin(T.x[i] * 0.11) * 3 > 0) { T.bloom[i] = 1; bloomAt[i] = -100; writeTile(i); } }
 stateTex.needsUpdate = true;
-let replay = 0; // de temps en temps, une tuile de la frontière refleurit sous les yeux
-function bloomNearBorder(time) {
-  const [q0, r0] = toHex(cam.x, cam.z);
-  for (let tries = 0; tries < 40; tries++) {
-    const i = idxOf(q0 + Math.floor(Math.random() * 13) - 6, r0 + Math.floor(Math.random() * 13) - 6);
-    if (i < 0 || T.bloom[i]) continue;
-    let nb = 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]]) { const j = idxOf(T.q[i] + a, T.r[i] + b); if (j >= 0 && T.bloom[j]) nb++; }
-    if (nb >= 2) { bloomTile(i, time); return; }
-  }
-}
 
 // Réduction automatique (mobile) : résolution, puis densité, si la fréquence tombe sous 50 img/s.
 let fps = 60, acc = 0, frames = 0, checks = 0;
@@ -635,29 +806,29 @@ function perf(raw) {
 
 const dbg = document.getElementById('debug');
 if (DEBUG) dbg.hidden = false;
-let last = performance.now();
+let last = performance.now(), beeT = 0;
 function frame(now) {
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
   const time = now / 1000;
   perf(raw);
-  if (cam.auto) cam.yaw += dt * 0.04;
-  const gy = H(cam.x, cam.z);
-  camera.position.set(cam.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, 0, cam.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
-  camera.position.y = Math.max(gy + Math.sin(cam.pitch) * cam.dist + 1.4, H(camera.position.x, camera.position.z) + 0.6);
-  camera.lookAt(cam.x, gy + 0.6, cam.z);
-  windU.uTime.value = time; windU.uCenter.value.set(camera.position.x, camera.position.z);
-  if (Math.hypot(cam.x - builtAt[0], cam.z - builtAt[1]) > 4) { rebuild(cam.x, cam.z); assignBees(cam.x, cam.z); }
-  if ((replay -= dt) <= 0) { replay = 2.2; bloomNearBorder(time); assignBees(cam.x, cam.z); }
-  updateBees(time); updateMotes(time, cam.x, cam.z);
-  // Ombres serrées autour du centre de la vue.
-  const st = (SH * 2) / Q.ombres, sx = Math.round(cam.x / st) * st, sz = Math.round(cam.z / st) * st, sy = H(sx, sz);
+  if (!E.pause) updatePlayer(dt);
+  updateCamera();
+  updateHands(time);
+  windU.uTime.value = time; windU.uCenter.value.set(camera.position.x, camera.position.z); windU.uPlayer.value.set(player.x, player.z);
+  if (Math.hypot(player.x - builtAt[0], player.z - builtAt[1]) > 3) rebuild(player.x, player.z);
+  if ((beeT -= dt) <= 0) { beeT = 2; assignBees(player.x, player.z); }
+  updateBees(time); updateMotes(time, player.x, player.z);
+  // Ombres serrées autour du joueur et déplacées avec lui.
+  const st = (SH * 2) / Q.ombres, sx = Math.round(player.x / st) * st, sz = Math.round(player.z / st) * st, sy = H(sx, sz);
   sun.target.position.set(sx, sy, sz); sun.position.set(sx + SUN_DIR.x * 100, sy + SUN_DIR.y * 100, sz + SUN_DIR.z * 100);
   sky.position.copy(camera.position);
-  if (DEBUG) dbg.textContent = `${Q.nom} · ${fps.toFixed(0)} img/s · ratio ${pixelRatio}\nfleurs ${meshes.flat().reduce((s, m) => s + m.count, 0)} · herbe ${grass.count}\ntuiles ${NT} · fleuries ${T.bloom.reduce((s, b) => s + b, 0)}`;
+  if (DEBUG) dbg.textContent = `${Q.nom} · ${fps.toFixed(0)} img/s · ratio ${pixelRatio}\nfleurs ${meshes.flat().reduce((s, m) => s + m.count, 0)} · herbe ${grass.count}\njoueur ${player.x.toFixed(1)} ${player.z.toFixed(1)} · ${player.speed.toFixed(1)} m/s`;
   if (params.has('brut')) renderer.render(scene, camera); else composer.render();
   requestAnimationFrame(frame);
 }
-rebuild(cam.x, cam.z); assignBees(cam.x, cam.z);
+rebuild(player.x, player.z); assignBees(player.x, player.z);
 requestAnimationFrame(frame);
 
-window.pollen = { Q, T, cam, H, toHex, idxOf, bloomTile, scene, renderer, composer, camera, grass, meshes, sky, flowers: () => meshes.flat().reduce((s, m) => s + m.count, 0), fps: () => fps };
+// Pour les tests : avancer la simulation du joueur sans attendre l'affichage (le rendu logiciel tourne à 1 img/s).
+const step = (dt, n = 1) => { for (let k = 0; k < n; k++) if (!E.pause) updatePlayer(dt); updateCamera(); return { x: player.x, z: player.z, y: player.y, yaw: player.yaw, pitch: player.pitch, speed: player.speed }; };
+window.pollen = { Q, T, H, toHex, idxOf, bloomTile, scene, renderer, composer, camera, grass, meshes, sky, player, E, colliders, handR, handL, step, flowers: () => meshes.flat().reduce((s, m) => s + m.count, 0), fps: () => fps };
