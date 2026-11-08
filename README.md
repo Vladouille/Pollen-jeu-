@@ -1,5 +1,22 @@
 # POLLEN
 
+## v8 — vrais modèles 3D et boucle complète (`v8/index.html`)
+
+Version courante. Même scène que la v7, agrandie à 80 m, mais les objets viennent de fichiers : fleur, marché, atelier,
+tige de coton et pinceau en GLB, ciel en HDRI (voir `v8/LISEZMOI.md` pour les noms et le lancement par un serveur).
+Écran de chargement avec barre ; un fichier absent est remplacé par une forme de substitution et signalé.
+
+- Polliniser une tuile met une fleur au panier (14 avec la tige de coton, 3 s par tuile ; 28 avec le pinceau, 1 s).
+- Panier plein : 20 % plus lent, plus de pollinisation, un marqueur montre le marché.
+- Marché (à moins de 3 m) : « Vendre 14 fleurs — 42 crédits » ; les fleurs volent vers l'étal, les pièces tintent,
+  le gain s'affiche, l'étal se remplit.
+- Atelier : le pinceau est posé sur l'établi, gris tant qu'il est trop cher ; panneau nom, prix, effet ; à l'achat
+  (250 crédits) il quitte l'établi et passe en main.
+- Interface : crédits en haut à droite, outil et panier en bas, invite d'action près des bâtiments.
+
+Test : `npm run smoke:v8` (33 vérifications : les six conditions du brief sur PC et téléphone avec des fichiers de test,
+puis sans aucun fichier).
+
 ## v7 — une scène qui marche et qui est belle (`v7/index.html`)
 
 Version courante. Un seul fichier HTML, le même pour l'ordinateur et le téléphone : l'appareil est détecté au chargement

@@ -10,7 +10,12 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v7 (brief « une scène qui marche et qui est belle ») : `v7/index.html`**, version courante. Le fondateur a changé
+- **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, version courante. Plus rien de dessiné en code : les
+  modèles CC0 sont chargés depuis `v8/models` et `v8/hdri` (noms dans `v8/LISEZMOI.md`), avec des formes de substitution
+  si un fichier manque. Boucle complète : polliniser (panier), vendre au marché, acheter le pinceau à l'atelier.
+  Ne rien anticiper : ensuite, un à la fois, deuxième espèce, ruches et miel, troisième outil, carte plus grande.
+  Test : `npm run smoke:v8` (fichiers de test dans `tests/fixtures/v8`, régénérés par `node tests/v8-fixtures.mjs`).
+- **v7 (brief « une scène qui marche et qui est belle ») : `v7/index.html`**, base de la v8. Le fondateur a changé
   de méthode : une seule petite scène (champ de 60 m, lavande seule, tige de coton, une action), un seul fichier qui
   détecte ordinateur ou téléphone. Faite. Ne rien ajouter hors de la liste du brief. Ensuite, quand les cinq points
   passent chez lui, un morceau à la fois : deuxième espèce, puis réservoir et vente, puis ruches. Test : `npm run smoke:v7`.
