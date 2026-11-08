@@ -1,5 +1,29 @@
 # POLLEN
 
+## v5 — version finale, deux fichiers (`v5/pollen-pc.html`, `v5/pollen-mobile.html`)
+
+Brief v5 : repartir de zéro, deux fichiers qui partagent exactement le même code de jeu. Le code est écrit une seule
+fois dans `v5/src/jeu.js` ; `node v5/construire.mjs` (ou `npm run build:v5`) génère les deux fichiers en y ajoutant
+`v5/src/config-pc.js` ou `v5/src/config-mobile.js` (qualité, et plus tard contrôles). Ne modifie jamais les fichiers
+générés à la main.
+
+| | PC | Mobile |
+|---|---|---|
+| Ombres | 2048 | 1024 |
+| Brins d'herbe | 200 000 | 60 000 |
+| Post-traitement | bloom, profondeur de champ, aberration, vignette, étalonnage | bloom, vignette |
+| Distance d'affichage | 150 m | 70 m |
+| Résolution | jusqu'à ×2 | jusqu'à ×1,5, baisse seule sous 50 img/s |
+
+**Étape 1 (le rendu)** faite : vallée de 18 907 tuiles hexagonales, moitié fanée, moitié fleurie ; trèfle, pissenlit et
+colza avec cinq variantes de forme chacun, étamines et pollen, nervures, teinte ±12 %, taille ±20 %, inclinaison 0-10°,
+quelques fleurs cassées ; herbe sèche ou verte selon la tuile ; vent en rafales ; abeilles ; soleil rasant à 25°.
+Caméra libre : glisser pour tourner, molette ou pincement pour zoomer, ZQSD pour se déplacer.
+
+Options d'URL pour une machine qui peine : `?herbe=30000`, `?rayon=30` (rayon des fleurs), `?msaa=2`, `?debug`.
+Test : `npm run smoke:v5`.
+
+
 ## v4 — pollinisation et automatisation à la première personne (`v4/index.html`)
 
 Version courante. Un seul fichier HTML. Étapes 1 à 4 du brief v4 :

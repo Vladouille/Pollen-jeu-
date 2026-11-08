@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#e9c99a">
+<title>POLLEN</title>
+<!-- Fichier généré par v5/construire.mjs à partir de v5/src : ne pas modifier à la main. -->
+<style>
+  :root { --ink: #fffaf0; --shade: rgba(28, 24, 14, 0.5); --pill: rgba(34, 30, 20, 0.45); --font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #e9c99a; overscroll-behavior: none; }
+  body { font: 15px/1.3 var(--font); color: var(--ink); touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas#c { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; cursor: grab; }
+  #debug { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: calc(10px + env(safe-area-inset-left, 0px)); margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0,0,0,.45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
+</style>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c" aria-label="POLLEN, la vallée"></canvas>
+<pre id="debug" hidden></pre>
+<script type="module">
+// Version PC : qualité maximale. Seul ce fichier diffère de la version mobile (avec les contrôles, plus tard).
+const PLATEFORME = {
+  nom: 'pc',
+  pixelRatioMax: 2,
+  ombres: 2048,
+  herbe: 200000,
+  rayonHerbe: 48,
+  rayonFleurs: 56,
+  capFleurs: 7000,          // par variante de forme (15 variantes)
+  distance: 150,            // distance d'affichage : la brume ferme la vue au-delà
+  terrainSegments: 280,
+  postComplet: true,        // bloom, profondeur de champ, aberration, vignette, étalonnage
+  reductionAuto: false,
+};
+
+// =====================================================================
+// POLLEN v5 — code de jeu commun aux versions PC et mobile.
+// Étape 1 : le rendu. Terrain en relief, tuiles hexagonales, trois espèces
+// instanciées, moitié fanée et moitié fleurie, vent, soleil, ombres, brume,
+// post-traitement. Caméra libre.
+// =====================================================================
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const params = new URLSearchParams(location.search);
+// Réglages de la plateforme, avec des surcharges d'URL pour alléger une machine qui peine (?herbe=, ?rayon=, ?msaa=).
+const Q = { ...PLATEFORME };
+if (params.has('herbe')) Q.herbe = Math.max(1000, +params.get('herbe') || Q.herbe);
+if (params.has('rayon')) Q.rayonFleurs = Math.max(8, +params.get('rayon') || Q.rayonFleurs);
+Q.msaa = params.has('msaa') ? +params.get('msaa') : Q.nom === 'pc' ? 4 : 2;
+if (Q.postComplet) Q.msaa = Math.max(2, Q.msaa); // la texture de profondeur lue par le flou exige une cible multi-échantillonnée
+const DEBUG = params.has('debug');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const mulberry = (seed) => { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const C = (h) => new THREE.Color(h);
+
+// ---------------------------------------------------------------------
+// Relief : somme d'ondes tournées (bruit fractal), même formule en JS et en GLSL
+// ---------------------------------------------------------------------
+function H(x, z) {
+  let h = 0, a = 2.2, f = 0.012, px = x, pz = z;
+  for (let o = 0; o < 6; o++) {
+    h += a * Math.sin(px * f) * Math.cos(pz * f * 1.17 + o * 1.9);
+    const nx = px * 0.8 - pz * 0.6, nz = px * 0.6 + pz * 0.8; px = nx + 31.7; pz = nz - 17.3; f *= 2.03; a *= 0.47;
+  }
+  const r = Math.hypot(x, z);
+  return h + ss(140, 320, r) * (34 + 16 * Math.sin(Math.atan2(z, x) * 3 + 0.7));
+}
+const HEIGHT_GLSL = `
+float terrainH(vec2 p) {
+  float h = 0.0, a = 2.2, f = 0.012; vec2 q = p;
+  for (int o = 0; o < 6; o++) {
+    h += a * sin(q.x * f) * cos(q.y * f * 1.17 + float(o) * 1.9);
+    q = vec2(q.x * 0.8 - q.y * 0.6 + 31.7, q.x * 0.6 + q.y * 0.8 - 17.3); f *= 2.03; a *= 0.47;
+  }
+  float r = length(p);
+  return h + smoothstep(140.0, 320.0, r) * (34.0 + 16.0 * sin(atan(p.y, p.x) * 3.0 + 0.7));
+}`;
+
+// ---------------------------------------------------------------------
+// Grille hexagonale (pointe en haut, coordonnées axiales)
+// ---------------------------------------------------------------------
+const HEX = 2.0, SQ3 = Math.sqrt(3), APO = HEX * SQ3 / 2;
+const MAP_R = 250, OFF = 84, NTEX = 256;
+const hexCenter = (q, r) => [HEX * SQ3 * (q + r / 2), HEX * 1.5 * r];
+function toHex(x, z) {
+  const qf = (SQ3 / 3 * x - z / 3) / HEX, rf = (2 / 3 * z) / HEX, yf = -qf - rf;
+  let q = Math.round(qf), r = Math.round(rf), y = Math.round(yf);
+  const dq = Math.abs(q - qf), dr = Math.abs(r - rf), dy = Math.abs(y - yf);
+  if (dq > dr && dq > dy) q = -r - y; else if (dy <= dr) r = -q - y;
+  return [q, r];
+}
+const hexEdge = (dx, dz) => Math.max(Math.abs(dx), Math.abs(0.5 * dx + 0.866 * dz), Math.abs(-0.5 * dx + 0.866 * dz)) / APO;
+const HEX_GLSL = `
+uniform sampler2D uState;
+vec2 hexOf(vec2 p) {
+  float qf = (0.5773503 * p.x - 0.3333333 * p.y) / ${HEX.toFixed(1)}, rf = (0.6666667 * p.y) / ${HEX.toFixed(1)};
+  vec3 c = vec3(qf, -qf - rf, rf); vec3 rc = floor(c + 0.5); vec3 d = abs(rc - c);
+  if (d.x > d.y && d.x > d.z) rc.x = -rc.y - rc.z; else if (d.y > d.z) rc.y = -rc.x - rc.z; else rc.z = -rc.x - rc.y;
+  return vec2(rc.x, rc.z);
+}
+vec2 hexC(vec2 h) { return vec2(${HEX.toFixed(1)} * 1.7320508 * (h.x + h.y * 0.5), ${HEX.toFixed(1)} * 1.5 * h.y); }
+float hexEdge(vec2 d) { return max(abs(d.x), max(abs(0.5 * d.x + 0.866 * d.y), abs(-0.5 * d.x + 0.866 * d.y))) / ${APO.toFixed(4)}; }
+vec4 tileAt(vec2 h) { vec2 uv = (h + ${OFF}.0 + 0.5) / ${NTEX}.0; return texture2D(uState, uv); }`;
+
+// Espèces de l'étape 1 : trèfle, pissenlit, colza (silhouettes distinctes : boule, capitule, grappe).
+const SPECIES = [
+  { nom: 'trèfle', petal: 0xf4a6c6, dry: 0xa89a8c, heart: 0xfbe0ea, leaf: 0x4e8a2c, height: 0.24 },
+  { nom: 'pissenlit', petal: 0xffc414, dry: 0xb0a07a, heart: 0xf2a400, leaf: 0x4a8a24, height: 0.3 },
+  { nom: 'colza', petal: 0xffd820, dry: 0xb2a686, heart: 0xe8b000, leaf: 0x568f2a, height: 0.56 },
+];
+const NSP = SPECIES.length, NVAR = 5, FSCALE = 1.85;
+const noiseSeed = mulberry(91);
+const perm = new Uint8Array(512); const val = new Float32Array(256);
+for (let i = 0; i < 256; i++) { perm[i] = i; val[i] = noiseSeed(); }
+for (let i = 255; i > 0; i--) { const j = Math.floor(noiseSeed() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
+function vnoise(x, y) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi; const v = (a, b) => val[perm[(a & 255) + perm[b & 255]]]; const u = xf * xf * (3 - 2 * xf), w = yf * yf * (3 - 2 * yf); return lerp(lerp(v(xi, yi), v(xi + 1, yi), u), lerp(v(xi, yi + 1), v(xi + 1, yi + 1), u), w); }
+const fbm = (x, y, o = 4) => { let a = 0.5, f = 1, s = 0, n = 0; for (let k = 0; k < o; k++) { s += a * vnoise(x * f, y * f); n += a; a *= 0.5; f *= 2; } return s / n; };
+function speciesAt(x, z) { const n = fbm(x / 70 + 4, z / 70 - 2, 3) * 0.75 + vnoise(x / 18, z / 18) * 0.25; return clamp(Math.floor((n - 0.28) * 7), 0, NSP - 1); }
+
+// Les tuiles sont de simples entrées dans des tableaux.
+const T = { q: [], r: [], x: [], z: [], y: [], sp: [], bloom: [] };
+const tileIdx = new Int32Array((2 * OFF + 1) ** 2).fill(-1);
+const idxOf = (q, r) => (Math.abs(q) > OFF || Math.abs(r) > OFF) ? -1 : tileIdx[(q + OFF) * (2 * OFF + 1) + (r + OFF)];
+for (let q = -OFF; q <= OFF; q++) for (let r = -OFF; r <= OFF; r++) {
+  const [x, z] = hexCenter(q, r);
+  if (Math.hypot(x, z) > MAP_R) continue;
+  tileIdx[(q + OFF) * (2 * OFF + 1) + (r + OFF)] = T.q.length;
+  T.q.push(q); T.r.push(r); T.x.push(x); T.z.push(z); T.y.push(H(x, z)); T.sp.push(speciesAt(x, z)); T.bloom.push(0);
+}
+const NT = T.q.length;
+const bloomAt = new Float32Array(NT).fill(1e9); // instant de floraison ; 1e9 = fanée
+const stateData = new Uint8Array(NTEX * NTEX * 4);
+const stateTex = new THREE.DataTexture(stateData, NTEX, NTEX, THREE.RGBAFormat);
+stateTex.magFilter = stateTex.minFilter = THREE.NearestFilter;
+function writeTile(i) { const k = ((T.r[i] + OFF) * NTEX + (T.q[i] + OFF)) * 4; stateData[k] = T.bloom[i] ? 255 : 0; stateData[k + 1] = T.sp[i] * 80; stateData[k + 3] = 255; }
+function bloomTile(i, when) { if (T.bloom[i]) return; T.bloom[i] = 1; bloomAt[i] = when; writeTile(i); stateTex.needsUpdate = true; refreshTile(i); }
+
+// ---------------------------------------------------------------------
+// Rendu
+// ---------------------------------------------------------------------
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+let pixelRatio = Math.min(window.devicePixelRatio || 1, Q.pixelRatioMax);
+renderer.setPixelRatio(pixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const HORIZON = C(0xf2cc9c);
+// La brume ferme la vue à la distance d'affichage choisie pour la plateforme.
+scene.fog = new THREE.FogExp2(HORIZON, 2.0 / Q.distance);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 1200);
+scene.add(camera);
+
+// Lumière rasante : soleil à 25°, chaud, intensité 2,5 ; hémisphère 0,6.
+const SUN_DIR = V(Math.cos(0.9) * Math.cos(0.436), Math.sin(0.436), Math.sin(0.9) * Math.cos(0.436)).normalize();
+const sun = new THREE.DirectionalLight(0xffc690, 2.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(Q.ombres, Q.ombres);
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+const SH = Q.nom === 'pc' ? 34 : 24;
+Object.assign(sun.shadow.camera, { left: -SH, right: SH, top: SH, bottom: -SH, near: 1, far: 220 });
+sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun, sun.target);
+scene.add(new THREE.HemisphereLight(0xb6d2ec, 0x6e5a38, 0.6));
+
+// Ciel en dégradé, soleil et halo.
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uZen: { value: C(0x5a8ccc) }, uMid: { value: C(0xa9c7e4) }, uHor: { value: HORIZON }, uSun: { value: SUN_DIR }, uSunCol: { value: C(0xffb468) } },
+  vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
+  fragmentShader: `uniform vec3 uZen, uMid, uHor, uSun, uSunCol; varying vec3 vDir;
+    void main(){ vec3 d = normalize(vDir); float h = d.y;
+      vec3 col = mix(uMid, uZen, smoothstep(0.08, 0.7, h)); col = mix(uHor, col, smoothstep(-0.02, 0.24, h)); col = mix(col, uHor * 0.92, smoothstep(0.0, -0.3, h));
+      float s = max(dot(d, uSun), 0.0); col += uSunCol * (pow(s, 1000.0) * 6.0 + pow(s, 40.0) * 0.45 + pow(s, 5.0) * 0.28 * (1.0 - smoothstep(0.0, 0.5, h)));
+      gl_FragColor = vec4(col, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+}));
+sky.frustumCulled = false; sky.renderOrder = -10; scene.add(sky);
+
+// ---------------------------------------------------------------------
+// Textures : toute matière reçoit un bruit et une carte de normales dérivée du même bruit
+// ---------------------------------------------------------------------
+function texFrom(w, h, fn, srgb = true, repeat = 1) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = fn(x, y), i = (y * w + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255; }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); t.anisotropy = 8;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function normalFrom(w, h, hf, k, repeat = 1) {
+  const Hm = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) Hm[y * w + x] = hf(x, y);
+  return texFrom(w, h, (x, y) => { const nx = (Hm[y * w + (x + w - 1) % w] - Hm[y * w + (x + 1) % w]) * k, ny = (Hm[((y + h - 1) % h) * w + x] - Hm[((y + 1) % h) * w + x]) * k, L = Math.hypot(nx, ny, 1); return [(nx / L * 0.5 + 0.5) * 255, (ny / L * 0.5 + 0.5) * 255, (0.5 / L + 0.5) * 255]; }, false, repeat);
+}
+// Sol : grain fin, mottes, petits cailloux. Périodique sur 256 px.
+const soilH = (x, y) => fbm(x / 16, y / 16, 4) * 0.8 + 0.2 * Math.pow(vnoise(x / 3, y / 3), 6) * 3;
+const soilTex = texFrom(256, 256, (x, y) => { const v = (0.7 + 0.3 * soilH(x, y) + (Math.random() - 0.5) * 0.06) * 255; return [v, v * 0.97, v * 0.92]; }, true, 70);
+const soilNormal = normalFrom(256, 256, soilH, 1.6, 70);
+
+// ---------------------------------------------------------------------
+// Terrain : couleur selon pente et altitude, puis état de chaque tuile (fanée ou fleurie)
+// ---------------------------------------------------------------------
+const stateU = { uState: { value: stateTex }, uLush: { value: SPECIES.map((s) => C(0x4f8a26).lerp(C(s.petal), 0.16)) } }; // vert franc, à peine teinté par l'espèce
+{
+  const size = 660, seg = Q.terrainSegments;
+  const g = new THREE.PlaneGeometry(size, size, seg, seg).rotateX(-Math.PI / 2);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setY(i, H(p.getX(i), p.getZ(i)));
+  g.computeVertexNormals();
+  const n = g.attributes.normal, col = new Float32Array(p.count * 3), c = new THREE.Color();
+  const rock = C(0x9a9284), crest = C(0xb8ad98), base = C(0xffffff);
+  for (let i = 0; i < p.count; i++) {
+    const slope = 1 - n.getY(i), y = p.getY(i);
+    c.copy(base).lerp(rock, ss(0.12, 0.3, slope) * 0.8).lerp(crest, ss(16, 32, y) * 0.6);
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: soilTex, normalMap: soilNormal, normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.95 });
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, stateU);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vWP;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec2 vWP;\nuniform vec3 uLush[${NSP}];\n${HEX_GLSL}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 h = hexOf(vWP); vec4 st = tileAt(h);
+        float e = hexEdge(vWP - hexC(h));
+        float jitter = fract(sin(dot(h, vec2(12.9898, 78.233))) * 43758.5453);
+        vec3 dry = mix(vec3(0.6, 0.55, 0.45), vec3(0.67, 0.61, 0.5), jitter);
+        int sp = int(st.g * 255.0 / 80.0 + 0.5);
+        vec3 lush = sp == 0 ? uLush[0] : sp == 1 ? uLush[1] : uLush[2];
+        lush *= 0.9 + 0.2 * jitter;
+        vec3 col = st.a < 0.5 ? vec3(0.62, 0.57, 0.47) : mix(dry, lush, st.r);
+        // Liseré de la grille : discret côté fleuri, plus net côté fané.
+        col *= 1.0 - smoothstep(0.9, 0.985, e) * mix(0.14, 0.05, st.r) * step(0.5, st.a);
+        diffuseColor.rgb *= col * 1.3;`);
+  };
+  const ground = new THREE.Mesh(g, mat);
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+
+// ---------------------------------------------------------------------
+// Herbe : brins placés autour de la caméra dans le shader. Sèche et rase sur les
+// tuiles fanées, verte et haute sur les fleuries : la frontière se lit dans l'herbe aussi.
+// ---------------------------------------------------------------------
+const windU = { uTime: { value: 0 }, uCenter: { value: new THREE.Vector2() }, uR: { value: Q.rayonHerbe }, uWind: { value: new THREE.Vector2(0.8, 0.6) } };
+let grass;
+{
+  const g = new THREE.BufferGeometry();
+  const ys = [0, 0.32, 0.6, 0.84], w = [0.03, 0.026, 0.019, 0.01];
+  const p = [], idx = [];
+  ys.forEach((y, k) => p.push(-w[k], y, 0, w[k], y, 0));
+  p.push(0, 1, 0);
+  for (let k = 0; k < 3; k++) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  idx.push(6, 7, 8);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(p.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  g.setIndex(idx);
+  const R = mulberry(5), off = new Float32Array(Q.herbe * 3);
+  for (let i = 0; i < Q.herbe; i++) off.set([R() * Q.rayonHerbe * 2, R() * Q.rayonHerbe * 2, R()], i * 3);
+  g.setAttribute('aOff', new THREE.InstancedBufferAttribute(off, 3));
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.85, side: THREE.DoubleSide });
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, windU, stateU);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+        attribute vec3 aOff; uniform float uTime; uniform vec2 uCenter; uniform float uR; uniform vec2 uWind;
+        varying vec3 vGrass;
+        ${HEIGHT_GLSL}
+        ${HEX_GLSL}`)
+      .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);')
+      .replace('#include <begin_vertex>', `
+        vec2 rel = mod(aOff.xy - uCenter + uR, 2.0 * uR) - uR;
+        vec2 wp = uCenter + rel; float rnd = aOff.z;
+        vec4 st = tileAt(hexOf(wp));
+        float lush = st.r * step(0.5, st.a);
+        float fade = 1.0 - smoothstep(uR * 0.6, uR, length(rel));
+        float hgt = mix(0.12 + 0.14 * fract(rnd * 7.1), 0.22 + 0.3 * fract(rnd * 7.1), lush) * fade;
+        float tY = position.y; vec3 p = position; p.y *= hgt; p.x *= 0.8 + 0.6 * fract(rnd * 3.7);
+        float ang = rnd * 6.2831; float ca = cos(ang), sa = sin(ang); p.xz = mat2(ca, -sa, sa, ca) * p.xz;
+        // Rafales qui traversent la vallée en vagues ; à peine un frisson sur l'herbe sèche.
+        float gust = sin(dot(wp, uWind) * 0.16 - uTime * 1.6) * 0.5 + 0.5;
+        float wv = (gust * 0.8 + 0.2 * sin(uTime * 3.1 + rnd * 9.0)) * mix(0.25, 1.0, lush);
+        p.xz += uWind * wv * 0.35 * tY * tY * hgt;
+        p.y -= wv * 0.05 * tY * tY * hgt;
+        vec3 transformed = vec3(wp.x + p.x, terrainH(wp) + p.y - 0.01, wp.y + p.z);
+        vec3 dryC = mix(vec3(0.52, 0.47, 0.36), vec3(0.78, 0.72, 0.56), tY) * (0.85 + 0.25 * fract(rnd * 13.7));
+        vec3 lushC = mix(vec3(0.17, 0.32, 0.08), vec3(0.52, 0.74, 0.24), tY) * (0.85 + 0.3 * fract(rnd * 13.7));
+        vGrass = mix(dryC, lushC, lush);`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vGrass;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = vGrass;')
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal + vec3(0.0, 1e-4, 0.0));');
+  };
+  grass = new THREE.InstancedMesh(g, mat, Q.herbe);
+  const id = new THREE.Matrix4(); for (let i = 0; i < Q.herbe; i++) grass.setMatrixAt(i, id);
+  grass.frustumCulled = false; grass.receiveShadow = true;
+  scene.add(grass);
+}
+
+// ---------------------------------------------------------------------
+// Les fleurs : anatomie propre à chaque espèce, cinq variantes de forme chacune.
+// Parties : 0 tige, 1 pétale, 2 cœur, 3 sphère de pollen, 4 feuille.
+// ---------------------------------------------------------------------
+function merge(list) {
+  const pos = [], nrm = [], part = [], vein = [], idx = []; let o = 0;
+  for (const [g0, pt] of list) {
+    const g = g0.index ? g0 : g0.toNonIndexed();
+    const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.aU;
+    for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nrm.push(N.getX(i), N.getY(i), N.getZ(i)); part.push(pt); vein.push(U ? U.getX(i) : 1); }
+    if (g.index) for (let i = 0; i < g.index.count; i++) idx.push(g.index.getX(i) + o); else for (let i = 0; i < P.count; i++) idx.push(i + o);
+    o += P.count;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute('aPart', new THREE.Float32BufferAttribute(part, 1));
+  g.setAttribute('aU', new THREE.Float32BufferAttribute(vein, 1));
+  g.setIndex(idx);
+  return g;
+}
+// Une surface courbée (pétale ou feuille) : contour, creux, courbure, et coordonnée transversale pour la nervure.
+function blade(len, width, { cup = 0, curl = 0, shape = 'oval', teeth = 0, segY = 5 } = {}) {
+  const g = new THREE.PlaneGeometry(width, len, 2, segY);
+  const p = g.attributes.position, u = new Float32Array(p.count);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), t = clamp((p.getY(i) + len / 2) / len, 0, 1);
+    let prof = shape === 'oval' ? Math.max(0, Math.sin(Math.PI * Math.min(1, t * 1.05))) ** 0.7 : shape === 'strap' ? (t < 0.85 ? 0.75 + 0.25 * t : (1 - t) / 0.15) : shape === 'heart' ? Math.sin(Math.PI * t) * (1.1 - 0.4 * t) : Math.sin(Math.PI * t);
+    if (teeth) prof *= 0.75 + 0.25 * Math.abs(Math.sin(t * teeth * Math.PI));
+    const xx = x * Math.max(prof, 0.04);
+    u[i] = x / (width / 2);
+    p.setXYZ(i, xx, t * len, cup * xx * xx / (width * 0.5) + curl * t * t * len);
+  }
+  g.setAttribute('aU', new THREE.BufferAttribute(u, 1));
+  g.computeVertexNormals();
+  // Les pointes ont des triangles dégénérés : leur normale nulle donnerait un NaN dans l'éclairage, que le bloom étalerait sur tout l'écran.
+  const nn = g.attributes.normal; for (let i = 0; i < nn.count; i++) if (Math.abs(nn.getX(i)) + Math.abs(nn.getY(i)) + Math.abs(nn.getZ(i)) < 1e-6) nn.setXYZ(i, 0, 0, 1);
+  return g;
+}
+function stem(h, bend, r, side = 0) { const pts = [V(0, 0, 0), V(bend * 0.25, h * 0.45, side * 0.3), V(bend * 0.7, h * 0.8, side * 0.7), V(bend, h, side)]; return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 6, r, 5); }
+function stamens(list, x, y, z, n, rad, len) {
+  for (let k = 0; k < n; k++) { const a = (k / n) * 6.283 + 0.3, sx = x + Math.cos(a) * rad, sz = z + Math.sin(a) * rad; list.push([new THREE.CylinderGeometry(0.0012, 0.0012, len, 3).translate(sx, y + len / 2, sz), 2]); list.push([new THREE.IcosahedronGeometry(0.0038, 0).translate(sx, y + len, sz), 3]); }
+}
+function at(g, rx, ry, rz, x, y, z) { g.rotateX(rx); g.rotateY(ry); g.rotateZ(rz); g.translate(x, y, z); return g; }
+function flowerGeo(sp, v) {
+  const R = mulberry(sp * 100 + v * 7 + 3), parts = [];
+  const h = SPECIES[sp].height * (0.85 + 0.3 * R());
+  if (sp === 0) { // trèfle : tige courbée, feuilles trilobées au chevron clair, tête de fleurons
+    const bend = 0.03 + R() * 0.04;
+    parts.push([stem(h, bend, 0.0045), 0]);
+    const nl = 2 + Math.floor(R() * 2);
+    for (let l = 0; l < nl; l++) {
+      const ly = 0.03 + R() * 0.06, la = R() * 6.28, lx = Math.cos(la) * 0.03, lz = Math.sin(la) * 0.03;
+      parts.push([stem(ly, Math.cos(la) * 0.03, 0.002, Math.sin(la) * 0.03), 0]);
+      for (let k = 0; k < 3; k++) parts.push([at(blade(0.03, 0.026, { cup: 0.15, shape: 'heart' }), -1.3, la + k * 2.094, 0, lx, ly, lz), 4]);
+    }
+    const hx = bend, hy = h, rr = 0.03 + R() * 0.008, nf = 34 + Math.floor(R() * 12);
+    for (let k = 0; k < nf; k++) {
+      const yy = 1 - (k / (nf - 1)) * 1.7, r = Math.sqrt(Math.max(0, 1 - yy * yy)), a = k * 2.39996;
+      const dir = V(Math.cos(a) * r, yy, Math.sin(a) * r);
+      const fl = new THREE.CylinderGeometry(0.0042, 0.002, 0.014, 5).translate(0, 0.007, 0); // fleurons courts : la tête reste une boule
+      fl.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), dir));
+      fl.translate(hx + dir.x * rr * 0.55, hy + dir.y * rr * 0.55, dir.z * rr * 0.55);
+      parts.push([fl, 1]);
+    }
+    parts.push([new THREE.IcosahedronGeometry(rr * 0.78, 2).translate(hx, hy, 0), 1]);
+    stamens(parts, hx, hy + rr * 0.8, 0, 3, 0.006, 0.008);
+  } else if (sp === 1) { // pissenlit : rosette de feuilles dentées au sol, tige creuse, capitule dense
+    const nl = 5 + Math.floor(R() * 3);
+    for (let l = 0; l < nl; l++) parts.push([at(blade(0.12 + R() * 0.05, 0.035, { cup: 0.1, curl: -0.05, shape: 'oval', teeth: 5 }), -1.35 + R() * 0.2, (l / nl) * 6.28 + R() * 0.4, 0, 0, 0.005, 0), 4]);
+    const bend = (R() - 0.5) * 0.06;
+    parts.push([stem(h, bend, 0.004), 0]);
+    const hx = bend, hy = h;
+    const bud = v === 4; // une variante en bouton
+    if (bud) parts.push([new THREE.SphereGeometry(0.014, 8, 6).scale(1, 1.4, 1).translate(hx, hy + 0.01, 0), 4]);
+    else {
+      parts.push([new THREE.SphereGeometry(0.014, 10, 6, 0, 6.283, Math.PI / 2, Math.PI / 2).translate(hx, hy + 0.002, 0), 4]); // involucre
+      for (let ring = 0; ring < 3; ring++) {
+        const n = [18, 14, 10][ring], len = [0.034, 0.027, 0.018][ring], tilt = [1.3, 0.95, 0.55][ring];
+        for (let k = 0; k < n; k++) parts.push([at(blade(len, 0.007, { shape: 'strap', curl: 0.08 }), -tilt, (k / n) * 6.283 + ring * 0.3, 0, hx, hy + 0.004 + ring * 0.004, 0), 1]);
+      }
+      parts.push([new THREE.SphereGeometry(0.006, 8, 6).scale(1, 0.6, 1).translate(hx, hy + 0.012, 0), 2]);
+      stamens(parts, hx, hy + 0.012, 0, 4, 0.004, 0.006);
+    }
+  } else { // colza : tige épaisse ramifiée, grappes de fleurs à quatre pétales, boutons, siliques pendantes
+    const raceme = (cx, cy, cz, n, spread) => {
+      for (let k = 0; k < n; k++) {
+        const a = k * 2.39996, rr = spread * Math.sqrt((k + 0.5) / n), fx = cx + Math.cos(a) * rr, fz = cz + Math.sin(a) * rr, fy = cy - (rr / spread) ** 2 * spread * 0.9;
+        for (let q = 0; q < 4; q++) parts.push([at(blade(0.021, 0.019, { cup: 0.35, shape: 'oval' }), -1.05, q * Math.PI / 2 + a, 0, fx, fy, fz), 1]);
+        if (k % 2 === 0) stamens(parts, fx, fy, fz, 4, 0.003, 0.008);
+      }
+      for (let k = 0; k < 5; k++) { const a = k * 1.26; parts.push([new THREE.IcosahedronGeometry(0.005, 0).translate(cx + Math.cos(a) * 0.006, cy + 0.016 + (k % 2) * 0.006, cz + Math.sin(a) * 0.006), 2]); } // boutons au sommet
+    };
+    parts.push([stem(h, 0.03, 0.0075), 0]);
+    raceme(0.03, h, 0, 16, 0.05);
+    const nb = 2 + Math.floor(R() * 2);
+    for (let b = 0; b < nb; b++) {
+      const a = R() * 6.28, bl = h * (0.3 + R() * 0.15), dx = Math.cos(a) * 0.1, dz = Math.sin(a) * 0.1, by = h * (0.45 + R() * 0.15);
+      parts.push([stem(bl, dx, 0.0045, dz).translate(0.01, by, 0), 0]);
+      raceme(0.01 + dx, by + bl, dz, 7, 0.032);
+    }
+    for (let l = 0; l < 3; l++) parts.push([at(blade(0.1, 0.05, { cup: 0.25, curl: -0.1, teeth: 3 }), -0.9, R() * 6.28, 0, 0.005, 0.08 + l * 0.08, 0), 4]);
+    for (let k = 0; k < 6; k++) { const a = k * 1.3 + R(); parts.push([at(new THREE.CylinderGeometry(0.0022, 0.0016, 0.06, 4).translate(0, -0.03, 0), 0.4, a, 0.3, 0.03 + Math.cos(a) * 0.025, h - 0.07 - k * 0.018, Math.sin(a) * 0.025), 0]); } // siliques
+  }
+  const g = merge(parts);
+  g.scale(FSCALE, FSCALE, FSCALE); // à l'échelle du jeu : lisibles en masse à vingt mètres
+  g.computeBoundingSphere();
+  return g;
+}
+const flowerU = { uTime: windU.uTime, uWind: windU.uWind };
+const meshes = []; // [sp][v]
+for (let sp = 0; sp < NSP; sp++) {
+  meshes.push([]);
+  const S = SPECIES[sp];
+  for (let v = 0; v < NVAR; v++) {
+    const g = flowerGeo(sp, v), cap = Q.capFleurs;
+    g.setAttribute('aOff', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aBloom', new THREE.InstancedBufferAttribute(new Float32Array(cap * 2), 2).setUsage(THREE.DynamicDrawUsage));
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.65, side: THREE.DoubleSide });
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, flowerU, { uPetal: { value: C(S.petal) }, uDry: { value: C(S.dry) }, uHeart: { value: C(S.heart) }, uLeaf: { value: C(S.leaf) }, uH: { value: S.height * FSCALE } });
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>
+          attribute vec4 aOff; attribute vec2 aBloom; attribute float aPart; attribute float aU;
+          uniform float uTime; uniform vec2 uWind; uniform vec3 uPetal, uDry, uHeart, uLeaf; uniform float uH;
+          varying vec3 vCol;
+          mat3 rotAxis(vec3 a, float t) { float c = cos(t), s = sin(t), k = 1.0 - c; return mat3(c + a.x*a.x*k, a.y*a.x*k + a.z*s, a.z*a.x*k - a.y*s, a.x*a.y*k - a.z*s, c + a.y*a.y*k, a.z*a.y*k + a.x*s, a.x*a.z*k + a.y*s, a.y*a.z*k - a.x*s, c + a.z*a.z*k); }`)
+        .replace('#include <beginnormal_vertex>', `
+          float rnd = aOff.w;
+          float tb = clamp((uTime - aBloom.x - aBloom.y) / 0.42, 0.0, 1.0);
+          float b = tb < 1.0 ? 1.0 - pow(1.0 - tb, 3.0) * cos(tb * 7.0) : 1.0; // les fleurs se redressent avec un léger rebond
+          float odd = fract(rnd * 23.71);
+          float broken = step(odd, 0.06); // deux ou trois fleurs fanées ou cassées par tuile
+          b = mix(b, 0.1, broken);
+          float yaw = rnd * 6.2831;
+          vec3 tiltAxis = normalize(vec3(cos(rnd * 41.0), 0.0, sin(rnd * 41.0)));
+          mat3 R = rotAxis(vec3(0.0, 1.0, 0.0), yaw) * rotAxis(tiltAxis, fract(rnd * 5.3) * 0.17); // inclinaison de 0 à 10°
+          vec3 objectNormal = R * normal;`)
+        .replace('#include <begin_vertex>', `
+          vec3 p = position;
+          float hf = clamp(p.y / uH, 0.0, 1.0);
+          if (aPart > 0.5 && aPart < 1.5) p.xz *= mix(0.4, 1.0, b);        // la corolle se referme quand la fleur est fanée
+          if (aPart > 2.5 && aPart < 3.5) p *= 1.0 - smoothstep(0.3, 0.5, b); // le pollen disparaît à la pollinisation
+          float droop = (1.0 - b) * 0.95 * hf * hf;                          // fanée, la tige ploie
+          p = vec3(p.x, p.y * cos(droop), p.z + p.y * sin(droop) * 0.7);
+          p.y *= mix(0.72, 1.0, b);
+          p *= 0.8 + 0.4 * fract(rnd * 7.3);                                  // taille de ±20 %
+          p = R * p;
+          float gust = sin(dot(aOff.xz, uWind) * 0.16 - uTime * 1.6) * 0.5 + 0.5;
+          float w = (gust * 0.75 + 0.25 * sin(uTime * 3.3 + rnd * 9.0)) * mix(0.15, 1.0, b);
+          p.xz += uWind * w * 0.09 * hf * hf * (uH * 2.0 + 0.3);
+          vec3 transformed = p + aOff.xyz;
+          float tint = 0.88 + 0.24 * fract(rnd * 13.1);                       // teinte de ±12 %
+          float veinK = 1.0 - 0.28 * pow(1.0 - min(abs(aU), 1.0), 6.0);       // nervure plus sombre au milieu
+          vec3 stemC = mix(vec3(0.64, 0.58, 0.44), uLeaf * 0.85, b);
+          vec3 leafC = mix(vec3(0.6, 0.55, 0.42), uLeaf * (0.9 + 0.25 * smoothstep(0.35, 0.6, abs(aU))), b) * veinK;
+          vec3 petC = mix(uDry, uPetal * tint, b) * veinK;
+          vCol = aPart < 0.5 ? stemC * (0.75 + 0.35 * hf) : aPart < 1.5 ? petC : aPart < 2.5 ? mix(uDry * 0.85, uHeart, b) : aPart < 3.5 ? vec3(1.0, 0.82, 0.22) : leafC;
+          vCol *= 1.0 - broken * 0.2;`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vCol;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = vCol;')
+        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal + vec3(0.0, 1e-4, 0.0));');
+    };
+    const m = new THREE.InstancedMesh(g, mat, cap);
+    m.count = 0; m.frustumCulled = false; m.receiveShadow = true;
+    meshes[sp].push(m); scene.add(m);
+  }
+}
+// Disposition déterministe des fleurs d'une tuile, mise en cache.
+const layouts = new Map();
+function layout(i) {
+  let L = layouts.get(i); if (L) return L;
+  const R = mulberry(i * 7919 + 101), sp = T.sp[i];
+  const n = sp === 0 ? 55 + Math.floor(R() * 20) : sp === 1 ? 30 + Math.floor(R() * 14) : 34 + Math.floor(R() * 14);
+  const out = []; let tries = 0;
+  while (out.length < n * 5 && tries++ < n * 8) {
+    const dx = (R() * 2 - 1) * APO, dz = (R() * 2 - 1) * HEX;
+    if (hexEdge(dx, dz) > 0.94) continue;
+    const x = T.x[i] + dx, z = T.z[i] + dz;
+    out.push(x, H(x, z) - 0.01, z, R(), Math.hypot(dx, dz) / HEX * 0.35 + R() * 0.1); // dernier : retard de la vague
+  }
+  L = new Float32Array(out);
+  if (layouts.size > 6000) layouts.clear();
+  layouts.set(i, L);
+  return L;
+}
+let builtAt = [1e9, 1e9];
+const slots = new Map(); // tuile → [[sp, v, début, nombre], …]
+function rebuild(cx, cz) {
+  builtAt = [cx, cz]; slots.clear();
+  const counts = meshes.map((row) => row.map(() => 0));
+  const [q0, r0] = toHex(cx, cz), span = Math.ceil(Q.rayonFleurs / (HEX * 1.5)) + 2;
+  for (let dq = -span - 2; dq <= span + 2; dq++) for (let dr = -span; dr <= span; dr++) {
+    const i = idxOf(q0 + dq, r0 + dr);
+    if (i < 0 || Math.hypot(T.x[i] - cx, T.z[i] - cz) > Q.rayonFleurs) continue;
+    const sp = T.sp[i], L = layout(i), n = L.length / 5, list = [];
+    for (let k = 0; k < n; k++) {
+      const v = Math.floor(L[k * 5 + 3] * 977) % NVAR, m = meshes[sp][v], j = counts[sp][v];
+      if (j >= Q.capFleurs) continue;
+      const O = m.geometry.attributes.aOff.array, B = m.geometry.attributes.aBloom.array;
+      O[j * 4] = L[k * 5]; O[j * 4 + 1] = L[k * 5 + 1]; O[j * 4 + 2] = L[k * 5 + 2]; O[j * 4 + 3] = L[k * 5 + 3];
+      B[j * 2] = bloomAt[i]; B[j * 2 + 1] = L[k * 5 + 4];
+      list.push([sp, v, j]); counts[sp][v]++;
+    }
+    slots.set(i, list);
+  }
+  meshes.forEach((row, sp) => row.forEach((m, v) => { m.count = counts[sp][v]; m.geometry.attributes.aOff.needsUpdate = true; m.geometry.attributes.aBloom.needsUpdate = true; }));
+}
+function refreshTile(i) {
+  const list = slots.get(i); if (!list) return;
+  for (const [sp, v, j] of list) { const m = meshes[sp][v]; m.geometry.attributes.aBloom.array[j * 2] = bloomAt[i]; m.geometry.attributes.aBloom.needsUpdate = true; }
+}
+
+// ---------------------------------------------------------------------
+// Abeilles et pollen en suspension : ce qui bouge en plus du vent
+// ---------------------------------------------------------------------
+const beeTex = texFrom(64, 16, (x) => (Math.floor(x / 9) % 2 ? [42, 30, 16] : [242, 184, 30]));
+const BEES = Q.nom === 'pc' ? 160 : 70;
+const beeBody = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8).scale(0.021, 0.019, 0.032), new THREE.MeshStandardMaterial({ map: beeTex, roughness: 0.45 }), BEES);
+const beeWing = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 10).scale(0.026, 0.011, 1).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, roughness: 0.2 }), BEES * 2);
+beeBody.frustumCulled = beeWing.frustumCulled = false; scene.add(beeBody, beeWing);
+const bees = Array.from({ length: BEES }, (_, k) => ({ tile: -1, ph: k * 1.7, sp: 0.6 + (k % 7) * 0.08, r: 0.6 + (k % 5) * 0.3, h: 0.35 + (k % 4) * 0.15 }));
+function assignBees(cx, cz) {
+  const near = [], [q0, r0] = toHex(cx, cz);
+  for (let dq = -11; dq <= 11; dq++) for (let dr = -11; dr <= 11; dr++) { const i = idxOf(q0 + dq, r0 + dr); if (i >= 0 && T.bloom[i]) near.push(i); }
+  near.sort((a, b) => Math.hypot(T.x[a] - cx, T.z[a] - cz) - Math.hypot(T.x[b] - cx, T.z[b] - cz));
+  const focus = near.slice(0, 60);
+  bees.forEach((b, k) => { b.tile = focus.length ? focus[k % focus.length] : -1; if (k >= focus.length * 3) b.tile = -1; });
+}
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(1, 1, 1), _v = new THREE.Vector3(), _e = new THREE.Euler(), _q2 = new THREE.Quaternion();
+function updateBees(time) {
+  let n = 0;
+  for (const b of bees) {
+    if (b.tile < 0) continue;
+    const t = time * b.sp + b.ph, i = b.tile;
+    const x = T.x[i] + Math.sin(t * 1.3) * b.r + Math.sin(t * 3.7) * 0.2, z = T.z[i] + Math.cos(t * 0.9) * b.r + Math.cos(t * 3.1) * 0.2;
+    const y = T.y[i] + b.h + Math.sin(t * 2.3) * 0.12;
+    _q.setFromEuler(_e.set(0, Math.atan2(Math.cos(t * 1.3) * 1.3, -Math.sin(t * 0.9) * 0.9), 0));
+    beeBody.setMatrixAt(n, _m.compose(_v.set(x, y, z), _q, _s));
+    const flap = 0.3 + 0.7 * Math.abs(Math.sin(time * 55 + b.ph));
+    for (const sd of [-1, 1]) {
+      _q2.setFromEuler(_e.set(0, 0, sd * (0.2 + flap * 0.7))).premultiply(_q);
+      const o = V(sd * 0.022, 0.016, 0).applyQuaternion(_q);
+      beeWing.setMatrixAt(n * 2 + (sd > 0 ? 1 : 0), _m.compose(_v.set(x + o.x, y + o.y, z + o.z), _q2, _s));
+    }
+    n++;
+  }
+  beeBody.count = n; beeWing.count = n * 2;
+  beeBody.instanceMatrix.needsUpdate = true; beeWing.instanceMatrix.needsUpdate = true;
+}
+const dotTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const MOTES = Q.nom === 'pc' ? 400 : 160;
+const motes = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0xffd98a, size: 0.05, map: dotTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.85 }));
+motes.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MOTES * 3), 3));
+motes.frustumCulled = false; scene.add(motes);
+const moteSeed = Array.from({ length: MOTES }, (_, k) => [Math.sin(k * 12.9) * 0.5 + 0.5, Math.sin(k * 78.2) * 0.5 + 0.5, Math.sin(k * 37.7) * 0.5 + 0.5]);
+function updateMotes(time, cx, cz) {
+  const a = motes.geometry.attributes.position.array;
+  for (let k = 0; k < MOTES; k++) {
+    const [u, w, h] = moteSeed[k];
+    const x = cx + ((((u * 36 + time * 0.25 + Math.sin(time * 0.3 + k) * 0.3) % 36) + 36) % 36) - 18;
+    const z = cz + ((((w * 36 + time * 0.18) % 36) + 36) % 36) - 18;
+    a[k * 3] = x; a[k * 3 + 1] = H(x, z) + 0.3 + h * 2.4 + Math.sin(time * 0.7 + k) * 0.15; a[k * 3 + 2] = z;
+  }
+  motes.geometry.attributes.position.needsUpdate = true;
+}
+
+// ---------------------------------------------------------------------
+// Post-traitement. PC : bloom, profondeur de champ au-delà de 40 m, aberration
+// chromatique en bord d'écran, vignette, étalonnage (hautes lumières chaudes,
+// ombres froides). Mobile : bloom et vignette seulement.
+// ---------------------------------------------------------------------
+const rt = new THREE.WebGLRenderTarget(innerWidth * pixelRatio, innerHeight * pixelRatio, { type: THREE.HalfFloatType, samples: Q.msaa });
+if (Q.postComplet) rt.depthTexture = new THREE.DepthTexture(innerWidth * pixelRatio, innerHeight * pixelRatio);
+const composer = new EffectComposer(renderer, rt);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.3, 0.5, 0.9);
+composer.addPass(bloom);
+const finish = new ShaderPass({
+  defines: { FULL: Q.postComplet ? 1 : 0 },
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: rt.depthTexture }, uNear: { value: camera.near }, uFar: { value: camera.far }, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform float uNear, uFar; uniform vec2 uRes; varying vec2 vUv;
+    void main(){
+      vec2 c = vUv - 0.5; float r2 = dot(c, c);
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      #if FULL == 1
+        float d = texture2D(tDepth, vUv).x * 2.0 - 1.0;
+        float dist = 2.0 * uNear * uFar / (uFar + uNear - d * (uFar - uNear));
+        vec2 px = smoothstep(40.0, 120.0, dist) * 2.0 / uRes;
+        if (px.x > 0.0) {
+          vec3 acc = col * 0.2;
+          acc += 0.1 * (texture2D(tDiffuse, vUv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, vUv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, px.y)).rgb);
+          acc += 0.1 * (texture2D(tDiffuse, vUv + px).rgb + texture2D(tDiffuse, vUv - px).rgb + texture2D(tDiffuse, vUv + vec2(px.x, -px.y)).rgb + texture2D(tDiffuse, vUv + vec2(-px.x, px.y)).rgb);
+          col = acc;
+        }
+        float ca = r2 * 0.005;
+        col.r = mix(col.r, texture2D(tDiffuse, vUv + c * ca).r, 0.85);
+        col.b = mix(col.b, texture2D(tDiffuse, vUv - c * ca).b, 0.85);
+        float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+        col *= mix(vec3(0.95, 0.99, 1.07), vec3(1.06, 1.0, 0.92), smoothstep(0.05, 0.7, lum)); // ombres froides, hautes lumières chaudes
+      #endif
+      col *= 1.0 - smoothstep(0.2, 0.65, r2 * 1.35) * 0.28;
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+composer.addPass(finish);
+composer.addPass(new OutputPass());
+
+// ---------------------------------------------------------------------
+// Caméra libre (étape 1) : glisser pour tourner, molette ou pincement pour s'approcher
+// ---------------------------------------------------------------------
+const cam = { x: 0, z: 0, yaw: 2.3, pitch: 0.22, dist: 16, auto: true };
+let drag = null, pinch = null;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, id: e.pointerId }; cam.auto = false; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing'; });
+canvas.addEventListener('pointermove', (e) => { if (!drag || e.pointerId !== drag.id || pinch) return; cam.yaw -= (e.clientX - drag.x) * 0.005; cam.pitch = clamp(cam.pitch + (e.clientY - drag.y) * 0.004, 0.04, 1.3); drag.x = e.clientX; drag.y = e.clientY; });
+addEventListener('pointerup', () => { drag = null; canvas.style.cursor = 'grab'; });
+canvas.addEventListener('wheel', (e) => { cam.dist = clamp(cam.dist * (1 + Math.sign(e.deltaY) * 0.1), 3, 80); e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }, { passive: true });
+canvas.addEventListener('touchmove', (e) => { if (e.touches.length === 2 && pinch) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); cam.dist = clamp(cam.dist * pinch / d, 3, 80); pinch = d; } e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', () => { pinch = null; });
+addEventListener('keydown', (e) => { const s = 2; if (e.code === 'KeyW' || e.code === 'ArrowUp') { cam.x -= Math.sin(cam.yaw) * s; cam.z -= Math.cos(cam.yaw) * s; } if (e.code === 'KeyS' || e.code === 'ArrowDown') { cam.x += Math.sin(cam.yaw) * s; cam.z += Math.cos(cam.yaw) * s; } if (e.code === 'KeyA' || e.code === 'ArrowLeft') cam.yaw += 0.08; if (e.code === 'KeyD' || e.code === 'ArrowRight') cam.yaw -= 0.08; cam.auto = false; });
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); finish.uniforms.uRes.value.set(innerWidth, innerHeight);
+});
+
+// ---------------------------------------------------------------------
+// Départ : la moitié de la vallée fleurie, l'autre fanée, une frontière qui serpente.
+// ---------------------------------------------------------------------
+for (let i = 0; i < NT; i++) { writeTile(i); if (T.x[i] * 0.8 + T.z[i] * 0.6 + Math.sin(T.z[i] * 0.06) * 7 + Math.sin(T.x[i] * 0.11) * 3 > 0) { T.bloom[i] = 1; bloomAt[i] = -100; writeTile(i); } }
+stateTex.needsUpdate = true;
+let replay = 0; // de temps en temps, une tuile de la frontière refleurit sous les yeux
+function bloomNearBorder(time) {
+  const [q0, r0] = toHex(cam.x, cam.z);
+  for (let tries = 0; tries < 40; tries++) {
+    const i = idxOf(q0 + Math.floor(Math.random() * 13) - 6, r0 + Math.floor(Math.random() * 13) - 6);
+    if (i < 0 || T.bloom[i]) continue;
+    let nb = 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]]) { const j = idxOf(T.q[i] + a, T.r[i] + b); if (j >= 0 && T.bloom[j]) nb++; }
+    if (nb >= 2) { bloomTile(i, time); return; }
+  }
+}
+
+// Réduction automatique (mobile) : résolution, puis densité, si la fréquence tombe sous 50 img/s.
+let fps = 60, acc = 0, frames = 0, checks = 0;
+function perf(raw) {
+  acc += raw; frames++;
+  if (acc < 2) return;
+  fps = frames / acc; acc = 0; frames = 0; checks++;
+  if (!Q.reductionAuto || checks < 2 || fps >= 50) return;
+  if (pixelRatio > 1) { pixelRatio = Math.max(1, pixelRatio - 0.25); renderer.setPixelRatio(pixelRatio); renderer.setSize(innerWidth, innerHeight); composer.setPixelRatio(pixelRatio); composer.setSize(innerWidth, innerHeight); }
+  else if (grass.count > Q.herbe / 2) grass.count = Math.floor(Q.herbe / 2);
+}
+
+const dbg = document.getElementById('debug');
+if (DEBUG) dbg.hidden = false;
+let last = performance.now();
+function frame(now) {
+  const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+  const time = now / 1000;
+  perf(raw);
+  if (cam.auto) cam.yaw += dt * 0.04;
+  const gy = H(cam.x, cam.z);
+  camera.position.set(cam.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, 0, cam.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
+  camera.position.y = Math.max(gy + Math.sin(cam.pitch) * cam.dist + 1.4, H(camera.position.x, camera.position.z) + 0.6);
+  camera.lookAt(cam.x, gy + 0.6, cam.z);
+  windU.uTime.value = time; windU.uCenter.value.set(camera.position.x, camera.position.z);
+  if (Math.hypot(cam.x - builtAt[0], cam.z - builtAt[1]) > 4) { rebuild(cam.x, cam.z); assignBees(cam.x, cam.z); }
+  if ((replay -= dt) <= 0) { replay = 2.2; bloomNearBorder(time); assignBees(cam.x, cam.z); }
+  updateBees(time); updateMotes(time, cam.x, cam.z);
+  // Ombres serrées autour du centre de la vue.
+  const st = (SH * 2) / Q.ombres, sx = Math.round(cam.x / st) * st, sz = Math.round(cam.z / st) * st, sy = H(sx, sz);
+  sun.target.position.set(sx, sy, sz); sun.position.set(sx + SUN_DIR.x * 100, sy + SUN_DIR.y * 100, sz + SUN_DIR.z * 100);
+  sky.position.copy(camera.position);
+  if (DEBUG) dbg.textContent = `${Q.nom} · ${fps.toFixed(0)} img/s · ratio ${pixelRatio}\nfleurs ${meshes.flat().reduce((s, m) => s + m.count, 0)} · herbe ${grass.count}\ntuiles ${NT} · fleuries ${T.bloom.reduce((s, b) => s + b, 0)}`;
+  if (params.has('brut')) renderer.render(scene, camera); else composer.render();
+  requestAnimationFrame(frame);
+}
+rebuild(cam.x, cam.z); assignBees(cam.x, cam.z);
+requestAnimationFrame(frame);
+
+window.pollen = { Q, T, cam, H, toHex, idxOf, bloomTile, scene, renderer, composer, camera, grass, meshes, sky, flowers: () => meshes.flat().reduce((s, m) => s + m.count, 0), fps: () => fps };
+
+</script>
+</body>
+</html>
