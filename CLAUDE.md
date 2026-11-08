@@ -10,7 +10,11 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v5 (brief « version finale, mobile et PC ») : `v5/`**, version courante. Deux fichiers générés depuis un seul code
+- **v7 (brief « une scène qui marche et qui est belle ») : `v7/index.html`**, version courante. Le fondateur a changé
+  de méthode : une seule petite scène (champ de 60 m, lavande seule, tige de coton, une action), un seul fichier qui
+  détecte ordinateur ou téléphone. Faite. Ne rien ajouter hors de la liste du brief. Ensuite, quand les cinq points
+  passent chez lui, un morceau à la fois : deuxième espèce, puis réservoir et vente, puis ruches. Test : `npm run smoke:v7`.
+- **v5 (brief « version finale, mobile et PC ») : `v5/`**, mise de côté par la v7. Deux fichiers générés depuis un seul code
   (`v5/src/jeu.js` + `config-*.js` + `controles-*.js`, `npm run build:v5`). Livraison en six étapes, le fondateur
   dit « étape suivante ». Étapes 1 (rendu) et 2 (joueur : mains gantées, déplacement, collision, relief, contrôles
   PC et tactiles) faites. Prochaine : 3, la boucle. Test : `npm run smoke:v5`.

@@ -1,5 +1,40 @@
 # POLLEN
 
+## v7 — une scène qui marche et qui est belle (`v7/index.html`)
+
+Version courante. Un seul fichier HTML, le même pour l'ordinateur et le téléphone : l'appareil est détecté au chargement
+(`?mode=pc` ou `?mode=mobile` pour forcer, `?debug` pour les compteurs). Rien d'autre que ce que le brief liste.
+
+- **Le champ** : 60 m de côté, relief léger, 973 tuiles hexagonales de 2 m, une touffe de lavande par tuile. Moitié fanée,
+  moitié fleurie, frontière irrégulière. Au-delà du bord, le sol se perd dans la brume.
+- **La lavande** : 30 à 60 brins par touffe (43 355 au total), cinq formes d'épi de 21 à 30 fleurs. Tige à section carrée
+  courbée, paires de feuilles et coussin gris-vert au pied, corolles à quatre lobes en `LatheGeometry`, étamines et
+  sphère de pollen. Taille ±20 %, inclinaison 0-10°, teinte ±12 %, deux ou trois brins cassés, fanés ou en bouton par
+  touffe. Tout en `InstancedMesh` ; courbure, vent et floraison dans le shader. Trois niveaux de détail (pleine
+  définition près du joueur, brins simplifiés, cartes au loin qui s'élargissent avec la distance).
+- **Les deux états** : fanée beige-gris, tiges affaissées, presque immobile ; fleurie violette, feuillage gris-vert,
+  tiges dressées, vagues de vent, trois ou quatre abeilles.
+- **Lumière** : soleil orangé à 25°, intensité 2,5, ombres douces (carte d'ombres près du joueur, ombres calculées au
+  loin), hémisphère 0,6, ACES 1,1, ciel en dégradé de trois couleurs, brume `FogExp2`, grains de pollen dorés.
+  Ordinateur : bloom léger et vignette. Téléphone : bloom seul.
+- **Les mains** : gants de cuir fauve, la droite tient la tige de coton, la gauche plus basse et en retrait ; respiration,
+  balancier en marchant, tamponnage pendant la pollinisation.
+- **Jouer** : viser une touffe fanée (elle se surligne), maintenir l'action deux secondes (jauge en anneau). Elle se
+  redresse et s'ouvre en vague en 0,4 s, passe au violet, trois abeilles arrivent, un carillon court. Relâcher annule.
+
+| | Ordinateur | Téléphone |
+|---|---|---|
+| Marcher | ZQSD ou WASD (touches physiques), flèches | pouce gauche : joystick qui naît sous le pouce |
+| Regarder | souris (pointeur verrouillé au premier clic ; glisser si la page le refuse) | pouce droit, en même temps que le gauche |
+| Polliniser | clic gauche maintenu (ou espace) | bouton rond maintenu (glisser dessus ajuste la visée) |
+| Paysage | — | plein écran et verrouillage tentés ; sinon la scène tourne d'un quart de tour |
+
+Qualité : baisse automatique sous 52 img/s (résolution, puis rayons de détail, puis bloom). Compteurs mesurés dans le
+navigateur de test : environ 4 millions de triangles par image sur ordinateur (ombres comprises), 1 million sur
+téléphone, une cinquantaine d'appels de dessin. La fluidité réelle n'a pas pu être mesurée (pas de carte graphique ici).
+
+Test : `npm run smoke:v7` (43 vérifications : les cinq conditions du brief, sur ordinateur et téléphone).
+
 ## v5 — version finale, deux fichiers (`v5/pollen-pc.html`, `v5/pollen-mobile.html`)
 
 Brief v5 : repartir de zéro, deux fichiers qui partagent exactement le même code de jeu. Le code est écrit une seule
