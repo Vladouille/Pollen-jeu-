@@ -1,5 +1,13 @@
 # POLLEN
 
+## v9 — la station agricole (`v9/index.html`), étape 1 sur 6
+
+Direction graphique propre à POLLEN : matériel manufacturé, arêtes chanfreinées, socles à gradins avec bande lumineuse,
+panneaux blancs à rainures et liseré, quatre couleurs pour tout le matériel (blanc cassé, graphite, jaune pollen, vert
+sève). Étape 1 : terrain de tuiles hexagonales sèches (beige) et pollinisées (vertes, fleurs de lavande, colza et trèfle),
+soleil à 35°, ombres nettes, ciel de jour, et le collecteur (écran, bouton, fente d'insertion). Caméra libre : glisser
+pour tourner, molette ou pincement pour zoomer. Test : `npm run smoke:v9`.
+
 ## v8 — vrais modèles 3D et boucle complète (`v8/index.html`)
 
 Version courante. Même scène que la v7, agrandie à 80 m, mais les objets viennent de fichiers : fleur, marché, atelier,

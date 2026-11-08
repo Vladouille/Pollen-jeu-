@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#cfe6f7">
+<title>POLLEN station</title>
+<!--
+  POLLEN v9, étape 1 : le décor et la charte. Une station agricole propre à POLLEN :
+  matériel manufacturé, arêtes chanfreinées, socles à gradins, rainures de panneaux,
+  quatre couleurs pour tout le matériel (blanc cassé, graphite, jaune pollen, vert sève lumineux).
+  Terrain hexagonal beige (sec) et vert (pollinisé), une machine (le collecteur), caméra libre.
+  ?mode=pc ou ?mode=mobile pour forcer l'appareil, ?debug pour les compteurs.
+-->
+<style>
+  :root { --encre: #fffdf7; --fond: #cfe6f7; color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fond); overscroll-behavior: none; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; font: 700 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--encre); }
+  #c { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; outline: none; }
+  #debug { position: fixed; left: 10px; top: 10px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
+  #panne { position: fixed; left: 12px; right: 12px; bottom: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(47, 51, 56, .92); }
+</style>
+<script>
+  function panne(m) { var p = document.getElementById('panne'); if (p) { p.hidden = false; p.textContent = m; } }
+  window.addEventListener('error', function (e) { panne('Erreur : ' + (e.message || e.type)); });
+</script>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c" aria-label="Station agricole POLLEN au milieu des champs hexagonaux"></canvas>
+<pre id="debug" hidden></pre>
+<div id="panne" hidden></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// =====================================================================
+// 1. Appareil, qualité, outils
+// =====================================================================
+const params = new URLSearchParams(location.search);
+const MOBILE = params.has('mode') ? params.get('mode') === 'mobile'
+  : (matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, fleurs: 6, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, fleurs: 10, vignette: true };
+const DEBUG = params.has('debug');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const mulberry = (seed) => { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const PERM = new Uint8Array(512), VAL = new Float32Array(256);
+{ const R = mulberry(17); for (let i = 0; i < 256; i++) { PERM[i] = i; VAL[i] = R(); } for (let i = 255; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [PERM[i], PERM[j]] = [PERM[j], PERM[i]]; } for (let i = 0; i < 256; i++) PERM[i + 256] = PERM[i]; }
+function bruit(x, y, p = 256) {   // bruit de valeur, périodique de période p (textures sans couture)
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const v = (a, b) => VAL[PERM[((a % p) + p) % p + PERM[((b % p) + p) % p]]];
+  const u = xf * xf * (3 - 2 * xf), w = yf * yf * (3 - 2 * yf);
+  return lerp(lerp(v(xi, yi), v(xi + 1, yi), u), lerp(v(xi, yi + 1), v(xi + 1, yi + 1), u), w);
+}
+const fbm = (x, y, o = 4, p = 256) => { let a = 0.5, f = 1, s = 0, n = 0; for (let k = 0; k < o; k++) { s += a * bruit(x * f, y * f, Math.min(256, p * f)); n += a; a *= 0.5; f *= 2; } return s / n; };
+
+// =====================================================================
+// 2. La charte : quatre couleurs pour tout le matériel, deux pour le sol, trois pour les fleurs
+// =====================================================================
+const CHARTE = {
+  blanc: 0xece8df,     // corps des machines, bâtiments, outils : la couleur dominante
+  graphite: 0x2f3338,  // socles, bandeaux, cadres d'écran, poignées
+  pollen: 0xf4b41a,    // liserés, boutons, chiffres : l'accent, à doser
+  seve: 0x53d17a,      // bandes lumineuses des socles, voyants
+  sec: 0xbfb49a,       // sol des tuiles sèches
+  prairie: 0x6fa03c,   // sol des tuiles pollinisées
+};
+const FLEURS = [{ nom: 'lavande', c: 0x8b6fc4 }, { nom: 'colza', c: 0xf2c53d }, { nom: 'trèfle', c: 0xe48bb0 }];
+
+// =====================================================================
+// 3. Rendu, lumière dure, ciel de jour, brume légère
+// =====================================================================
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // ombres nettes
+let dpr = Math.min(devicePixelRatio || 1, Q.dpr);
+const scene = new THREE.Scene();
+const HORIZON = new THREE.Color(0xd3e8f5);
+scene.fog = new THREE.FogExp2(HORIZON, 0.0065);
+const camera = new THREE.PerspectiveCamera(55, 16 / 9, 0.1, 1500);
+const SOLEIL = new THREE.Vector3(Math.cos(0.65) * Math.cos(35 * Math.PI / 180), Math.sin(35 * Math.PI / 180), Math.sin(0.65) * Math.cos(35 * Math.PI / 180)).normalize();
+const sun = new THREE.DirectionalLight(0xfff3e2, 2.5);
+sun.castShadow = true; sun.shadow.mapSize.set(Q.ombres, Q.ombres); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02;
+Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 140 }); sun.shadow.camera.updateProjectionMatrix();
+sun.position.copy(SOLEIL).multiplyScalar(60); scene.add(sun, sun.target);
+scene.add(new THREE.HemisphereLight(0xbfdcff, 0xb9ac8c, 0.5));
+const ciel = new THREE.Mesh(new THREE.SphereGeometry(800, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uZen: { value: new THREE.Color(0x2c66c8) }, uHor: { value: HORIZON }, uSol: { value: SOLEIL } },
+  vertexShader: 'varying vec3 vD; void main(){ vD = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
+  fragmentShader: `uniform vec3 uZen, uHor, uSol; varying vec3 vD;
+    void main(){ vec3 d = normalize(vD); float h = max(d.y, 0.0);
+      vec3 c = mix(uHor, uZen, pow(smoothstep(0.0, 0.85, h), 0.7));   // bleu profond au zénith, bleu pâle lumineux à l'horizon
+      float s = max(dot(d, uSol), 0.0); c += vec3(1.0, 0.95, 0.85) * (pow(s, 600.0) * 8.0 + pow(s, 30.0) * 0.25);
+      gl_FragColor = vec4(c, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+}));
+ciel.frustumCulled = false; ciel.renderOrder = -10; scene.add(ciel);
+
+function texture(w, h, fn, srgb = true, rep = 1) {   // texture générée sur canvas
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'); fn(g, w, h);
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep);
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function pixels(w, h, fn, srgb = true, rep = 1) {
+  return texture(w, h, (g) => { const im = g.createImageData(w, h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = fn(x, y), i = (y * w + x) * 4; im.data[i] = c[0]; im.data[i + 1] = c[1]; im.data[i + 2] = c[2]; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); }, srgb, rep);
+}
+function normales(w, h, hf, k, rep = 1) {   // carte de normales tirée du même relief que la texture
+  const H = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) H[y * w + x] = hf(x, y);
+  return pixels(w, h, (x, y) => { const nx = (H[y * w + (x + w - 1) % w] - H[y * w + (x + 1) % w]) * k, ny = (H[((y + h - 1) % h) * w + x] - H[((y + 1) % h) * w + x]) * k, L = Math.hypot(nx, ny, 1); return [(nx / L * 0.5 + 0.5) * 255, (ny / L * 0.5 + 0.5) * 255, (1 / L * 0.5 + 0.5) * 255]; }, false, rep);
+}
+
+// =====================================================================
+// 4. Le terrain : relief léger, tuiles hexagonales de 2 m, beige sec ou vert pollinisé
+// =====================================================================
+const RAYON = 70;
+const H = (x, z) => 0.6 * Math.sin(x * 0.045 + 1.1) * Math.cos(z * 0.038 - 0.5) + 0.25 * Math.sin((x + z) * 0.09) + Math.max(0, Math.hypot(x, z) - RAYON) * 0.08;
+const SQ3 = Math.sqrt(3), HS = 2 / SQ3;   // 2 m entre côtés opposés
+const hexCentre = (q, r) => [HS * SQ3 * (q + r / 2), HS * 1.5 * r];
+const frontiere = (x, z) => x * 0.8 - z * 0.6 + 3.5 + 4 * Math.sin(z * 0.12) + 2.2 * Math.sin(x * 0.19 + 1);   // > 0 : pollinisé
+const OFF = 48, NTEX = 96;
+const T = { q: [], r: [], x: [], z: [], vert: [] };
+const etat = new Uint8Array(NTEX * NTEX * 4);
+for (let r = -OFF; r < OFF; r++) for (let q = -OFF; q < OFF; q++) {
+  const [x, z] = hexCentre(q, r); if (Math.hypot(x, z) > RAYON - 1.2) continue;
+  const v = frontiere(x, z) > 0 && Math.hypot(x - 2, z + 1) > 6 ? 1 : 0;   // le collecteur est posé sur du sec
+  T.q.push(q); T.r.push(r); T.x.push(x); T.z.push(z); T.vert.push(v);
+  const k = ((r + OFF) * NTEX + (q + OFF)) * 4; etat[k] = v * 255; etat[k + 3] = 255;
+}
+const NT = T.q.length;
+const etatTex = new THREE.DataTexture(etat, NTEX, NTEX, THREE.RGBAFormat); etatTex.magFilter = etatTex.minFilter = THREE.NearestFilter; etatTex.needsUpdate = true;
+{
+  const grainH = (x, y) => fbm(x / 16, y / 16, 4, 16) * 0.6 + bruit(x / 3, y / 3, 85) * 0.3 + (bruit(x / 1.4, y / 1.4, 183) > 0.8 ? 0.4 : 0);
+  const grain = pixels(256, 256, (x, y) => { const v = 0.86 + 0.14 * grainH(x, y) + (Math.random() - 0.5) * 0.05; return [255 * v, 252 * v, 246 * v]; }, true, 80);
+  const g = new THREE.PlaneGeometry(220, 220, MOBILE ? 110 : 180, MOBILE ? 110 : 180).rotateX(-Math.PI / 2);
+  const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, H(p.getX(i), p.getZ(i))); g.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({ map: grain, normalMap: normales(256, 256, grainH, 1.4, 80), normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.95 });
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, { uEtat: { value: etatTex }, uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) } });
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMonde;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vMonde; uniform sampler2D uEtat; uniform vec3 uSec, uVert;
+      vec2 hexOf(vec2 p) { float qf = (0.5773503 * p.x - 0.3333333 * p.y) / ${HS.toFixed(7)}, rf = (0.6666667 * p.y) / ${HS.toFixed(7)};
+        vec3 c = vec3(qf, -qf - rf, rf); vec3 rc = floor(c + 0.5); vec3 d = abs(rc - c);
+        if (d.x > d.y && d.x > d.z) rc.x = -rc.y - rc.z; else if (d.y > d.z) rc.y = -rc.x - rc.z; else rc.z = -rc.x - rc.y; return vec2(rc.x, rc.z); }
+      vec2 hexC(vec2 h) { return vec2(${(HS * SQ3).toFixed(7)} * (h.x + 0.5 * h.y), ${(HS * 1.5).toFixed(7)} * h.y); }
+      float hexBord(vec2 d) { return max(abs(d.x), max(abs(0.5 * d.x + 0.8660254 * d.y), abs(-0.5 * d.x + 0.8660254 * d.y))); }`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      vec2 hq = hexOf(vMonde.xz); vec4 st = texture2D(uEtat, (hq + ${OFF}.0 + 0.5) / ${NTEX}.0);
+      float bord = hexBord(vMonde.xz - hexC(hq));
+      float dans = st.a * step(length(vMonde.xz), ${RAYON - 1.2});
+      vec3 base = mix(uSec, uVert, st.r * dans);
+      vec3 dehors = uSec * 1.04;
+      diffuseColor.rgb *= mix(dehors, base, dans);
+      diffuseColor.rgb *= 1.0 - dans * (0.22 * smoothstep(0.93, 0.985, bord) - 0.06 * (1.0 - smoothstep(0.0, 0.9, bord)) * st.r);   // rainure nette entre les tuiles`);
+  };
+  const sol = new THREE.Mesh(g, mat); sol.receiveShadow = true; scene.add(sol);
+}
+
+// Fleurs des tuiles pollinisées (couleurs franches) et touffes sèches des tuiles beiges, en instances.
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
+function fleurGeo(type) {
+  const tige = new THREE.CylinderGeometry(0.008, 0.011, 0.34, 5).translate(0, 0.17, 0);
+  let tete;
+  if (type === 0) tete = new THREE.LatheGeometry([[0.0001, 0], [0.026, 0.03], [0.028, 0.1], [0.018, 0.15], [0.0001, 0.17]].map(([r, y]) => new THREE.Vector2(r, y)), 6).translate(0, 0.32, 0);   // épi de lavande
+  else if (type === 1) tete = new THREE.IcosahedronGeometry(0.05, 0).scale(1.2, 0.8, 1.2).translate(0, 0.37, 0);   // grappe de colza
+  else tete = new THREE.IcosahedronGeometry(0.045, 1).translate(0, 0.36, 0);   // pompon de trèfle
+  const feuille = new THREE.ConeGeometry(0.035, 0.14, 4).rotateZ(1.1).translate(0.06, 0.08, 0);
+  const g = [tige, feuille, tete].map((x) => (x.index ? x.toNonIndexed() : x));
+  const couleurs = [new THREE.Color(0x4f7d2e), new THREE.Color(0x5f8f34), new THREE.Color(FLEURS[type].c)];
+  g.forEach((x, i) => { const n = x.attributes.position.count, c = new Float32Array(n * 3); for (let k = 0; k < n; k++) couleurs[i].toArray(c, k * 3); x.setAttribute('color', new THREE.BufferAttribute(c, 3)); x.deleteAttribute('uv'); });
+  const pos = [], nor = [], col = []; g.forEach((x) => { pos.push(...x.attributes.position.array); nor.push(...x.attributes.normal.array); col.push(...x.attributes.color.array); });
+  const r = new THREE.BufferGeometry(); r.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); r.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); r.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return r;
+}
+const touffeGeo = (() => {   // touffe sèche : quelques brins plats en éventail
+  const pos = [];
+  for (let k = 0; k < 6; k++) { const a = k * 1.05, l = 0.22 + (k % 3) * 0.05, dx = Math.cos(a), dz = Math.sin(a); pos.push(-0.012 * dz, 0, 0.012 * dx, 0.012 * dz, 0, -0.012 * dx, dx * l * 0.5, l, dz * l * 0.5); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+})();
+const matFleur = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, flatShading: true });
+const fleurs = FLEURS.map((_, t) => new THREE.InstancedMesh(fleurGeo(t), matFleur, NT * Q.fleurs));
+const touffes = new THREE.InstancedMesh(touffeGeo, new THREE.MeshStandardMaterial({ color: 0x9c9077, roughness: 1, side: THREE.DoubleSide }), NT * 4);
+{
+  const n = [0, 0, 0]; let nt = 0;
+  for (let i = 0; i < NT; i++) {
+    const R = mulberry(i * 131 + 7), espece = Math.floor(fbm(T.x[i] / 22 + 5, T.z[i] / 22, 2) * 3.6) % 3;
+    if (T.vert[i]) for (let k = 0; k < Q.fleurs; k++) {
+      const a = R() * 6.283, d = Math.sqrt(R()) * 0.85, x = T.x[i] + Math.cos(a) * d, z = T.z[i] + Math.sin(a) * d, sc = 0.8 + R() * 0.4;
+      _q.setFromEuler(_e.set((R() - 0.5) * 0.25, R() * 6.283, (R() - 0.5) * 0.25));
+      fleurs[espece].setMatrixAt(n[espece]++, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(sc, sc, sc)));
+    } else for (let k = 0; k < 3; k++) {
+      const a = R() * 6.283, d = Math.sqrt(R()) * 0.8, x = T.x[i] + Math.cos(a) * d, z = T.z[i] + Math.sin(a) * d, sc = 0.7 + R() * 0.6;
+      _q.setFromEuler(_e.set(0, R() * 6.283, 0)); touffes.setMatrixAt(nt++, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(sc, sc, sc)));
+    }
+  }
+  fleurs.forEach((m, t) => { m.count = n[t]; m.castShadow = false; m.receiveShadow = true; scene.add(m); });
+  touffes.count = nt; touffes.castShadow = true; scene.add(touffes);
+}
+
+// =====================================================================
+// 5. Les matières et les briques de la charte
+// =====================================================================
+// Panneaux blancs : rainures sombres fines et liseré jaune pollen horizontal, peints sur la texture (aucun polygone en plus).
+function texPanneaux(colonnes, rangs, liseres) {
+  return texture(512, 512, (g, w, h) => {
+    g.fillStyle = '#ece8df'; g.fillRect(0, 0, w, h);
+    const im = g.getImageData(0, 0, w, h); for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() - 0.5) * 6; im.data[i] += v; im.data[i + 1] += v; im.data[i + 2] += v; } g.putImageData(im, 0, 0);
+    g.strokeStyle = 'rgba(47,51,56,.55)'; g.lineWidth = 2.5;
+    for (let c = 1; c < colonnes; c++) { g.beginPath(); g.moveTo(c * w / colonnes, 0); g.lineTo(c * w / colonnes, h); g.stroke(); }
+    for (let r = 1; r < rangs; r++) { g.beginPath(); g.moveTo(0, r * h / rangs); g.lineTo(w, r * h / rangs); g.stroke(); }
+    g.fillStyle = '#f4b41a'; for (const y of liseres) g.fillRect(0, y * h, w, h * 0.022);
+    g.fillStyle = 'rgba(47,51,56,.35)'; for (let c = 0; c < colonnes; c++) for (const [px, py] of [[0.08, 0.08], [0.92, 0.08], [0.08, 0.92], [0.92, 0.92]]) { g.beginPath(); g.arc((c + px) * w / colonnes, py * h, 2.4, 0, 6.3); g.fill(); }   // vis
+  });
+}
+const M = {
+  blanc: new THREE.MeshStandardMaterial({ color: CHARTE.blanc, roughness: 0.6, metalness: 0, map: pixels(64, 64, () => { const v = 247 + (Math.random() - 0.5) * 10; return [v, v, v]; }, true, 2) }),
+  panneau: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0, map: texPanneaux(3, 2, [0.72]) }),
+  graphite: new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.35, metalness: 0.7, map: pixels(128, 8, (x) => { const v = 238 + 17 * bruit(x / 2, 0.5, 64); return [v, v, v]; }, true, 3) }),   // métal brossé
+  pollen: new THREE.MeshStandardMaterial({ color: CHARTE.pollen, roughness: 0.45, metalness: 0.05 }),
+  seve: new THREE.MeshStandardMaterial({ color: 0x000000, emissive: CHARTE.seve, emissiveIntensity: 2.2, roughness: 1 }),   // émissif pur
+};
+const machines = [];
+// Toute arête fabriquée est chanfreinée : une boîte arrondie, rayon 2 à 4 cm, jamais de cube brut.
+function boite(w, h, d, mat, r = 0.03) { const g = new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3)); g.type = 'RoundedBoxGeometry'; const m = new THREE.Mesh(g, mat); m.castShadow = m.receiveShadow = true; return m; }
+function placer(parent, o, x, y, z, ry = 0) { o.position.set(x, y, z); o.rotation.y = ry; parent.add(o); return o; }
+// Socle étagé : trois gradins plus larges que le corps, bande vert sève lumineuse au premier gradin.
+function socle(parent, w, d) {
+  placer(parent, boite(w + 0.7, 0.16, d + 0.7, M.graphite, 0.04), 0, 0.08, 0);
+  placer(parent, boite(w + 0.74, 0.035, d + 0.74, M.seve, 0.015), 0, 0.17, 0);
+  placer(parent, boite(w + 0.4, 0.2, d + 0.4, M.blanc, 0.04), 0, 0.29, 0);
+  placer(parent, boite(w + 0.16, 0.1, d + 0.16, M.graphite, 0.03), 0, 0.44, 0);
+  return 0.49;   // hauteur du dessus du socle
+}
+function ecran(texte) {   // verre sombre, chiffre en jaune pollen
+  const t = texture(256, 128, (g, w, h) => { g.fillStyle = '#121518'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(244,180,26,.25)'; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#f4b41a'; g.font = '800 64px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(texte, w / 2, h / 2 + 4); });
+  return new THREE.MeshStandardMaterial({ color: 0x0d0f11, roughness: 0.1, metalness: 0.2, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 1.3 });
+}
+function bouton() {   // gros bouton rond jaune pollen en relief, sur une bague graphite
+  const g = new THREE.Group();
+  placer(g, new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [0.16, 0], [0.165, 0.02], [0.165, 0.05], [0.15, 0.06], [0, 0.06]].map(([r, y]) => new THREE.Vector2(r, y)), 32).rotateX(Math.PI / 2), M.graphite), 0, 0, 0);
+  placer(g, new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [0.125, 0], [0.13, 0.03], [0.115, 0.075], [0.07, 0.1], [0, 0.105]].map(([r, y]) => new THREE.Vector2(r, y)), 32).rotateX(Math.PI / 2), M.pollen), 0, 0, 0.05);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+
+// =====================================================================
+// 6. Le collecteur : on y videra le pollen. Socle étagé, corps à panneaux,
+//    bandeau graphite, écran au chiffre jaune, gros bouton, fente d'insertion.
+// =====================================================================
+function collecteur() {
+  const g = new THREE.Group(); g.userData.machine = 'collecteur';
+  const W = 2.2, D = 1.6, base = socle(g, W, D);
+  const corps = placer(g, boite(W, 1.9, D, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.04), 0, base + 0.95, 0);
+  corps.userData.corps = true;
+  placer(g, boite(W + 0.05, 0.24, D + 0.05, M.graphite, 0.035), 0, base + 0.2, 0);                // bandeau bas
+  placer(g, boite(W - 0.25, 0.14, D - 0.25, M.blanc, 0.04), 0, base + 1.97, 0);                    // couvercle en retrait
+  placer(g, boite(W - 0.18, 0.03, D - 0.18, M.graphite, 0.012), 0, base + 1.91, 0);                // joint du couvercle
+  // Façade (+z) : écran, bouton, fente, voyants.
+  const f = D / 2 + 0.005;
+  placer(g, boite(0.9, 0.52, 0.06, M.graphite, 0.025), -0.35, base + 1.35, f + 0.02);              // cadre de l'écran
+  placer(g, new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.42), ecran('0,0 kg')), -0.35, base + 1.35, f + 0.052);
+  placer(g, bouton(), 0.6, base + 1.35, f + 0.01);
+  placer(g, boite(1.3, 0.16, 0.05, M.graphite, 0.02), 0, base + 0.62, f + 0.015);                  // fente d'insertion
+  placer(g, boite(1.24, 0.03, 0.03, M.seve, 0.01), 0, base + 0.74, f + 0.03);
+  for (let k = 0; k < 3; k++) placer(g, boite(0.06, 0.06, 0.03, k === 0 ? M.seve : M.graphite, 0.012), 0.42 + k * 0.1, base + 1.67, f + 0.01);   // voyants
+  // Poignées latérales graphite et pattes de fixation.
+  for (const s of [-1, 1]) { placer(g, boite(0.06, 0.5, 0.08, M.graphite, 0.025), s * (W / 2 + 0.04), base + 1.2, 0.35); placer(g, boite(0.06, 0.5, 0.08, M.graphite, 0.025), s * (W / 2 + 0.04), base + 1.2, -0.35); }
+  return g;
+}
+const COLLECTEUR = collecteur();
+COLLECTEUR.position.set(2, H(2, -1), -1); COLLECTEUR.rotation.y = Math.atan2(SOLEIL.x, SOLEIL.z) - 0.5; scene.add(COLLECTEUR);   // façade éclairée par le soleil
+machines.push(COLLECTEUR);
+
+// =====================================================================
+// 7. Post-traitement, caméra libre, boucle
+// =====================================================================
+const cible = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: Q.msaa });
+const composer = new EffectComposer(renderer, cible);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.35, 0.92); composer.addPass(bloom);   // discret : seuls le vert sève et le jaune ressortent
+if (Q.vignette) composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec2 c = vUv - 0.5; gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb * (1.0 - smoothstep(0.3, 0.8, dot(c, c) * 1.4) * 0.14), 1.0); }' }));
+composer.addPass(new OutputPass());
+const controles = new OrbitControls(camera, canvas);   // caméra libre (étape 1) : glisser pour tourner, molette ou pincement pour zoomer
+controles.target.set(2, 1.4, -1); controles.enableDamping = true; controles.minDistance = 3; controles.maxDistance = 60; controles.maxPolarAngle = 1.48;
+{ const a = Math.atan2(SOLEIL.x, SOLEIL.z) - 0.2; camera.position.set(2 + Math.sin(a) * 8, 2.4, -1 + Math.cos(a) * 8); } controles.update();
+function disposer() {
+  renderer.setPixelRatio(dpr); renderer.setSize(innerWidth, innerHeight, false); composer.setPixelRatio(dpr); composer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+}
+disposer(); addEventListener('resize', disposer);
+const dbg = document.getElementById('debug'); if (DEBUG) dbg.hidden = false;
+renderer.info.autoReset = false;
+function image() {
+  requestAnimationFrame(image);
+  controles.update();
+  renderer.info.reset(); composer.render();
+  if (DEBUG) dbg.textContent = `${Q.nom} · triangles ${(renderer.info.render.triangles / 1000).toFixed(0)} k · appels ${renderer.info.render.calls}\ntuiles ${NT} · vertes ${T.vert.reduce((s, v) => s + v, 0)}`;
+}
+window.pollen = { Q, T, NT, CHARTE, scene, camera, renderer, controles, machines, COLLECTEUR };
+requestAnimationFrame(image);
+</script>
+</body>
+</html>

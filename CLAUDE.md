@@ -10,7 +10,13 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, version courante. Plus rien de dessiné en code : les
+- **v9 (brief « station agricole ») : `v9/index.html`**, version courante, en six étapes livrées une à une (décor et
+  charte, vue et contrôles, interface, boucle, activités, automatisation). Le brief demandait une copie de Moon Sweepers
+  (esthétique et interface poste par poste) : refusé, comme la v6. Direction originale validée par le fondateur
+  (« fais-le en plusieurs semaines ») : palette POLLEN blanc cassé #ECE8DF, graphite #2F3338, jaune pollen #F4B41A,
+  vert sève lumineux #53D17A ; arêtes chanfreinées (RoundedBoxGeometry), socles à gradins, rainures de panneaux.
+  Étape 1 faite (terrain hexagonal, collecteur, caméra libre). Prochaine : 2. Test : `npm run smoke:v9`.
+- **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, mise de côté par la v9. Plus rien de dessiné en code : les
   modèles CC0 sont chargés depuis `v8/models` et `v8/hdri` (noms dans `v8/LISEZMOI.md`), avec des formes de substitution
   si un fichier manque. Boucle complète : polliniser (panier), vendre au marché, acheter le pinceau à l'atelier.
   Ne rien anticiper : ensuite, un à la fois, deuxième espèce, ruches et miel, troisième outil, carte plus grande.
