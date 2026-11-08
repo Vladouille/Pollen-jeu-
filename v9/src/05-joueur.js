@@ -190,7 +190,7 @@ function majCorps() {
 // L'outil en main occupe le bas de l'écran, en diagonale : le manche part du coin inférieur droit vers le centre gauche.
 const vue = new THREE.Group(); vue.rotation.order = 'YXZ'; camera.add(vue); scene.add(camera);
 const POSE_OUTIL = {   // position et orientation de chaque outil dans la caméra
-  pinceau: { p: [0.2, -0.36, -0.5], r: [-1.05, 0.95, 0.15], s: 1.15 },
+  pinceau: { p: [0.26, -0.4, -0.52], r: [-1.05, 0.95, 0.15], s: 0.85 },
   brosse: { p: [0.36, -0.62, -0.6], r: [-1.2, 1.05, 0.12], s: 1.0 },
   large: { p: [0.42, -0.72, -0.65], r: [-1.25, 1.05, 0.1], s: 0.85 },
   xl: { p: [0.45, -0.8, -0.7], r: [-1.28, 1.05, 0.1], s: 0.72 },

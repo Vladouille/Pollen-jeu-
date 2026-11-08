@@ -12,7 +12,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const params = new URLSearchParams(location.search);
 const MOBILE = params.has('mode') ? params.get('mode') === 'mobile'
   : (matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, fleurs: 6, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, fleurs: 10, vignette: true };
+const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, fleurs: 4, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, fleurs: 7, vignette: true };
 const DEBUG = params.has('debug');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -54,6 +54,7 @@ const HORIZON = new THREE.Color(0xd3e8f5);
 scene.fog = new THREE.FogExp2(HORIZON, 0.0065);
 const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.05, 1500);   // œil à 1,7 m, champ de vision 70°
 let gt = 0;   // horloge du jeu (s)
+const MAJ = [];   // fonctions de mise à jour ajoutées par les modules (étapes 3 à 6), appelées à chaque image
 const SOLEIL = new THREE.Vector3(Math.cos(0.65) * Math.cos(35 * Math.PI / 180), Math.sin(35 * Math.PI / 180), Math.sin(0.65) * Math.cos(35 * Math.PI / 180)).normalize();
 const sun = new THREE.DirectionalLight(0xfff3e2, 2.5);
 sun.castShadow = true; sun.shadow.mapSize.set(Q.ombres, Q.ombres); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02;

@@ -7,7 +7,7 @@
 <title>POLLEN station</title>
 <!-- Fichier généré par v9/construire.mjs à partir de v9/src : ne pas modifier à la main. -->
 <!--
-  POLLEN v9, étape 1 : le décor et la charte. Une station agricole propre à POLLEN :
+  POLLEN v9, étapes 1 à 4 : décor et charte, vue et commandes, interface, boucle (polliniser, vendre, acheter). Une station agricole propre à POLLEN :
   matériel manufacturé, arêtes chanfreinées, socles à gradins, rainures de panneaux,
   quatre couleurs pour tout le matériel (blanc cassé, graphite, jaune pollen, vert sève lumineux).
   Terrain hexagonal beige (sec) et vert (pollinisé), une machine (le collecteur), caméra libre.
@@ -32,7 +32,83 @@
   #inter { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
   #debug { position: absolute; left: 10px; top: 60px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
   #panne { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9; padding: 10px 14px; border-radius: 8px; background: rgba(47, 51, 56, .92); }
-  /*__CSS__*/
+
+  /* Interface : plaques graphite translucides, coins chanfreinés (clip-path), chiffres jaune pollen. */
+  #hud { position: absolute; inset: 0; pointer-events: none; --pad: 14px; }
+  .plaque { position: absolute; background: rgba(32, 35, 39, .62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px); }
+  kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; margin-right: 7px; border-radius: 4px; background: var(--pollen); color: var(--graphite); font: 900 12px/1 inherit; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25); }
+  kbd.off { background: #6c7076; color: var(--blanc); }
+  /* 1. Boussole : ruban centré en haut, trait jaune au cap, chevron de l'objectif avec sa distance. */
+  #boussole { left: 50%; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); width: min(380px, 46vw); height: 30px; margin-left: calc(min(380px, 46vw) / -2); overflow: hidden; }
+  #boussole::after { content: ''; position: absolute; left: 50%; top: 0; width: 2px; height: 9px; margin-left: -1px; background: var(--pollen); }
+  #bande { position: absolute; inset: 0; }
+  #bande i { position: absolute; left: 50%; bottom: 3px; width: 30px; margin-left: -15px; text-align: center; font: 800 12px/1 inherit; font-style: normal; color: var(--encre); }
+  #bande i.g::before { content: ''; display: block; width: 1px; height: 6px; margin: 0 auto; background: rgba(255, 253, 247, .5); }
+  #bande i.c { bottom: 8px; }
+  #cible { position: absolute; left: 50%; top: calc(var(--pad) + 42px + env(safe-area-inset-top, 0px)); transform-origin: 0 0; white-space: nowrap; }
+  #cible::before { content: ''; position: absolute; left: -6px; top: -12px; border: 6px solid transparent; border-bottom: 8px solid var(--pollen); }
+  #cible span { position: absolute; left: 0; top: 2px; transform: translateX(-50%); padding: 3px 8px; background: rgba(32, 35, 39, .7); color: var(--pollen); font-size: 12px; border-radius: 3px; }
+  #cible.bord::before { border-bottom-color: #c9c3b6; }
+  #boussoleBloc { position: absolute; left: 0; right: 0; top: 0; height: 64px; }
+  .marq { position: absolute; left: 50%; top: 3px; width: 10px; height: 10px; margin-left: -5px; transform-origin: 5px 5px; background: var(--seve); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .marq.essaim { background: #ffd35a; }
+  .marq.doree { background: var(--pollen); clip-path: circle(50%); }
+  /* 2. Secteur : anneau de progression en haut à gauche. */
+  #secteur { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 9px; padding: 6px 12px 6px 7px; }
+  #secteur svg { width: 44px; height: 44px; transform: rotate(-90deg); }
+  #secteur circle { fill: none; stroke-width: 5; }
+  #secteur .fond { stroke: rgba(255, 253, 247, .18); }
+  #arc { stroke: var(--seve); stroke-dasharray: 113.1; stroke-dashoffset: 113.1; stroke-linecap: round; transition: stroke-dashoffset .3s; }
+  #secteur small { display: block; font-size: 10px; letter-spacing: .08em; color: #c9c3b6; }
+  #secteur strong { font-size: 19px; color: var(--encre); }
+  /* 3. Pastille de l'outil en bas à gauche : nom, charge « x / 12 KG », jauge verticale. */
+  #pastille { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); display: flex; align-items: stretch; gap: 10px; padding: 9px 14px 9px 9px; }
+  #pastille .tube { position: relative; width: 12px; height: 40px; border-radius: 6px; background: rgba(255, 253, 247, .15); overflow: hidden; }
+  #jauge { position: absolute; inset: 0; background: linear-gradient(var(--pollen), #e09a00); transform-origin: 50% 100%; transform: scaleY(0); transition: transform .2s; }
+  #pastille .tube.plein #jauge { background: var(--seve); }
+  #pastille small { display: block; font-size: 11px; color: #c9c3b6; }
+  #charge { display: block; margin-top: 3px; font-size: 20px; color: var(--pollen); letter-spacing: .02em; }
+  /* 4. Emplacements d'outils : cercles en bas au centre. */
+  #slots { position: absolute; left: 50%; bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 8px; pointer-events: auto; }
+  #slots button { position: relative; width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .35); background: rgba(32, 35, 39, .6); display: grid; place-items: center; cursor: pointer; }
+  #slots button.actif { border-color: var(--pollen); box-shadow: 0 0 0 3px rgba(244, 180, 26, .25); background: rgba(47, 51, 56, .85); }
+  #slots svg { width: 24px; height: 24px; fill: none; stroke: var(--encre); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #slots button.actif svg { stroke: var(--pollen); }
+  #slots kbd { position: absolute; top: -7px; right: -9px; min-width: 17px; height: 17px; margin: 0; font-size: 10px; padding: 0 3px; }
+  /* 5. Crédits en bas à droite, pièce hexagonale jaune. */
+  #credits { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 9px; padding: 9px 15px 9px 11px; }
+  .piece { width: 24px; height: 24px; background: var(--pollen); clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); position: relative; }
+  .piece::after { content: ''; position: absolute; inset: 6px; background: #c78f00; clip-path: inherit; }
+  #cr { font-size: 22px; color: var(--encre); min-width: 2ch; }
+  #gains { position: absolute; right: calc(var(--pad) + 16px + env(safe-area-inset-right, 0px)); bottom: calc(66px + env(safe-area-inset-bottom, 0px)); text-align: right; }
+  #gains p { margin: 0; font-size: 20px; color: var(--pollen); text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+  /* 6. Raccourcis sur le bord droit. */
+  #raccourcis { position: absolute; right: calc(var(--pad) + env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; justify-items: end; }
+  #raccourcis li { display: flex; align-items: center; padding: 4px 9px 4px 5px; background: rgba(32, 35, 39, .45); border-radius: 4px; font-size: 12px; color: var(--encre); }
+  #raccourcis li[data-tap] { pointer-events: auto; cursor: pointer; }
+  /* 7. Badge de touche en contexte sous le réticule, avec la progression du geste. */
+  #contexte { position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); display: flex; align-items: center; padding: 6px 12px 6px 6px; background: rgba(32, 35, 39, .62); border-radius: 4px; white-space: nowrap; font-size: 13px; --p: 0; }
+  #contexte::after { content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--p) * 100%); background: var(--seve); }
+  /* 8. Étiquettes flottantes près des machines : badge E et nom sur fond sombre. */
+  #etiquettes { position: absolute; inset: 0; }
+  .etiq { position: absolute; left: 0; top: 0; display: flex; align-items: center; padding: 4px 10px 4px 4px; background: rgba(26, 29, 33, .78); border-radius: 4px; white-space: nowrap; font-size: 13px; transform-origin: 50% 100%; }
+  .etiq::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: rgba(26, 29, 33, .78); }
+  .etiq kbd { background: #6c7076; color: var(--blanc); }
+  .etiq.vise { outline: 2px solid var(--pollen); }
+  .etiq.vise kbd { background: var(--pollen); color: var(--graphite); }
+  .etiq.off.vise kbd { background: #6c7076; color: var(--blanc); }
+  #messages { position: absolute; left: 50%; top: calc(var(--pad) + 76px); transform: translateX(-50%); text-align: center; }
+  #messages p { margin: 0 auto 5px; padding: 5px 12px; width: max-content; max-width: min(520px, 70vw); background: rgba(32, 35, 39, .65); border-radius: 4px; font-size: 13px; animation: surgir .25s ease-out; }
+  #messages p.gain { color: var(--pollen); } #messages p.alerte { color: #ffb4a0; } #messages p.evenement { color: var(--graphite); background: var(--pollen); }
+  @keyframes surgir { from { opacity: 0; transform: translateY(-6px); } }
+  @media (prefers-reduced-motion: reduce) { #messages p { animation: none; } }
+  /* Téléphone : crédits en haut à droite (les boutons d'action occupent le bas), raccourcis réduits. */
+  .mobile #credits { bottom: auto; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); }
+  .mobile #gains { bottom: auto; top: 64px; }
+  .mobile #raccourcis { top: 42%; } .mobile #raccourcis li:not([data-tap]) { display: none; }
+  .mobile #slots button { width: 44px; height: 44px; }
+  .mobile #boussole { width: min(300px, 40vw); margin-left: calc(min(300px, 40vw) / -2); }
+
 </style>
 <script>
   function panne(m) { var p = document.getElementById('panne'); if (p) { p.hidden = false; p.textContent = m; } }
@@ -49,7 +125,18 @@
   <div class="stick" hidden><b></b></div>
   <button id="agir" class="btn" type="button" hidden aria-label="Action">●</button>
   <button id="inter" class="btn" type="button" hidden aria-label="Interagir">E</button>
-  <!--__HUD__-->
+  <div id="hud">
+    <div id="boussoleBloc"><div id="boussole" class="plaque"><div id="bande"></div></div><div id="cible" hidden><span></span></div></div>
+    <div id="secteur" class="plaque"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="fond" cx="22" cy="22" r="18"/><circle id="arc" cx="22" cy="22" r="18"/></svg><div><small>SECTEUR <b id="secN">1</b></small><strong id="secP">0 %</strong></div></div>
+    <div id="messages"></div>
+    <div id="pastille" class="plaque"><div class="tube"><i id="jauge"></i></div><div><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div></div>
+    <div id="slots"></div>
+    <div id="credits" class="plaque"><span class="piece" aria-hidden="true"></span><strong id="cr">0</strong></div>
+    <div id="gains"></div>
+    <ul id="raccourcis"></ul>
+    <div id="contexte" hidden></div>
+    <div id="etiquettes"></div>
+  </div>
   <pre id="debug" hidden></pre>
 </div>
 <div id="panne" hidden></div>
@@ -68,7 +155,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const params = new URLSearchParams(location.search);
 const MOBILE = params.has('mode') ? params.get('mode') === 'mobile'
   : (matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, fleurs: 6, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, fleurs: 10, vignette: true };
+const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, fleurs: 4, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, fleurs: 7, vignette: true };
 const DEBUG = params.has('debug');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -110,6 +197,7 @@ const HORIZON = new THREE.Color(0xd3e8f5);
 scene.fog = new THREE.FogExp2(HORIZON, 0.0065);
 const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.05, 1500);   // œil à 1,7 m, champ de vision 70°
 let gt = 0;   // horloge du jeu (s)
+const MAJ = [];   // fonctions de mise à jour ajoutées par les modules (étapes 3 à 6), appelées à chaque image
 const SOLEIL = new THREE.Vector3(Math.cos(0.65) * Math.cos(35 * Math.PI / 180), Math.sin(35 * Math.PI / 180), Math.sin(0.65) * Math.cos(35 * Math.PI / 180)).normalize();
 const sun = new THREE.DirectionalLight(0xfff3e2, 2.5);
 sun.castShadow = true; sun.shadow.mapSize.set(Q.ombres, Q.ombres); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02;
@@ -148,24 +236,53 @@ function normales(w, h, hf, k, rep = 1) {   // carte de normales tirée du même
 
 
 // =====================================================================
-// 4. Le terrain : relief léger, tuiles hexagonales de 2 m, beige sec ou vert pollinisé
+// 4. Le terrain : relief léger, tuiles hexagonales de 2 m autour d'une esplanade (la base).
+//    Une tuile sèche est beige et poussiéreuse ; pollinisée, elle devient verte et ses fleurs se redressent.
+//    Sortes de tuiles : 0 normale, 1 envahie de chardons (à désherber), 2 aride (à irriguer), 3 fleur dorée (rare).
 // =====================================================================
-const RAYON = 70;
-const H = (x, z) => 0.6 * Math.sin(x * 0.045 + 1.1) * Math.cos(z * 0.038 - 0.5) + 0.25 * Math.sin((x + z) * 0.09) + Math.max(0, Math.hypot(x, z) - RAYON) * 0.08;
+const RAYON = 70, BASE = 15;   // rayon du terrain, rayon de l'esplanade sans tuiles
+const H = (x, z) => { const d = Math.hypot(x, z); return (0.6 * Math.sin(x * 0.045 + 1.1) * Math.cos(z * 0.038 - 0.5) + 0.25 * Math.sin((x + z) * 0.09)) * Math.min(1, Math.max(0, d - BASE + 4) / 8) + Math.max(0, d - RAYON) * 0.08; };
 const SQ3 = Math.sqrt(3), HS = 2 / SQ3;   // 2 m entre côtés opposés
 const hexCentre = (q, r) => [HS * SQ3 * (q + r / 2), HS * 1.5 * r];
-const frontiere = (x, z) => x * 0.8 - z * 0.6 + 3.5 + 4 * Math.sin(z * 0.12) + 2.2 * Math.sin(x * 0.19 + 1);   // > 0 : pollinisé
-const OFF = 48, NTEX = 96;
-const T = { q: [], r: [], x: [], z: [], vert: [] };
-const etat = new Uint8Array(NTEX * NTEX * 4);
-for (let r = -OFF; r < OFF; r++) for (let q = -OFF; q < OFF; q++) {
-  const [x, z] = hexCentre(q, r); if (Math.hypot(x, z) > RAYON - 1.2) continue;
-  const v = frontiere(x, z) > 0 && Math.hypot(x - 2, z + 1) > 6 ? 1 : 0;   // le collecteur est posé sur du sec
-  T.q.push(q); T.r.push(r); T.x.push(x); T.z.push(z); T.vert.push(v);
-  const k = ((r + OFF) * NTEX + (q + OFF)) * 4; etat[k] = v * 255; etat[k + 3] = 255;
+function versHex(x, z) {
+  const qf = (SQ3 / 3 * x - z / 3) / HS, rf = (2 / 3 * z) / HS, yf = -qf - rf;
+  let q = Math.round(qf), r = Math.round(rf); const y = Math.round(yf);
+  const dq = Math.abs(q - qf), dr = Math.abs(r - rf), dy = Math.abs(y - yf);
+  if (dq > dr && dq > dy) q = -r - y; else if (dy <= dr) r = -q - y;
+  return [q, r];
+}
+const OFF = 48, NTEX = 96, NSECT = 6;
+const secteurDe = (x, z) => Math.floor(((Math.atan2(z, x) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2) * NSECT);
+const T = { q: [], r: [], x: [], z: [], vert: [], sorte: [], irrigue: [], t0: [], secteur: [], espece: [] };
+const tuileIdx = new Int32Array(NTEX * NTEX).fill(-1);
+const idxDe = (q, r) => (q < -OFF || q >= OFF || r < -OFF || r >= OFF) ? -1 : tuileIdx[(r + OFF) * NTEX + (q + OFF)];
+{
+  const R = mulberry(4242);
+  for (let r = -OFF; r < OFF; r++) for (let q = -OFF; q < OFF; q++) {
+    const [x, z] = hexCentre(q, r), d = Math.hypot(x, z);
+    if (d > RAYON - 1.2 || d < BASE) continue;
+    const s = secteurDe(x, z), aride = (s === 3 || s === 4) && fbm(x / 14 + 3, z / 14, 2) > 0.52 && d > 26;
+    const sorte = d < 19 ? 0 : aride ? 2 : R() < 0.1 ? 1 : R() < 0.012 ? 3 : 0;
+    tuileIdx[(r + OFF) * NTEX + (q + OFF)] = T.q.length;
+    const vert = d < 18.5 ? 1 : 0;   // le jardin de la station est déjà pollinisé ; tout le reste est à rendre à la vie
+    T.q.push(q); T.r.push(r); T.x.push(x); T.z.push(z); T.vert.push(vert); T.sorte.push(sorte); T.irrigue.push(0); T.t0.push(vert ? -1000 : 1e6); T.secteur.push(s);
+    T.espece.push(Math.floor(fbm(x / 22 + 5, z / 22, 2) * 3.6) % 3);
+  }
 }
 const NT = T.q.length;
-const etatTex = new THREE.DataTexture(etat, NTEX, NTEX, THREE.RGBAFormat); etatTex.magFilter = etatTex.minFilter = THREE.NearestFilter; etatTex.needsUpdate = true;
+const voisins = (i) => { const out = []; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]]) { const j = idxDe(T.q[i] + a, T.r[i] + b); if (j >= 0) out.push(j); } return out; };
+// État lu par le shader du sol : R vert, G sorte, B irriguée, A tuile existante.
+let selFlag = null;
+const etatSol = new Uint8Array(NTEX * NTEX * 4);
+const etatTex = new THREE.DataTexture(etatSol, NTEX, NTEX, THREE.RGBAFormat); etatTex.magFilter = etatTex.minFilter = THREE.NearestFilter;
+function ecrireTuile(i) { const k = ((T.r[i] + OFF) * NTEX + (T.q[i] + OFF)) * 4; etatSol[k] = T.vert[i] * 255; etatSol[k + 1] = T.sorte[i] * 60; etatSol[k + 2] = T.irrigue[i] * 255; etatSol[k + 3] = selFlag && selFlag[i] ? 200 : 255; etatTex.needsUpdate = true; }
+for (let i = 0; i < NT; i++) ecrireTuile(i);
+const SEL = { value: new THREE.Vector3(0, 0, 0) };   // z : intensité du liseré des tuiles visées
+selFlag = new Uint8Array(NT); let selListe = [];
+function selectionner(liste) {   // tuiles visées : alpha 200 dans la texture d'état (255 = tuile simple)
+  for (const i of selListe) { selFlag[i] = 0; ecrireTuile(i); }
+  selListe = liste; for (const i of liste) { selFlag[i] = 1; ecrireTuile(i); }
+}
 {
   const grainH = (x, y) => fbm(x / 16, y / 16, 4, 16) * 0.6 + bruit(x / 3, y / 3, 85) * 0.3 + (bruit(x / 1.4, y / 1.4, 183) > 0.8 ? 0.4 : 0);
   const grain = pixels(256, 256, (x, y) => { const v = 0.86 + 0.14 * grainH(x, y) + (Math.random() - 0.5) * 0.05; return [255 * v, 252 * v, 246 * v]; }, true, 80);
@@ -173,10 +290,10 @@ const etatTex = new THREE.DataTexture(etat, NTEX, NTEX, THREE.RGBAFormat); etatT
   const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, H(p.getX(i), p.getZ(i))); g.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ map: grain, normalMap: normales(256, 256, grainH, 1.4, 80), normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.95 });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uEtat: { value: etatTex }, uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) } });
+    Object.assign(sh.uniforms, { uEtat: { value: etatTex }, uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) }, uSel: SEL });
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMonde;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      varying vec3 vMonde; uniform sampler2D uEtat; uniform vec3 uSec, uVert;
+      varying vec3 vMonde; uniform sampler2D uEtat; uniform vec3 uSec, uVert, uSel;
       vec2 hexOf(vec2 p) { float qf = (0.5773503 * p.x - 0.3333333 * p.y) / ${HS.toFixed(7)}, rf = (0.6666667 * p.y) / ${HS.toFixed(7)};
         vec3 c = vec3(qf, -qf - rf, rf); vec3 rc = floor(c + 0.5); vec3 d = abs(rc - c);
         if (d.x > d.y && d.x > d.z) rc.x = -rc.y - rc.z; else if (d.y > d.z) rc.y = -rc.x - rc.z; else rc.z = -rc.x - rc.y; return vec2(rc.x, rc.z); }
@@ -184,57 +301,90 @@ const etatTex = new THREE.DataTexture(etat, NTEX, NTEX, THREE.RGBAFormat); etatT
       float hexBord(vec2 d) { return max(abs(d.x), max(abs(0.5 * d.x + 0.8660254 * d.y), abs(-0.5 * d.x + 0.8660254 * d.y))); }`)
       .replace('#include <map_fragment>', `#include <map_fragment>
       vec2 hq = hexOf(vMonde.xz); vec4 st = texture2D(uEtat, (hq + ${OFF}.0 + 0.5) / ${NTEX}.0);
-      float bord = hexBord(vMonde.xz - hexC(hq));
-      float dans = st.a * step(length(vMonde.xz), ${RAYON - 1.2});
-      vec3 base = mix(uSec, uVert, st.r * dans);
-      vec3 dehors = uSec * 1.04;
-      diffuseColor.rgb *= mix(dehors, base, dans);
-      diffuseColor.rgb *= 1.0 - dans * (0.22 * smoothstep(0.93, 0.985, bord) - 0.06 * (1.0 - smoothstep(0.0, 0.9, bord)) * st.r);   // rainure nette entre les tuiles`);
+      float bord = hexBord(vMonde.xz - hexC(hq)), dist = length(vMonde.xz);
+      float dans = step(0.5, st.a) * step(dist, ${RAYON - 1.2}) * step(${BASE}.0, dist);
+      float aride = (abs(st.g * 255.0 / 60.0 - 2.0) < 0.5 ? 1.0 : 0.0) * (1.0 - st.b);
+      vec3 sec = mix(uSec, uSec * vec3(0.86, 0.82, 0.74), aride);                    // aride : plus sombre, craquelé
+      sec *= 1.0 - aride * 0.25 * step(0.82, fract(sin(dot(floor(vMonde.xz * 3.0), vec2(12.9, 78.2))) * 437.5));
+      sec = mix(sec, sec * 0.82, st.b * (1.0 - st.r));                               // irriguée : terre humide
+      vec3 base = mix(sec, uVert, st.r * dans);
+      vec3 esplanade = vec3(0.86, 0.85, 0.82) * (1.0 - 0.07 * step(0.94, hexBord((vMonde.xz - hexC(hexOf(vMonde.xz * 0.5)) * 2.0) * 0.5)));   // dalles claires de la base
+      diffuseColor.rgb *= dist < ${BASE}.0 ? esplanade : mix(uSec * 1.04, base, dans);
+      diffuseColor.rgb *= 1.0 - dans * (0.22 * smoothstep(0.93, 0.985, bord) - 0.06 * (1.0 - smoothstep(0.0, 0.9, bord)) * st.r);   // rainure entre les tuiles
+      float sel = step(0.5, st.a) * step(st.a, 0.9) * uSel.z;`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      totalEmissiveRadiance += sel * vec3(0.96, 0.7, 0.1) * (smoothstep(0.82, 0.93, bord) * 0.9 + 0.06);   // tuile visée : liseré jaune pollen`);
   };
   const sol = new THREE.Mesh(g, mat); sol.receiveShadow = true; scene.add(sol);
 }
 
-// Fleurs des tuiles pollinisées (couleurs franches) et touffes sèches des tuiles beiges, en instances.
+// Les fleurs : chaque tuile porte ses fleurs dès le départ. Sèches, elles sont grises et couchées ;
+// à la pollinisation, elles se redressent et prennent leur couleur franche (dans le shader, par l'instant t0).
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
 function fleurGeo(type) {
-  const tige = new THREE.CylinderGeometry(0.008, 0.011, 0.34, 5).translate(0, 0.17, 0);
+  const tige = new THREE.CylinderGeometry(0.008, 0.011, 0.34, 3, 1, true).translate(0, 0.17, 0);
   let tete;
-  if (type === 0) tete = new THREE.LatheGeometry([[0.0001, 0], [0.026, 0.03], [0.028, 0.1], [0.018, 0.15], [0.0001, 0.17]].map(([r, y]) => new THREE.Vector2(r, y)), 6).translate(0, 0.32, 0);   // épi de lavande
+  if (type === 0) tete = new THREE.LatheGeometry([[0.0001, 0], [0.026, 0.03], [0.028, 0.1], [0.0001, 0.17]].map(([r, y]) => new THREE.Vector2(r, y)), 4).translate(0, 0.32, 0);   // épi de lavande
   else if (type === 1) tete = new THREE.IcosahedronGeometry(0.05, 0).scale(1.2, 0.8, 1.2).translate(0, 0.37, 0);   // grappe de colza
-  else tete = new THREE.IcosahedronGeometry(0.045, 1).translate(0, 0.36, 0);   // pompon de trèfle
-  const feuille = new THREE.ConeGeometry(0.035, 0.14, 4).rotateZ(1.1).translate(0.06, 0.08, 0);
+  else tete = new THREE.IcosahedronGeometry(0.045, 0).translate(0, 0.36, 0);   // pompon de trèfle
+  const feuille = new THREE.ConeGeometry(0.035, 0.14, 3).rotateZ(1.1).translate(0.06, 0.08, 0);
   const g = [tige, feuille, tete].map((x) => (x.index ? x.toNonIndexed() : x));
   const couleurs = [new THREE.Color(0x4f7d2e), new THREE.Color(0x5f8f34), new THREE.Color(FLEURS[type].c)];
-  g.forEach((x, i) => { const n = x.attributes.position.count, c = new Float32Array(n * 3); for (let k = 0; k < n; k++) couleurs[i].toArray(c, k * 3); x.setAttribute('color', new THREE.BufferAttribute(c, 3)); x.deleteAttribute('uv'); });
-  const pos = [], nor = [], col = []; g.forEach((x) => { pos.push(...x.attributes.position.array); nor.push(...x.attributes.normal.array); col.push(...x.attributes.color.array); });
-  const r = new THREE.BufferGeometry(); r.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); r.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); r.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const pos = [], nor = [], col = [], tete01 = [];
+  g.forEach((x, i) => { pos.push(...x.attributes.position.array); nor.push(...x.attributes.normal.array); for (let k = 0; k < x.attributes.position.count; k++) { col.push(couleurs[i].r, couleurs[i].g, couleurs[i].b); tete01.push(i === 2 ? 1 : 0); } });
+  const r = new THREE.BufferGeometry(); r.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); r.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); r.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); r.setAttribute('aTete', new THREE.Float32BufferAttribute(tete01, 1));
   return r;
 }
-const touffeGeo = (() => {   // touffe sèche : quelques brins plats en éventail
-  const pos = [];
-  for (let k = 0; k < 6; k++) { const a = k * 1.05, l = 0.22 + (k % 3) * 0.05, dx = Math.cos(a), dz = Math.sin(a); pos.push(-0.012 * dz, 0, 0.012 * dx, 0.012 * dz, 0, -0.012 * dx, dx * l * 0.5, l, dz * l * 0.5); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
-})();
-const matFleur = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, flatShading: true });
-const fleurs = FLEURS.map((_, t) => new THREE.InstancedMesh(fleurGeo(t), matFleur, NT * Q.fleurs));
-const touffes = new THREE.InstancedMesh(touffeGeo, new THREE.MeshStandardMaterial({ color: 0x9c9077, roughness: 1, side: THREE.DoubleSide }), NT * 4);
-{
-  const n = [0, 0, 0]; let nt = 0;
-  for (let i = 0; i < NT; i++) {
-    const R = mulberry(i * 131 + 7), espece = Math.floor(fbm(T.x[i] / 22 + 5, T.z[i] / 22, 2) * 3.6) % 3;
-    if (T.vert[i]) for (let k = 0; k < Q.fleurs; k++) {
-      const a = R() * 6.283, d = Math.sqrt(R()) * 0.85, x = T.x[i] + Math.cos(a) * d, z = T.z[i] + Math.sin(a) * d, sc = 0.8 + R() * 0.4;
-      _q.setFromEuler(_e.set((R() - 0.5) * 0.25, R() * 6.283, (R() - 0.5) * 0.25));
-      fleurs[espece].setMatrixAt(n[espece]++, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(sc, sc, sc)));
-    } else for (let k = 0; k < 3; k++) {
-      const a = R() * 6.283, d = Math.sqrt(R()) * 0.8, x = T.x[i] + Math.cos(a) * d, z = T.z[i] + Math.sin(a) * d, sc = 0.7 + R() * 0.6;
-      _q.setFromEuler(_e.set(0, R() * 6.283, 0)); touffes.setMatrixAt(nt++, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(sc, sc, sc)));
-    }
-  }
-  fleurs.forEach((m, t) => { m.count = n[t]; m.castShadow = false; m.receiveShadow = true; scene.add(m); });
-  touffes.count = nt; touffes.castShadow = true; scene.add(touffes);
+const UTEMPS = { value: 0 };
+function matPlante(base) {
+  base.onBeforeCompile = (sh) => {
+    sh.uniforms.uTemps = UTEMPS;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aT0; attribute float aTete; uniform float uTemps; varying float vVie;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float t = clamp((uTemps - aT0) / 0.6, 0.0, 1.0); float e = 1.0 - pow(1.0 - t, 3.0) * cos(t * 5.0);   // se redresse avec un rebond
+        float couche = (1.0 - e) * 1.15, ph = uTemps * 1.8 + instanceMatrix[3].x * 0.3 + instanceMatrix[3].z * 0.2;
+        float a = couche + sin(ph) * 0.06 * t, cy = cos(a), sy = sin(a);   // fanée : couchée vers le sol ; fleurie : ondule au vent
+        transformed = vec3(transformed.x, transformed.y * cy - transformed.z * sy, transformed.y * sy + transformed.z * cy);
+        vVie = t;`)
+      .replace('#include <color_vertex>', '#include <color_vertex>\n#ifdef USE_COLOR\n vColor = mix(vec3(0.62, 0.58, 0.5) * (0.85 + 0.15 * aTete), vColor, clamp((uTemps - aT0) / 0.6, 0.0, 1.0));\n#endif');
+  };
+  return base;
 }
-
+const NF = Q.fleurs;
+const fleurs = FLEURS.map((_, t) => {
+  const geo = fleurGeo(t), m = new THREE.InstancedMesh(geo, matPlante(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, flatShading: true })), NT * NF);
+  geo.setAttribute('aT0', new THREE.InstancedBufferAttribute(new Float32Array(NT * NF).fill(1e6), 1)); m.userData.n = 0; return m;
+});
+const slotsFleur = new Int32Array(NT * NF * 2).fill(-1);   // tuile → (espèce, index) de chacune de ses fleurs
+for (let i = 0; i < NT; i++) {
+  const R = mulberry(i * 131 + 7), esp = T.espece[i], m = fleurs[esp];
+  for (let k = 0; k < NF; k++) {
+    const a = R() * 6.283, d = Math.sqrt(R()) * 0.85, x = T.x[i] + Math.cos(a) * d, z = T.z[i] + Math.sin(a) * d, sc = 0.8 + R() * 0.4;
+    _q.setFromEuler(_e.set(0, R() * 6.283, 0));
+    const j = m.userData.n++; m.setMatrixAt(j, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(sc, sc, sc)));
+    m.geometry.attributes.aT0.array[j] = T.t0[i]; slotsFleur[(i * NF + k) * 2] = esp; slotsFleur[(i * NF + k) * 2 + 1] = j;
+  }
+}
+fleurs.forEach((m) => { m.count = m.userData.n; m.receiveShadow = true; scene.add(m); });
+function fleurirTuile(i, t) {   // la tuile passe au vert, ses fleurs se redressent en 0,6 s
+  T.vert[i] = 1; T.t0[i] = t; ecrireTuile(i);
+  for (let k = 0; k < NF; k++) { const esp = slotsFleur[(i * NF + k) * 2], j = slotsFleur[(i * NF + k) * 2 + 1], a = fleurs[esp].geometry.attributes.aT0; a.array[j] = t; a.addUpdateRange(j, 1); a.needsUpdate = true; }
+}
+function fanerTuile(i) {   // l'orage fane une tuile déjà traitée
+  T.vert[i] = 0; T.t0[i] = 1e6; ecrireTuile(i);
+  for (let k = 0; k < NF; k++) { const esp = slotsFleur[(i * NF + k) * 2], j = slotsFleur[(i * NF + k) * 2 + 1], a = fleurs[esp].geometry.attributes.aT0; a.array[j] = 1e6; a.addUpdateRange(j, 1); a.needsUpdate = true; }
+}
+// Chardons gris (à arracher) et fleurs dorées rares (qui luisent faiblement).
+const chardonGeo = (() => { const parts = []; for (let k = 0; k < 7; k++) { const a = k * 0.9, c = new THREE.ConeGeometry(0.03, 0.42 + (k % 3) * 0.1, 4).translate(0, 0.2, 0).rotateZ(0.35).rotateY(a); parts.push(c.index ? c.toNonIndexed() : c); } parts.push(new THREE.IcosahedronGeometry(0.07, 0).translate(0, 0.5, 0)); const pos = [], nor = []; parts.forEach((p) => { pos.push(...p.attributes.position.array); nor.push(...p.attributes.normal.array); }); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g; })();
+const chardons = new THREE.InstancedMesh(chardonGeo, new THREE.MeshStandardMaterial({ color: 0x8c8794, roughness: 0.9, flatShading: true }), NT * 3);
+const slotsChardon = new Map();
+{ let n = 0; for (let i = 0; i < NT; i++) if (T.sorte[i] === 1) { const R = mulberry(i * 17 + 3), l = []; for (let k = 0; k < 3; k++) { const a = R() * 6.28, d = R() * 0.6, x = T.x[i] + Math.cos(a) * d, z = T.z[i] + Math.sin(a) * d, sc = 0.9 + R() * 0.5; chardons.setMatrixAt(n, _m.compose(_p.set(x, H(x, z), z), _q.setFromEuler(_e.set(0, R() * 6, 0)), _s.set(sc, sc, sc))); l.push(n++); } slotsChardon.set(i, l); } chardons.count = n; chardons.castShadow = true; scene.add(chardons); }
+function desherber(i) { T.sorte[i] = 0; ecrireTuile(i); for (const j of slotsChardon.get(i) || []) chardons.setMatrixAt(j, _m.makeScale(0, 0, 0)); chardons.instanceMatrix.needsUpdate = true; }
+const doreGeo = new THREE.LatheGeometry([[0.0001, 0], [0.09, 0.05], [0.13, 0.12], [0.07, 0.2], [0.0001, 0.22]].map(([r, y]) => new THREE.Vector2(r, y)), 8).translate(0, 0.45, 0);
+const dorees = new THREE.InstancedMesh(doreGeo, new THREE.MeshStandardMaterial({ color: CHARTE.pollen, emissive: CHARTE.pollen, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.4 }), 128);
+const slotsDore = new Map();
+{ let n = 0; for (let i = 0; i < NT && n < 128; i++) if (T.sorte[i] === 3) { dorees.setMatrixAt(n, _m.compose(_p.set(T.x[i], H(T.x[i], T.z[i]), T.z[i]), _q.identity(), _s.set(1, 1, 1))); slotsDore.set(i, n++); } dorees.count = n; scene.add(dorees); }
+function cueillirDoree(i) { const j = slotsDore.get(i); if (j === undefined) return; dorees.setMatrixAt(j, _m.makeScale(0, 0, 0)); dorees.instanceMatrix.needsUpdate = true; T.sorte[i] = 0; ecrireTuile(i); }
 
 // =====================================================================
 // 5. Les matières et les briques de la charte
@@ -504,7 +654,7 @@ function majCorps() {
 // L'outil en main occupe le bas de l'écran, en diagonale : le manche part du coin inférieur droit vers le centre gauche.
 const vue = new THREE.Group(); vue.rotation.order = 'YXZ'; camera.add(vue); scene.add(camera);
 const POSE_OUTIL = {   // position et orientation de chaque outil dans la caméra
-  pinceau: { p: [0.2, -0.36, -0.5], r: [-1.05, 0.95, 0.15], s: 1.15 },
+  pinceau: { p: [0.26, -0.4, -0.52], r: [-1.05, 0.95, 0.15], s: 0.85 },
   brosse: { p: [0.36, -0.62, -0.6], r: [-1.2, 1.05, 0.12], s: 1.0 },
   large: { p: [0.42, -0.72, -0.65], r: [-1.25, 1.05, 0.1], s: 0.85 },
   xl: { p: [0.45, -0.8, -0.7], r: [-1.28, 1.05, 0.1], s: 0.72 },
@@ -531,6 +681,433 @@ function majVue(dt) {
   vue.rotation.set(P.r[0] + sb * 0.03 * a + 0.12 * geste, P.r[1] + retardRegard + balai * 2, P.r[2] + (gesteType === 'arracher' ? Math.sin(t) * 0.15 * geste : 0));
 }
 
+
+// =====================================================================
+// 10. Les bâtiments, en façades modulaires : un bâtiment est une rangée de modules de 2 m
+//     (porte, vitrine, panneau à grille, volet roulant, écran) sous une corniche blanche et un bandeau graphite,
+//     posée sur le même socle étagé que les machines. Les trois bâtiments partagent les mêmes modules.
+// =====================================================================
+const MODULE = 2;
+const M_VITRE = new THREE.MeshStandardMaterial({ color: 0x1d2a33, roughness: 0.08, metalness: 0.6, envMapIntensity: 1 });
+const M_GRIS = new THREE.MeshStandardMaterial({ color: 0x8a8d90, roughness: 0.8 });   // présentoir hors de prix : grisé
+function texteTex(lignes, w = 512, h = 128, fond = '#ece8df', encre = '#2f3338') {
+  return texture(w, h, (g) => {
+    g.fillStyle = fond; g.fillRect(0, 0, w, h); g.textAlign = 'center'; g.textBaseline = 'middle';
+    lignes.forEach(([t, taille, couleur], k) => { g.fillStyle = couleur || encre; let f = taille; do { g.font = `800 ${f}px system-ui, sans-serif`; f -= 2; } while (g.measureText(t).width > w * 0.9 && f > 10); g.fillText(t, w / 2, h * (k + 0.5) / lignes.length + 2); });
+    g.fillStyle = '#f4b41a'; g.fillRect(w * 0.1, h - 10, w * 0.8, 5);
+  });
+}
+function moduleFacade(type, haut) {   // un module de 2 m de large, face vers +z, posé à y = 0
+  const g = new THREE.Group();
+  if (type === 'porte') {
+    placer(g, boite(1.3, 2.3, 0.1, M.graphite, 0.03), 0, 1.15, 0.03);
+    placer(g, boite(1.1, 2.15, 0.06, M_VITRE, 0.02), 0, 1.1, 0.07);
+    placer(g, boite(0.04, 0.5, 0.06, M.pollen, 0.015), 0.42, 1.1, 0.12);                  // poignée jaune
+    placer(g, boite(1.4, 0.05, 0.05, M.seve, 0.015), 0, 2.4, 0.07);                        // bande lumineuse au-dessus
+  } else if (type === 'vitrine') {
+    placer(g, boite(1.7, 1.5, 0.1, M.graphite, 0.03), 0, 1.45, 0.03);
+    placer(g, boite(1.55, 1.36, 0.05, M_VITRE, 0.02), 0, 1.45, 0.07);
+    placer(g, boite(1.8, 0.08, 0.25, M.blanc, 0.03), 0, 0.68, 0.12);                       // appui de fenêtre
+  } else if (type === 'grille') {
+    for (let k = 0; k < 7; k++) placer(g, boite(1.2, 0.05, 0.08, M.graphite, 0.02), 0, 1.0 + k * 0.16, 0.04);   // lames d'aération
+    placer(g, boite(0.3, 0.3, 0.06, M.pollen, 0.02), 0.65, 2.3, 0.03);                     // plaque signalétique
+  } else if (type === 'volet') {
+    placer(g, boite(1.9, 2.6, 0.1, M.graphite, 0.03), 0, 1.3, 0.03);
+    for (let k = 0; k < 12; k++) placer(g, boite(1.72, 0.17, 0.05, M.blanc, 0.02), 0, 0.2 + k * 0.2, 0.08);   // volet roulant blanc à lames
+    placer(g, boite(1.9, 0.06, 0.06, M.pollen, 0.02), 0, 2.62, 0.09);
+  }
+  return g;
+}
+function batiment(modules, prof, haut, enseigne) {
+  const g = new THREE.Group(), W = modules.length * MODULE, base = socle(g, W, prof);
+  placer(g, boite(W, haut, prof, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.05), 0, base + haut / 2, 0);
+  placer(g, boite(W + 0.06, 0.26, prof + 0.06, M.graphite, 0.04), 0, base + 0.13, 0);       // plinthe graphite
+  placer(g, boite(W + 0.4, 0.3, prof + 0.4, M.blanc, 0.05), 0, base + haut + 0.15, 0);      // corniche débordante
+  placer(g, boite(W + 0.44, 0.06, prof + 0.44, M.pollen, 0.02), 0, base + haut + 0.02, 0);   // liseré jaune sous la corniche
+  placer(g, boite(W - 0.6, 0.4, prof - 0.6, M.blanc, 0.05), 0, base + haut + 0.5, 0);       // édicule de toit
+  modules.forEach((m, k) => placer(g, moduleFacade(m, haut), -W / 2 + MODULE * (k + 0.5), base, prof / 2));
+  if (enseigne) {
+    const e = placer(g, boite(Math.min(W - 0.4, 4.2), 0.7, 0.12, M.graphite, 0.03), 0, base + haut - 0.45, prof / 2 + 0.08);
+    placer(g, new THREE.Mesh(new THREE.PlaneGeometry(Math.min(W - 0.4, 4.2) - 0.12, 0.58), new THREE.MeshStandardMaterial({ map: texteTex([[enseigne, 76]]), roughness: 0.5 })), 0, base + haut - 0.45, prof / 2 + 0.145);
+    e.userData.enseigne = enseigne;
+  }
+  g.userData.W = W; g.userData.D = prof; g.userData.base = base;
+  return g;
+}
+const INTER = [];   // tout ce qu'on peut utiliser avec E : { x, z, y, r, texte() (null = rien à faire), agir() }
+function poser(g, x, z) {   // pose un bâtiment face à la place centrale et le rend infranchissable
+  g.position.set(x, H(x, z), z); g.rotation.y = Math.atan2(-x, -z); scene.add(g);
+  const W = g.userData.W + 0.7, D = g.userData.D + 0.7, n = Math.max(1, Math.round(W / D));
+  for (let k = 0; k < n; k++) { const lx = -W / 2 + W * (k + 0.5) / n, c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y); OBSTACLES.push({ x: x + lx * c, z: z - lx * s, r: Math.max(D / 2, W / n / 2) * 0.98 }); }
+  return g;
+}
+function versMonde(g, lx, ly, lz) { return new THREE.Vector3(lx, ly, lz).applyMatrix4(g.matrixWorld); }
+
+// Le comptoir : vitrine, porte, vitrine. Devant, un auvent et une rangée de présentoirs, chacun portant un outil debout.
+const COMPTOIR = poser(batiment(['vitrine', 'porte', 'vitrine'], 3.2, 3.2, 'COMPTOIR'), -9, -4);
+{
+  const g = COMPTOIR, base = g.userData.base;
+  placer(g, boite(6.4, 0.12, 1.8, M.blanc, 0.04), 0, base + 3.0, 2.4);                       // auvent
+  for (let k = -3; k <= 3; k++) placer(g, boite(0.9, 0.02, 1.7, k % 2 ? M.pollen : M.blanc, 0.008), k * 0.9, base + 2.93, 2.4);   // bandes de l'auvent
+  for (const s of [-1, 1]) placer(g, tube(0.05, 0.05, 2.5, M.graphite), s * 3.0, base + 1.75, 3.2);
+}
+const PRESENTOIRS = [];
+function presentoir(cle, prix, k, n) {
+  const g = new THREE.Group(), u = k - (n - 1) / 2;
+  placer(g, boite(0.7, 0.14, 0.7, M.graphite, 0.03), 0, 0.07, 0);
+  placer(g, boite(0.74, 0.03, 0.74, M.seve, 0.012), 0, 0.15, 0).userData.voyant = true;
+  placer(g, boite(0.56, 0.75, 0.56, M.blanc, 0.04), 0, 0.53, 0);
+  placer(g, boite(0.62, 0.06, 0.62, M.graphite, 0.02), 0, 0.93, 0);
+  const plaque = placer(g, new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.2), new THREE.MeshStandardMaterial({ roughness: 0.5 })), 0, 0.62, 0.285);
+  let objet;
+  if (OUTILS_DEF[cle]) { objet = fabriquerOutil(cle); const l = { pinceau: 0.42, brosse: 1.05, large: 1.2, xl: 1.35 }[cle]; objet.scale.setScalar(l ? Math.min(1, 0.9 / l) * (cle === 'xl' ? 0.8 : 1) : 1); objet.position.y = 0.96; }
+  else objet = new THREE.Group();
+  g.add(objet);
+  const x = COMPTOIR.position.x, z = COMPTOIR.position.z, yaw = COMPTOIR.rotation.y, a = u * 0.12;
+  const lx = u * 1.25, lz = 4.8 + u * u * 0.12;   // en arc léger devant le comptoir
+  const wx = x + lx * Math.cos(yaw) + lz * Math.sin(yaw), wz = z - lx * Math.sin(yaw) + lz * Math.cos(yaw);
+  g.position.set(wx, H(wx, wz), wz); g.rotation.y = yaw - a; scene.add(g);
+  OBSTACLES.push({ x: wx, z: wz, r: 0.45 });
+  const p = { cle, prix, g, objet, plaque, x: wx, z: wz, etat: '' };
+  objet.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
+  PRESENTOIRS.push(p); return p;
+}
+function majPresentoir(p, etat) {   // 'acquis' | 'abordable' | 'cher' | 'verrou'
+  if (p.etat === etat) return; p.etat = etat;
+  p.objet.visible = etat !== 'verrou';
+  p.objet.traverse((o) => { if (o.isMesh) o.material = etat === 'cher' ? M_GRIS : o.userData.matOrigine; });
+  p.g.traverse((o) => { if (o.userData.voyant) o.material = etat === 'acquis' ? M.seve : etat === 'abordable' ? M.pollen : M.graphite; });
+  const def = OUTILS_DEF[p.cle] || OBJETS_DEF[p.cle];
+  const txt = etat === 'verrou' ? [['BIENTÔT', 54, '#8a8d90']] : etat === 'acquis' ? [[def.court || def.nom, 40], ['ACQUIS', 34, '#2f8f52']] : [[def.court || def.nom, 40], [`${p.prix.toLocaleString('fr-FR')} cr`, 40, etat === 'cher' ? '#8a8d90' : '#b07d00']];
+  if (p.plaque.material.map) p.plaque.material.map.dispose();
+  p.plaque.material.map = texteTex(txt, 256, 112); p.plaque.material.needsUpdate = true;
+}
+
+// La station : le bâtiment principal, avec le tableau des contrats en façade (étape 6).
+const STATION = poser(batiment(['grille', 'vitrine', 'porte', 'vitrine', 'grille'], 4, 4.2, 'STATION POLLEN'), 1, -12);
+// Le garage : deux volets roulants. La pollinisatrice y dort (étape 6).
+const GARAGE = poser(batiment(['volet', 'volet', 'grille'], 4.4, 3.6, 'GARAGE'), 11, -6);
+// Le point d'eau : une pompe blanche sur socle, réservoir à hublot, robinet jaune (étape 5).
+const POMPE = (() => {
+  const g = new THREE.Group(), base = socle(g, 1.2, 1.2);
+  placer(g, tube(0.55, 0.6, 1.6, M.panneau, 24), 0, base + 0.8, 0);
+  placer(g, tube(0.62, 0.62, 0.12, M.graphite, 24), 0, base + 1.66, 0);
+  placer(g, tube(0.4, 0.5, 0.3, M.blanc, 24), 0, base + 1.86, 0);
+  placer(g, new THREE.Mesh(new THREE.CircleGeometry(0.22, 24), new THREE.MeshStandardMaterial({ color: 0x3a8fd0, emissive: 0x2a6fb0, emissiveIntensity: 0.4, roughness: 0.1 })), 0, base + 1.0, 0.585);   // hublot : on voit l'eau
+  placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.035, 8, 24), M.graphite), 0, base + 1.0, 0.59);
+  placer(g, tube(0.06, 0.06, 0.5, M.graphite), 0.55, base + 0.5, 0.3).rotation.z = Math.PI / 2;
+  placer(g, bouton(), 0.82, base + 0.5, 0.3).rotation.y = Math.PI / 2;
+  g.position.set(-11, H(-11, 6), 6); g.rotation.y = Math.atan2(11, -6); scene.add(g);
+  OBSTACLES.push({ x: -11, z: 6, r: 1.1 });
+  return g;
+})();
+
+
+// =====================================================================
+// 11. La boucle : polliniser (la charge monte, la tuile passe du beige au vert, les fleurs se redressent),
+//     vider la charge au collecteur (les crédits montent), acheter l'outil suivant au comptoir
+//     (il passe en main tout de suite). Une tuile donne 0,5 kg de pollen ; 1 kg vaut 10 cr.
+// =====================================================================
+const KG_TUILE = 0.5, PRIX_KG = 10, VALEUR_ESPECE = [1, 0.8, 1.25];   // lavande, colza, trèfle
+const OBJETS_DEF = {   // ce qui se vend au comptoir et n'est pas un outil en main
+  ruche: { nom: 'Ruche', court: 'Ruche', effet: 'Pollinise autour d’elle et produit du miel' },
+};
+const S = {   // tout l'état du joueur (sauvegardé à l'étape 6)
+  credits: 0, charge: 0, valeur: 0, outils: ['pinceau'], miel: 0, temps: 0, tuiles: 0, ventes: 0, debloque: 0,
+  boost: 1, prixVente: 1,
+};
+const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'tuyau', 'marteau'];
+const outilDef = () => OUTILS_DEF[outilEnMain];
+const chargeMax = () => { let m = 0; for (const o of S.outils) m = Math.max(m, OUTILS_DEF[o].charge || 0); return m; };   // le réservoir suit le meilleur outil acquis
+
+// --- Le son : synthèse WebAudio, rien à charger. Un pop varié par tuile, une petite fanfare par vente. ---
+Object.assign(sons, {
+  ctx: null,
+  init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; } try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.sortie = this.ctx.createGain(); this.sortie.gain.value = 0.35; this.sortie.connect(this.ctx.destination); } catch (e) { this.ctx = null; } },
+  note(f, t0, d, type = 'sine', v = 0.3) { if (!this.ctx) return; const c = this.ctx, o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0; o.type = type; o.frequency.setValueAtTime(f, t); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(this.sortie); o.start(t); o.stop(t + d + 0.05); },
+  pop() { const f = 520 + Math.random() * 380; this.note(f, 0, 0.12, 'triangle', 0.25); this.note(f * 1.5, 0.03, 0.1, 'sine', 0.12); },
+  vente() { [523, 659, 784, 1047].forEach((f, k) => this.note(f, k * 0.08, 0.25, 'triangle', 0.22)); },
+  achat() { [392, 523, 784].forEach((f, k) => this.note(f, k * 0.1, 0.35, 'square', 0.08)); },
+  refus() { this.note(180, 0, 0.18, 'square', 0.08); },
+  arrache() { this.note(140 + Math.random() * 60, 0, 0.15, 'sawtooth', 0.08); },
+});
+
+// --- Les particules de pollen : un nuage jaune qui jaillit de la tuile pollinisée. ---
+const NPART = 400, partPos = new Float32Array(NPART * 3), partVel = new Float32Array(NPART * 3), partVie = new Float32Array(NPART);
+const partGeo = new THREE.BufferGeometry(); partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
+const particules = new THREE.Points(partGeo, new THREE.PointsMaterial({ color: CHARTE.pollen, size: 0.07, transparent: true, opacity: 0.9, depthWrite: false }));
+particules.frustumCulled = false; scene.add(particules);
+let partI = 0;
+function bouffee(x, y, z, n = 18, couleur) {
+  for (let k = 0; k < n; k++) { const i = partI++ % NPART; partPos.set([x + (Math.random() - 0.5) * 1.2, y + 0.3, z + (Math.random() - 0.5) * 1.2], i * 3); partVel.set([(Math.random() - 0.5) * 0.8, 0.8 + Math.random() * 1.2, (Math.random() - 0.5) * 0.8], i * 3); partVie[i] = 0.8 + Math.random() * 0.6; }
+  if (couleur) particules.material.color.set(couleur);
+}
+MAJ.push((dt) => {
+  for (let i = 0; i < NPART; i++) { if (partVie[i] <= 0) { partPos[i * 3 + 1] = -100; continue; } partVie[i] -= dt; partVel[i * 3 + 1] -= dt * 1.2; for (let a = 0; a < 3; a++) partPos[i * 3 + a] += partVel[i * 3 + a] * dt; }
+  partGeo.attributes.position.needsUpdate = true;
+});
+
+// --- Messages : une ligne qui apparaît sous la boussole puis s'efface. ---
+const MESSAGES = [];
+function message(texte, type = '') { MESSAGES.push({ texte, type, t: gt }); if (MESSAGES.length > 3) MESSAGES.shift(); }
+
+// --- La visée : rayon depuis l'œil vers le centre de l'écran, jusqu'au sol, portée 4,5 m. ---
+const _dir = new THREE.Vector3();
+let visee = null;   // { x, z, i (tuile), dist }
+function viser() {
+  camera.getWorldDirection(_dir); const o = camera.position;
+  let prev = 0;
+  for (let t = 0.3; t <= 5.2; t += 0.1) {
+    const x = o.x + _dir.x * t, y = o.y + _dir.y * t, z = o.z + _dir.z * t;
+    if (y <= H(x, z)) { const tt = (prev + t) / 2, X = o.x + _dir.x * tt, Z = o.z + _dir.z * tt, [q, r] = versHex(X, Z); return { x: X, z: Z, i: idxDe(q, r), dist: tt }; }
+    prev = t;
+  }
+  return null;
+}
+// Une tuile est pollinisable si elle est sèche, sans chardons et arrosée si elle est aride.
+const pollinisable = (i) => i >= 0 && !T.vert[i] && T.sorte[i] !== 1 && !(T.sorte[i] === 2 && !T.irrigue[i]);
+function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'axe perpendiculaire au regard
+  if (!v || v.i < 0) return [];
+  const rx = Math.cos(joueur.yaw), rz = -Math.sin(joueur.yaw), out = [];
+  for (let k = 0; k < largeur; k++) { const off = (k - (largeur - 1) / 2) * 1.8, [q, r] = versHex(v.x + rx * off, v.z + rz * off), i = idxDe(q, r); if (i >= 0 && !out.includes(i)) out.push(i); }
+  return out;
+}
+const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
+for (let i = 0; i < NT; i++) { secteurs[T.secteur[i]].total++; secteurs[T.secteur[i]].vert += T.vert[i]; }
+const ECOUTE = { tuile: [] };   // abonnés aux tuiles fleuries (contrats, étape 6)
+function polliniser(i, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur du pollen récolté
+  if (!pollinisable(i)) return 0;
+  const doree = T.sorte[i] === 3;
+  if (doree) cueillirDoree(i);
+  fleurirTuile(i, gt); secteurs[T.secteur[i]].vert++; S.tuiles++;
+  bouffee(T.x[i], H(T.x[i], T.z[i]), T.z[i], par === 'joueur' ? 16 : 8, doree ? 0xffe27a : CHARTE.pollen);
+  for (const f of ECOUTE.tuile) f(i, par);
+  return KG_TUILE * PRIX_KG * VALEUR_ESPECE[T.espece[i]] * (doree ? 50 : 1) * S.boost;
+}
+let progres = 0, groupe = [], dernierPop = 0;
+const ACTIONS = [];   // actions de l'outil en main ajoutées par les étapes 5 et 6 : { quand(v), duree, faire(v), texte }
+function majAction(dt) {
+  visee = joueur.enVehicule ? null : viser();
+  const def = outilDef();
+  let cibleAction = null;
+  for (const a of ACTIONS) if (a.quand(visee)) { cibleAction = a; break; }
+  if (cibleAction) { groupe = cibleAction.groupe ? cibleAction.groupe(visee) : visee && visee.i >= 0 ? [visee.i] : []; }
+  else if (def.largeur && visee && visee.dist < 4.6) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
+  else groupe = [];
+  selectionner(groupe);
+  const plein = S.charge >= chargeMax() - 1e-6;
+  const peut = cibleAction ? true : groupe.length > 0 && !plein;
+  majAction.etat = { cibleAction, peut, plein, groupe };
+  gesteType = cibleAction && cibleAction.geste ? cibleAction.geste : 'brosser';
+  if (E.action && peut) {
+    const duree = cibleAction ? cibleAction.duree : def.duree;
+    progres += dt;
+    if (progres >= duree) {
+      progres = 0;
+      if (cibleAction) cibleAction.faire(visee, groupe);
+      else {
+        let n = 0;
+        for (const i of groupe) {
+          if (S.charge >= chargeMax() - 1e-6) break;
+          const v = polliniser(i); if (v > 0) { S.charge = Math.min(chargeMax(), S.charge + KG_TUILE); S.valeur += v; n++; }
+        }
+        if (n && gt - dernierPop > 0.05) { sons.pop(); dernierPop = gt; }
+        if (S.charge >= chargeMax() - 1e-6) message('Réservoir plein : vide-le au collecteur', 'alerte');
+      }
+    }
+  } else progres = Math.max(0, progres - dt * 3);
+  SEL.value.z = groupe.length ? 0.55 + 0.45 * Math.sin(gt * 6) * 0.3 + (progres / ((cibleAction ? cibleAction.duree : def.duree) || 1)) * 0.9 : 0;
+  majAction.progres = groupe.length ? progres / ((cibleAction ? cibleAction.duree : def.duree) || 1) : 0;
+}
+MAJ.push(majAction);
+MAJ.push(() => { UTEMPS.value = gt; S.temps += 0; });
+
+// --- Changer d'outil : chiffres 1 à 7, molette, ou les emplacements à l'écran. ---
+function changerOutil(cle) { if (!S.outils.includes(cle) || cle === outilEnMain) return; prendre(cle); progres = 0; }
+MAJ.push(() => {
+  if (E.outil === -1) return;
+  const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o));
+  if (E.outil >= 0) { const cle = ORDRE_OUTILS[E.outil]; if (cle) changerOutil(cle); }
+  else { const k = possedes.indexOf(outilEnMain), n = possedes.length; changerOutil(possedes[(k + (E.outil === -3 ? 1 : -1) + n) % n]); }
+});
+
+// --- Le collecteur : on y vide la charge. Son écran affiche la dernière vente. ---
+function ecrireEcran(mat, texte) {
+  const cv = mat.emissiveMap.image, g = cv.getContext('2d'), w = cv.width, h = cv.height;
+  g.fillStyle = '#121518'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(244,180,26,.25)'; g.strokeRect(6, 6, w - 12, h - 12);
+  g.fillStyle = '#f4b41a'; g.font = '800 54px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(texte, w / 2, h / 2 + 4);
+  mat.emissiveMap.needsUpdate = true;
+}
+let ECRAN_COLLECTEUR = null; COLLECTEUR.traverse((o) => { if (o.isMesh && o.material.emissiveMap) ECRAN_COLLECTEUR = o.material; });
+const VENTES = [];   // ce qui se vend au collecteur en plus du pollen (miel, étape 5) : { qte(), libelle(n), prix, retirer() }
+function venteTotale() { let cr = S.valeur * S.prixVente, parts = []; if (S.charge > 0) parts.push(`${S.charge.toFixed(1).replace('.', ',')} kg`); for (const v of VENTES) { const n = v.qte(); if (n > 0) { cr += n * v.prix * S.prixVente; parts.push(v.libelle(n)); } } return { cr: Math.round(cr), parts }; }
+function vendre() {
+  const { cr, parts } = venteTotale(); if (cr <= 0) { sons.refus(); return; }
+  S.credits += cr; S.ventes++; S.charge = 0; S.valeur = 0; for (const v of VENTES) v.retirer();
+  ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sons.vente(); gainAffiche(cr);
+  message(`Vendu : ${parts.join(' + ')} → ${cr.toLocaleString('fr-FR')} cr`, 'gain');
+}
+const gainsFlottants = []; function gainAffiche(cr) { gainsFlottants.push({ cr, t: gt }); }
+INTER.push({ obj: COLLECTEUR, x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, y: 2.7, r: 3.4, nom: 'Collecteur',
+  texte() { const { cr, parts } = venteTotale(); return cr > 0 ? `Vendre ${parts.join(' + ')} · ${cr.toLocaleString('fr-FR')} cr` : 'Collecteur · rien à vendre'; },
+  actif() { return venteTotale().cr > 0; }, agir: vendre });
+
+// --- Le comptoir : chaque présentoir porte un outil ; grisé s'il est trop cher, « bientôt » s'il n'est pas encore débloqué. ---
+const VENTE_COMPTOIR = [['brosse', 300], ['large', 1200], ['xl', 3200], ['souffleur', 8000], ['tuyau', 150], ['ruche', 600], ['marteau', 500]];
+VENTE_COMPTOIR.forEach(([cle, prix], k) => presentoir(cle, prix, k, VENTE_COMPTOIR.length));
+const DEBLOQUE = new Set(['brosse', 'large', 'xl', 'souffleur']);   // complété par la table des nouveautés (étape 6)
+const ACHAT = { ruche: null };   // effet d'achat des objets, fourni par l'étape 5
+function acheter(p) {
+  const possede = S.outils.includes(p.cle);
+  if (possede || !DEBLOQUE.has(p.cle)) return;
+  if (S.credits < p.prix) { sons.refus(); message(`Il manque ${(p.prix - S.credits).toLocaleString('fr-FR')} cr`, 'alerte'); return; }
+  S.credits -= p.prix; sons.achat();
+  if (OUTILS_DEF[p.cle]) { S.outils.push(p.cle); changerOutil(p.cle); message(`${OUTILS_DEF[p.cle].nom} en main : ${OUTILS_DEF[p.cle].effet}`, 'gain'); }
+  else if (ACHAT[p.cle]) ACHAT[p.cle](p);
+}
+for (const p of PRESENTOIRS) INTER.push({ obj: p.g, x: p.x, z: p.z, y: 1.5, r: 1.6, nom: (OUTILS_DEF[p.cle] || OBJETS_DEF[p.cle]).nom, presentoir: p,
+  texte() { const d = OUTILS_DEF[p.cle] || OBJETS_DEF[p.cle]; if (!DEBLOQUE.has(p.cle)) return `${d.nom} · bientôt`; if (S.outils.includes(p.cle)) return `${d.nom} · acquis`; return `Acheter ${d.nom} · ${p.prix.toLocaleString('fr-FR')} cr`; },
+  actif() { return DEBLOQUE.has(p.cle) && !S.outils.includes(p.cle) && S.credits >= p.prix; }, agir() { acheter(p); } });
+MAJ.push(() => { for (const p of PRESENTOIRS) majPresentoir(p, !DEBLOQUE.has(p.cle) ? 'verrou' : (S.outils.includes(p.cle) && OUTILS_DEF[p.cle]) ? 'acquis' : S.credits >= p.prix ? 'abordable' : 'cher'); });
+
+// --- Interagir : l'objet utilisable le plus proche, dans le champ de vision. ---
+const INTER_HORS = [];   // E sans objet proche (descendre du véhicule, couper le tuyau…)
+let interVise = null;
+MAJ.push(() => {
+  interVise = null; let best = 1e9;
+  if (!joueur.enVehicule) {
+    const fx = -Math.sin(joueur.yaw), fz = -Math.cos(joueur.yaw);
+    for (const it of INTER) { if (it.cache && it.cache()) continue; const dx = it.x - joueur.x, dz = it.z - joueur.z, d = Math.hypot(dx, dz); if (d > it.r) continue; const face = (dx * fx + dz * fz) / (d || 1); if (face < 0.2 && d > 1.2) continue; const sc = d - face; if (sc < best && it.texte()) { best = sc; interVise = it; } }
+  }
+  if (E.inter && interVise) interVise.agir();
+  else if (E.inter && INTER_HORS.length) for (const f of INTER_HORS) if (f()) break;
+});
+
+// --- L'objectif de la boussole : la prochaine chose utile à faire. ---
+function objectif() {
+  for (const f of OBJECTIFS) { const o = f(); if (o) return o; }
+  if (S.charge >= chargeMax() - 1e-6 || (S.charge > 0 && S.charge >= chargeMax() * 0.8)) return { x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, nom: 'Collecteur' };
+  const p = PRESENTOIRS.find((p) => DEBLOQUE.has(p.cle) && !S.outils.includes(p.cle) && S.credits >= p.prix && OUTILS_DEF[p.cle]);
+  if (p) return { x: p.x, z: p.z, nom: 'Comptoir' };
+  return tuileProche();
+}
+const OBJECTIFS = [];   // contrats, essaims… insérés par les étapes suivantes
+let tuileCache = null, tuileCacheT = -10;
+function tuileProche() {   // la tuile pollinisable la plus proche (recalculée deux fois par seconde)
+  if (gt - tuileCacheT < 0.5 && tuileCache && pollinisable(tuileCache.i)) return tuileCache;
+  tuileCacheT = gt; let best = 1e9, bi = -1;
+  for (let i = 0; i < NT; i++) if (pollinisable(i)) { const d = (T.x[i] - joueur.x) ** 2 + (T.z[i] - joueur.z) ** 2; if (d < best) { best = d; bi = i; } }
+  tuileCache = bi >= 0 ? { x: T.x[bi], z: T.z[bi], nom: 'Tuile sèche', i: bi } : null;
+  return tuileCache;
+}
+
+
+// =====================================================================
+// 12. L'interface, composée à la manière de POLLEN : plaques graphite translucides aux coins chanfreinés,
+//     chiffres jaune pollen, voyants vert sève. Sept éléments :
+//     boussole avec distance à l'objectif, anneau de progression du secteur, pastille de l'outil avec sa charge,
+//     emplacements d'outils, crédits, liste des raccourcis, badges de touche en contexte et étiquettes flottantes.
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+if (MOBILE) jeu.classList.add('mobile');
+const hud = { bande: $('bande'), cible: $('cible'), secN: $('secN'), secP: $('secP'), arc: $('arc'), nomOutil: $('nomOutil'), charge: $('charge'), jauge: $('jauge'),
+  slots: $('slots'), cr: $('cr'), raccourcis: $('raccourcis'), contexte: $('contexte'), etiquettes: $('etiquettes'), messages: $('messages'), gains: $('gains') };
+const fmtKg = (v) => v.toFixed(1).replace('.', ',');
+const fmtCr = (v) => Math.round(v).toLocaleString('fr-FR');
+// Boussole : un ruban de ±90° autour du cap, graduations tous les 15°, lettres cardinales, chevron de l'objectif.
+const CARD = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+{
+  let h = ''; for (let d = 0; d < 360; d += 15) h += `<i data-a="${d}" class="${d % 45 ? 'g' : 'c'}">${d % 45 ? '' : CARD[d / 45]}</i>`;
+  hud.bande.innerHTML = h;
+}
+const marques = [...hud.bande.children].map((el) => ({ el, a: +el.dataset.a }));
+const angle = (a) => ((a % 360) + 540) % 360 - 180;   // ramené entre -180 et 180
+function cap() { return (-joueur.yaw * 180 / Math.PI + 360) % 360; }   // 0 = nord (-z), 90 = est (+x)
+function relatif(x, z) { return angle(Math.atan2(x - joueur.x, -(z - joueur.z)) * 180 / Math.PI - cap()); }
+const MARQUEURS = [];   // marqueurs secondaires de la boussole (balises, essaims) : { x, z, cls, actif() }
+const marqueursEl = [];
+let dernierHUD = 0, tSlots = '', tRacc = '';
+const etiquettes = []; for (let k = 0; k < 6; k++) { const d = document.createElement('div'); d.className = 'etiq'; d.hidden = true; d.innerHTML = '<kbd>E</kbd><span></span>'; hud.etiquettes.appendChild(d); etiquettes.push(d); }
+const _v = new THREE.Vector3();
+function majHUD() {
+  // Boussole.
+  const c = cap(), L = hud.bande.parentNode.clientWidth || 360, px = L / 180;
+  for (const m of marques) { const r = angle(m.a - c); m.el.style.display = Math.abs(r) > 92 ? 'none' : ''; m.el.style.transform = `translateX(${r * px}px)`; }
+  const ob = objectif();
+  if (ob) { const r = relatif(ob.x, ob.z), d = Math.hypot(ob.x - joueur.x, ob.z - joueur.z); hud.cible.hidden = false; hud.cible.style.transform = `translateX(${clamp(r, -88, 88) * px}px)`; hud.cible.classList.toggle('bord', Math.abs(r) > 88); hud.cible.lastChild.textContent = `${ob.nom} · ${d < 10 ? d.toFixed(1).replace('.', ',') : Math.round(d)} m`; }
+  else hud.cible.hidden = true;
+  MARQUEURS.forEach((m, k) => {
+    if (!marqueursEl[k]) { const el = document.createElement('b'); el.className = 'marq ' + (m.cls || ''); hud.bande.parentNode.appendChild(el); marqueursEl[k] = el; }
+    const el = marqueursEl[k], vis = !m.actif || m.actif(); el.hidden = !vis; if (vis) { const r = relatif(m.x, m.z); el.style.transform = `translateX(${clamp(r, -90, 90) * px}px)`; el.style.opacity = Math.abs(r) > 90 ? 0.35 : 1; }
+  });
+  // Secteur.
+  const s = secteurDe(joueur.x, joueur.z), sec = secteurs[s], p = sec.total ? sec.vert / sec.total : 0;
+  hud.secN.textContent = s + 1; hud.secP.textContent = `${Math.floor(p * 100)} %`; hud.arc.style.strokeDashoffset = `${(1 - p) * 113.1}`;
+  // Outil et charge.
+  const def = outilDef(), max = chargeMax();
+  hud.nomOutil.textContent = def.nom;
+  hud.charge.textContent = `${fmtKg(S.charge)} / ${max} KG`;
+  hud.jauge.style.transform = `scaleY(${max ? S.charge / max : 0})`; hud.jauge.parentNode.classList.toggle('plein', S.charge >= max - 1e-6);
+  // Emplacements.
+  const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;
+  if (sig !== tSlots) { tSlots = sig; hud.slots.innerHTML = possedes.map((o) => `<button type="button" data-tactile data-outil="${o}" class="${o === outilEnMain ? 'actif' : ''}" aria-label="${OUTILS_DEF[o].nom}"><kbd>${ORDRE_OUTILS.indexOf(o) + 1}</kbd>${ICONES[o] || ''}</button>`).join(''); }
+  // Crédits.
+  hud.cr.textContent = fmtCr(S.credits);
+  // Raccourcis (seulement ce qui sert déjà).
+  const R = RACCOURCIS.filter((r) => !r.si || r.si()), sigR = R.map((r) => r.t).join();
+  if (sigR !== tRacc) { tRacc = sigR; hud.raccourcis.innerHTML = R.map((r) => `<li${r.tap ? ` data-tactile data-tap="${r.tap}"` : ''}><kbd>${MOBILE ? (r.m || r.k) : r.k}</kbd>${r.t}</li>`).join(''); }
+  // Badge de contexte sous le réticule.
+  const st = majAction.etat || {};
+  let ctx = '';
+  const btnA = MOBILE ? '●' : 'Clic', btnE = 'E';
+  if (interVise) ctx = `<kbd class="${interVise.actif && !interVise.actif() ? 'off' : ''}">${btnE}</kbd>${interVise.texte()}`;
+  else if (st.cibleAction) ctx = `<kbd>${btnA}</kbd>${st.cibleAction.texte}`;
+  else if (st.plein && visee) ctx = '<kbd class="off">!</kbd>Réservoir plein · collecteur';
+  else if (st.groupe && st.groupe.length) ctx = `<kbd>${btnA}</kbd>Maintenir · polliniser${st.groupe.length > 1 ? ` ${st.groupe.length} tuiles` : ''}`;
+  else if (visee && visee.i >= 0 && T.sorte[visee.i] === 1) ctx = '<kbd class="off">✕</kbd>Chardons · à arracher d’abord';
+  else if (visee && visee.i >= 0 && T.sorte[visee.i] === 2 && !T.irrigue[visee.i]) ctx = '<kbd class="off">✕</kbd>Tuile aride · à irriguer d’abord';
+  for (const f of CONTEXTES) { const t = f(); if (t) { ctx = t; break; } }
+  if (hud.contexte.innerHTML !== ctx) hud.contexte.innerHTML = ctx;
+  hud.contexte.hidden = !ctx;
+  hud.contexte.style.setProperty('--p', majAction.progres || 0);
+  if (MOBILE) { $('agir').classList.toggle('pret', !!(st.peut && (st.groupe && st.groupe.length || st.cibleAction))); $('inter').classList.toggle('pret', !!(interVise && (!interVise.actif || interVise.actif()))); }
+  // Étiquettes flottantes près des machines (dans les 14 m, devant soi).
+  const proches = INTER.filter((it) => !it.presentoir && !(it.cache && it.cache())).map((it) => ({ it, d: Math.hypot(it.x - joueur.x, it.z - joueur.z) })).filter((o) => o.d < 14).sort((a, b) => a.d - b.d);
+  if (proches.length < etiquettes.length) { const pr = INTER.filter((it) => it.presentoir).map((it) => ({ it, d: Math.hypot(it.x - joueur.x, it.z - joueur.z) })).filter((o) => o.d < 4).sort((a, b) => a.d - b.d); proches.push(...pr); }
+  etiquettes.forEach((el, k) => {
+    const o = proches[k]; if (!o || joueur.enVehicule) { el.hidden = true; return; }
+    _v.set(o.it.x, H(o.it.x, o.it.z) + o.it.y, o.it.z).project(camera);
+    if (_v.z > 1 || Math.abs(_v.x) > 1.05 || Math.abs(_v.y) > 1.05) { el.hidden = true; return; }
+    el.hidden = false; el.classList.toggle('vise', o.it === interVise); el.classList.toggle('off', !!(o.it.actif && !o.it.actif()));
+    el.style.transform = `translate(${(_v.x * 0.5 + 0.5) * LARG}px, ${(-_v.y * 0.5 + 0.5) * HAUT}px) translate(-50%, -100%) scale(${clamp(1.25 - o.d / 18, 0.6, 1)})`;
+    const t = o.it === interVise ? o.it.texte() : o.it.nom; if (el.lastChild.textContent !== t) el.lastChild.textContent = t;
+  });
+  // Messages et gains.
+  const m = MESSAGES.filter((x) => gt - x.t < 4.5), sigM = m.map((x) => x.texte + x.t).join();
+  if (hud.messages.dataset.s !== sigM) { hud.messages.dataset.s = sigM; hud.messages.innerHTML = m.map((x) => `<p class="${x.type}">${x.texte}</p>`).join(''); }
+  const g = gainsFlottants.filter((x) => gt - x.t < 1.6); hud.gains.innerHTML = g.map((x) => `<p style="opacity:${1 - (gt - x.t) / 1.6};transform:translateY(${-(gt - x.t) * 30}px)">+${fmtCr(x.cr)}</p>`).join('');
+}
+const CONTEXTES = [];   // badges de contexte prioritaires ajoutés par les étapes suivantes
+const RACCOURCIS = [
+  { k: 'ZQSD', m: '◐', t: 'Se déplacer' },
+  { k: 'Clic', m: '●', t: 'Polliniser' },
+  { k: 'E', t: 'Utiliser' },
+  { k: '1-7', m: '⇆', t: 'Outils', si: () => S.outils.length > 1 },
+];
+const ICONES = {   // pictogrammes des emplacements, dessinés au trait
+  pinceau: '<svg viewBox="0 0 24 24"><path d="M5 19l9-9m1-1l3-3 1 1-3 3"/><path d="M4 20c1-3 2-4 3-3s0 2-3 3z"/></svg>',
+  brosse: '<svg viewBox="0 0 24 24"><path d="M12 3v10"/><rect x="7" y="13" width="10" height="3" rx="1"/><path d="M8 16v4m2-4v4m2-4v4m2-4v4m2-4v4"/></svg>',
+  large: '<svg viewBox="0 0 24 24"><path d="M12 3v9"/><rect x="4" y="12" width="16" height="3" rx="1"/><path d="M5 15v4m3-4v4m3-4v4m3-4v4m3-4v4m2-4v4"/></svg>',
+  xl: '<svg viewBox="0 0 24 24"><path d="M12 3v8"/><rect x="2" y="11" width="20" height="3" rx="1"/><path d="M3 14v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5"/></svg>',
+  souffleur: '<svg viewBox="0 0 24 24"><path d="M4 17l10-10"/><path d="M14 7l2-2 3 3-2 2z"/><path d="M18 12c2 0 3 1 3 3m-5-1c1 0 2 1 2 2"/></svg>',
+  tuyau: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M18 12h4"/></svg>',
+  marteau: '<svg viewBox="0 0 24 24"><path d="M6 20l8-8"/><rect x="11" y="4" width="9" height="5" rx="1" transform="rotate(45 15 7)"/></svg>',
+};
+// Les emplacements et les raccourcis se touchent sur téléphone ; ils se cliquent aussi sur ordinateur.
+hud.slots.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-outil]'); if (b) { changerOutil(b.dataset.outil); e.stopPropagation(); e.preventDefault(); } });
+hud.raccourcis.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-tap]'); if (b) { E[b.dataset.tap] = true; e.stopPropagation(); e.preventDefault(); } });
+MAJ.push(() => { if (gt - dernierHUD > 1 / 30 || window.pollen && window.pollen.figer) { dernierHUD = gt; majHUD(); } });
+
 // =====================================================================
 // 99. Post-traitement, mise en page (paysage forcé sur téléphone), boucle de jeu
 // =====================================================================
@@ -552,7 +1129,6 @@ function disposer() {
 disposer(); addEventListener('resize', disposer); addEventListener('orientationchange', () => setTimeout(disposer, 250));
 const dbg = document.getElementById('debug'); if (DEBUG) dbg.hidden = false;
 renderer.info.autoReset = false;
-const MAJ = [];   // fonctions de mise à jour ajoutées par les modules (étapes 3 à 6)
 function majMonde(dt) {
   gt += dt;
   majJoueur(dt); majCamera(); majCorps(); majVue(dt);
@@ -572,7 +1148,8 @@ function image(now) {
 }
 window.pollen = {
   figer: false, Q, T, NT, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, vue, corps, H,
-  get outil() { return outilEnMain; }, prendre,
+  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, DEBLOQUE, MESSAGES, versHex, idxDe,
+  get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { x: joueur.x, z: joueur.z, y: joueur.y, yaw: joueur.yaw, pitch: joueur.pitch, vitesse: joueur.vitesse }; },
 };
 OBSTACLES.push({ x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 1.7 });

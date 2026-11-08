@@ -1,4 +1,4 @@
-// Test de la v9 (étapes 1 et suivantes). Étape 1 (décor et charte) : la page se charge sans erreur sur ordinateur et téléphone,
+// Test de la v9 (étapes 1 et suivantes). Étapes 3 et 4 : l'interface et la boucle polliniser, vendre, acheter. Étape 1 (décor et charte) : la page se charge sans erreur sur ordinateur et téléphone,
 // le terrain hexagonal a ses tuiles sèches et vertes, le collecteur est construit selon la charte :
 // aucune boîte à arêtes vives, quatre couleurs de matériel seulement, socle étagé avec bande lumineuse.
 // Lancer : node tests/v9-smoke.mjs
@@ -29,7 +29,7 @@ try {
       return { nom: P.Q.nom, nt: P.NT, vertes: P.T.vert.reduce((s, v) => s + v, 0), brutes, arrondies, hors, emissifs: [...emissifs], seve: C.seve, dansScene };
     });
     check(r.nom === cible, `${cible} : appareil détecté « ${r.nom} »`);
-    check(r.nt > 4000 && r.vertes > r.nt * 0.35 && r.vertes < r.nt * 0.65, `${cible} : ${r.nt} tuiles, ${r.vertes} vertes`);
+    check(r.nt > 4000 && r.vertes > 50 && r.vertes < r.nt * 0.1, `${cible} : ${r.nt} tuiles, ${r.vertes} vertes autour de la station, le reste à rendre à la vie`);
     check(r.dansScene && r.brutes === 0 && r.arrondies >= 15, `${cible} : collecteur en scène, ${r.arrondies} pièces chanfreinées, aucune boîte à arêtes vives`);
     check(r.hors.length === 0 && r.emissifs.length === 1 && r.emissifs[0] === r.seve, `${cible} : matériel en blanc, graphite, jaune pollen et vert sève lumineux uniquement`);
     // --- Étape 2 : la vue et les contrôles ---
@@ -67,8 +67,34 @@ try {
       check(tr.includes('rotate(90deg)'), 'mobile : tenu en portrait, la scène tourne en paysage');
     }
     const bord = await page.evaluate(() => { const P = window.pollen, J = P.joueur; Object.assign(J, { x: 60, z: 30, yaw: -2.0, vx: 0, vz: 0 }); P.E.mz = 1; P.step(0.05, 80); P.E.mz = 0; return Math.hypot(J.x, J.z); });
-    const obst = await page.evaluate(() => { const P = window.pollen, J = P.joueur, o = P.OBSTACLES[0]; Object.assign(J, { x: o.x + 5, z: o.z, yaw: Math.PI / 2, vx: 0, vz: 0 }); P.E.mz = 1; P.step(0.05, 60); P.E.mz = 0; return { d: Math.hypot(J.x - o.x, J.z - o.z), r: o.r }; });
+    const obst = await page.evaluate(() => { const P = window.pollen, J = P.joueur, o = P.OBSTACLES.find((o) => o.x === P.COLLECTEUR.position.x && o.z === P.COLLECTEUR.position.z); Object.assign(J, { x: o.x + 5, z: o.z, yaw: Math.PI / 2, vx: 0, vz: 0 }); P.E.mz = 1; P.step(0.05, 60); P.E.mz = 0; return { d: Math.hypot(J.x - o.x, J.z - o.z), r: o.r }; });
     check(bord <= 69.51 && obst.d >= obst.r + 0.34, `${cible} : bord du terrain (${bord.toFixed(1)} m) et collecteur infranchissable`);
+    // --- Étape 3 : l'interface (sept éléments et les étiquettes) ---
+    const ui = await page.evaluate(() => { const vis = (id) => { const e = document.getElementById(id); if (!e || e.hidden) return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      return { boussole: vis('boussole') && document.querySelectorAll('#bande i.c').length === 8, cible: !document.getElementById('cible').hidden && document.querySelector('#cible span').getBoundingClientRect().width > 20 && document.getElementById('cible').textContent.includes(' m'), secteur: vis('secteur') && /\d+ %/.test(document.getElementById('secP').textContent),
+        pastille: vis('pastille') && /^\d+,\d \/ \d+ KG$/.test(document.getElementById('charge').textContent), slots: document.querySelectorAll('#slots button').length === 1, credits: vis('credits'), raccourcis: document.querySelectorAll('#raccourcis li').length >= 3 }; });
+    check(Object.values(ui).every(Boolean), `${cible} : interface : boussole et objectif, secteur, pastille de charge, emplacements, crédits, raccourcis ${JSON.stringify(ui)}`);
+    // --- Étape 4 : la boucle ---
+    const b = await page.evaluate(() => {
+      const P = window.pollen, out = {}; P.figer = true;
+      let i = -1; for (let k = 0; k < P.NT; k++) if (P.pollinisable(k) && Math.hypot(P.T.x[k], P.T.z[k]) > 21 && P.T.sorte[k] === 0) { i = k; break; }
+      const x = P.T.x[i], z = P.T.z[i] + 2.2; Object.assign(P.joueur, { x, z, y: P.H(x, z), yaw: 0, pitch: -0.62, vx: 0, vz: 0 }); P.step(0.016, 2);
+      out.vise = P.groupe.includes(i); out.badge = document.getElementById('contexte').textContent;
+      P.E.action = true; P.step(0.1, 26); P.E.action = false; P.step(0.016);
+      out.vert = P.T.vert[i]; out.charge = P.S.charge; out.jauge = document.getElementById('charge').textContent;
+      const C = P.COLLECTEUR; Object.assign(P.joueur, { x: C.position.x + 2.6 * Math.sin(C.rotation.y), z: C.position.z + 2.6 * Math.cos(C.rotation.y), vx: 0, vz: 0, pitch: 0 }); P.joueur.yaw = Math.atan2(P.joueur.x - C.position.x, P.joueur.z - C.position.z); P.step(0.016, 2);
+      out.vendre = P.interVise && P.interVise.texte(); out.etiquette = [...document.querySelectorAll('.etiq')].some((e) => !e.hidden && e.textContent.startsWith('E'));
+      P.E.inter = true; P.step(0.016); out.credits = P.S.credits; out.vide = P.S.charge === 0;
+      const pr = P.PRESENTOIRS.find((p) => p.cle === 'brosse'); out.grise = pr.etat === 'cher';
+      P.S.credits = 350; P.step(0.016); out.abordable = pr.etat === 'abordable';
+      Object.assign(P.joueur, { x: pr.x + Math.sin(pr.g.rotation.y), z: pr.z + Math.cos(pr.g.rotation.y), vx: 0, vz: 0 }); P.joueur.yaw = Math.atan2(P.joueur.x - pr.x, P.joueur.z - pr.z); P.step(0.016, 2);
+      P.E.inter = true; P.step(0.016); out.outil = P.outil; out.reste = P.S.credits; out.slots = document.querySelectorAll('#slots button').length;
+      P.figer = false; return out;
+    });
+    check(b.vise && b.badge.includes('polliniser'), `${cible} : la tuile visée est surlignée, badge « ${b.badge} »`);
+    check(b.vert === 1 && b.charge === 0.5 && b.jauge.startsWith('0,5'), `${cible} : maintenir l'action pollinise : tuile verte, charge ${b.jauge}`);
+    check(b.vendre && b.vendre.startsWith('Vendre') && b.etiquette && b.credits > 0 && b.vide, `${cible} : « ${b.vendre} » au collecteur, étiquette E, ${b.credits} cr`);
+    check(b.grise && b.abordable && b.outil === 'brosse' && b.reste === 50 && b.slots === 2, `${cible} : présentoir grisé puis abordable, brosse achetée et en main tout de suite`);
     const shot = await page.screenshot({ timeout: 240000 });
     check(shot.length > 30000, `${cible} : l'image n'est pas vide (${(shot.length / 1024).toFixed(0)} Ko)`);
     check(erreurs.length === 0, `${cible} : console vide${erreurs.length ? ' : ' + erreurs.join(' | ') : ''}`);

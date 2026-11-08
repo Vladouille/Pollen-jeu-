@@ -19,7 +19,6 @@ function disposer() {
 disposer(); addEventListener('resize', disposer); addEventListener('orientationchange', () => setTimeout(disposer, 250));
 const dbg = document.getElementById('debug'); if (DEBUG) dbg.hidden = false;
 renderer.info.autoReset = false;
-const MAJ = [];   // fonctions de mise à jour ajoutées par les modules (étapes 3 à 6)
 function majMonde(dt) {
   gt += dt;
   majJoueur(dt); majCamera(); majCorps(); majVue(dt);
@@ -39,7 +38,8 @@ function image(now) {
 }
 window.pollen = {
   figer: false, Q, T, NT, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, vue, corps, H,
-  get outil() { return outilEnMain; }, prendre,
+  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, DEBLOQUE, MESSAGES, versHex, idxDe,
+  get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { x: joueur.x, z: joueur.z, y: joueur.y, yaw: joueur.yaw, pitch: joueur.pitch, vitesse: joueur.vitesse }; },
 };
 OBSTACLES.push({ x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 1.7 });
