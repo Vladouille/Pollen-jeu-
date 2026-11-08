@@ -1,6 +1,7 @@
 // Scénario de l’étape 5 de la v9, joué dans la page par tests/v9-smoke.mjs : désherber, irriguer, ruche et miel, essaim, balise et fleur dorée.
 (() => {
   const P = window.pollen, J = P.joueur, out = {}; P.figer = true;
+  P.DEBLOQUE.add('tuyau'); P.DEBLOQUE.add('ruche');   // sans attendre 8 et 16 minutes de jeu
   const face = (x, z, d, pitch) => { const a = Math.atan2(J.x - x, J.z - z); Object.assign(J, { x: x + Math.sin(a) * d, z: z + Math.cos(a) * d, vx: 0, vz: 0, pitch }); J.y = P.H(J.x, J.z); J.yaw = Math.atan2(J.x - x, J.z - z); P.step(0.016, 2); };
   // désherber
   let i = -1; for (let k = 0; k < P.NT; k++) if (P.T.sorte[k] === 1) { i = k; break; }

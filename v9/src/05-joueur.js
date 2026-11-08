@@ -202,7 +202,7 @@ const ENMAIN = {};
 let outilEnMain = 'pinceau';
 function prendre(cle) {
   outilEnMain = cle; vue.clear();
-  if (!ENMAIN[cle]) { const o = fabriquerOutil(cle); o.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = false; } }); ENMAIN[cle] = o; }
+  if (!ENMAIN[cle]) { const o = fusionner(fabriquerOutil(cle)); o.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = false; } }); ENMAIN[cle] = o; }
   vue.add(ENMAIN[cle]);
   const P = POSE_OUTIL[cle]; ENMAIN[cle].scale.setScalar(P.s);
 }

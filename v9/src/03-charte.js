@@ -32,6 +32,23 @@ function socle(parent, w, d) {
   placer(parent, boite(w + 0.16, 0.1, d + 0.16, M.graphite, 0.03), 0, 0.44, 0);
   return 0.49;   // hauteur du dessus du socle
 }
+// Fusion : toutes les pièces fixes d'un objet qui partagent une matière deviennent un seul maillage
+// (un appel de dessin par matière au lieu d'un par pièce). Ce qui bouge ou change de matière porte userData.garder.
+function fusionner(g) {
+  g.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), parMat = new Map(), retirer = [];
+  const garde = (o) => { for (let p = o; p && p !== g; p = p.parent) if (p.userData.garder) return true; return false; };
+  g.traverse((o) => {
+    if (!o.isMesh || Array.isArray(o.material) || garde(o)) return;
+    const geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k);
+    geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    if (!parMat.has(o.material)) parMat.set(o.material, []); parMat.get(o.material).push(geo); retirer.push(o);
+  });
+  for (const o of retirer) o.parent.remove(o);
+  for (const [mat, geos] of parMat) { const m = new THREE.Mesh(mergeGeometries(geos), mat); m.castShadow = m.receiveShadow = true; m.userData.fusion = geos.length; g.add(m); }
+  return g;
+}
 function ecran(texte) {   // verre sombre, chiffre en jaune pollen
   const t = texture(256, 128, (g, w, h) => { g.fillStyle = '#121518'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(244,180,26,.25)'; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#f4b41a'; g.font = '800 64px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(texte, w / 2, h / 2 + 4); });
   return new THREE.MeshStandardMaterial({ color: 0x0d0f11, roughness: 0.1, metalness: 0.2, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 1.3 });

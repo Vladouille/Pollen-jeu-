@@ -63,24 +63,21 @@ function fabriquerRuche() {   // corps blanc en trois hausses, toit graphite à 
   placer(g, boite(0.88, 0.03, 0.88, M.pollen, 0.012), 0, base + 0.96, 0);
   placer(g, boite(0.4, 0.03, 0.14, M.pollen, 0.01), 0, base + 0.05, 0.42);                   // planche d'envol
   placer(g, boite(0.3, 0.04, 0.02, M.graphite, 0.01), 0, base + 0.09, 0.355);
-  placer(g, boite(0.28, 0.12, 0.02, M_CIRE, 0.01), 0, base + 0.5, 0.355);                     // fenêtre : la cire luit quand il y a du miel
-  return g;
+  g.userData.cire = placer(g, boite(0.28, 0.12, 0.02, M_CIRE, 0.01), 0, base + 0.5, 0.355); g.userData.cire.userData.garder = true;   // fenêtre : la cire luit quand il y a du miel
+  return fusionner(g);
 }
 const ABEILLES = 14, abeillesGeo = new THREE.BufferGeometry(), abeillesPos = new Float32Array(EMPL_RUCHE.length * ABEILLES * 3);
 abeillesGeo.setAttribute('position', new THREE.BufferAttribute(abeillesPos, 3));
 const abeilles = new THREE.Points(abeillesGeo, new THREE.PointsMaterial({ color: 0x3b2f12, size: 0.05 })); abeilles.frustumCulled = false; scene.add(abeilles);
-for (const e of EMPL_RUCHE) {   // l'emplacement libre : une dalle hexagonale graphite au liseré jaune
-  const d = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.95, 0.08, 6), M.graphite); d.position.set(e.x, H(e.x, e.z) + 0.04, e.z); d.receiveShadow = true; scene.add(d);
-  const l = new THREE.Mesh(new THREE.CylinderGeometry(0.97, 0.97, 0.02, 6, 1, true), M.pollen); l.position.set(e.x, H(e.x, e.z) + 0.07, e.z); scene.add(l);
-  e.dalle = d;
-}
+{ const g = new THREE.Group();   // les emplacements libres : une dalle hexagonale graphite au liseré jaune
+  for (const e of EMPL_RUCHE) { placer(g, new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.95, 0.08, 6), M.graphite), e.x, H(e.x, e.z) + 0.04, e.z); placer(g, new THREE.Mesh(new THREE.CylinderGeometry(0.97, 0.97, 0.02, 6, 1, true), M.pollen), e.x, H(e.x, e.z) + 0.07, e.z); }
+  scene.add(fusionner(g)); }
 function installerRuche(e, sauvage = false) {
   const g = fabriquerRuche(); g.position.set(e.x, H(e.x, e.z), e.z); g.rotation.y = Math.atan2(-e.x, -e.z); scene.add(g);
   e.ruche = { g, pots: 0, tMiel: 0, tPoll: Math.random() * 6, sauvage }; OBSTACLES.push({ x: e.x, z: e.z, r: 0.8 });
   return e;
 }
 { const p = PRESENTOIRS.find((p) => p.cle === 'ruche'), o = fabriquerRuche(); o.scale.setScalar(0.5); o.position.y = 0.96; p.g.remove(p.objet); p.g.add(o); p.objet = o; o.traverse((m) => { if (m.isMesh) m.userData.matOrigine = m.material; }); p.etat = ''; }   // une ruche miniature sur son présentoir
-DEBLOQUE.add('tuyau'); DEBLOQUE.add('ruche');   // l'étape 6 les fera arriver avec la table des nouveautés
 ACHAT.ruche = () => {
   const e = EMPL_RUCHE.find((e) => !e.ruche);
   if (!e) { S.credits += 600; message('Les six emplacements sont pris', 'alerte'); return; }
@@ -103,7 +100,7 @@ MAJ.push((dt) => {
     if (!r) continue;
     r.tMiel += dt; if (r.tMiel >= 45) { r.tMiel = 0; r.pots = Math.min(6, r.pots + 1); }
     r.tPoll += dt; if (r.tPoll >= 6) { r.tPoll = 0; const [q0, r0] = versHex(e.x, e.z); const c = []; for (let dq = -5; dq <= 5; dq++) for (let dr = -5; dr <= 5; dr++) { const i = idxDe(q0 + dq, r0 + dr); if (pollinisable(i) && T.sorte[i] !== 3 && Math.hypot(T.x[i] - e.x, T.z[i] - e.z) < 9) c.push(i); } if (c.length) polliniser(c[Math.floor(Math.random() * c.length)], 'ruche'); }
-    r.g.children[r.g.children.length - 1].visible = r.pots > 0;
+    r.g.userData.cire.visible = r.pots > 0;
   }
   abeillesGeo.attributes.position.needsUpdate = true;
 });
@@ -113,7 +110,7 @@ MAJ.push((dt) => {
 const essaim = { actif: false, x: 0, z: 0, t: 0, prochain: 100 };
 const NESS = 90, essaimPos = new Float32Array(NESS * 3), essaimGeo = new THREE.BufferGeometry(); essaimGeo.setAttribute('position', new THREE.BufferAttribute(essaimPos, 3));
 const nuage = new THREE.Points(essaimGeo, new THREE.PointsMaterial({ color: 0x2b220c, size: 0.07 })); nuage.frustumCulled = false; nuage.visible = false; scene.add(nuage);
-const ESSAIMS_ACTIFS = { v: true };   // coupé tant que les ruches ne sont pas débloquées (étape 6)
+const ESSAIMS_ACTIFS = { v: false };   // allumé avec les ruches par la table des nouveautés
 function lancerEssaim() {
   for (let n = 0; n < 50; n++) { const a = Math.random() * 6.283, d = 28 + Math.random() * 30, x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x - joueur.x, z - joueur.z) > 15) { Object.assign(essaim, { actif: true, x, z, t: 120 }); message('Un essaim sauvage s’est posé dans les champs', 'evenement'); return; } }
 }
@@ -141,7 +138,7 @@ for (let s = 0; s < NSECT; s++) {
   for (let k = 0; k < 3; k++) placer(g, tube(0.085, 0.085, 0.06, M.graphite), 0, base + 0.6 + k * 1, 0);
   const feu = placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 10), new THREE.MeshStandardMaterial({ color: 0x000000, emissive: CHARTE.pollen, emissiveIntensity: 2.5 })), 0, base + 3.35, 0);
   placer(g, boite(0.5, 0.35, 0.06, M.graphite, 0.02), 0, base + 1.2, 0.1);
-  g.position.set(x, H(x, z), z); g.rotation.y = Math.atan2(-x, -z); scene.add(g); OBSTACLES.push({ x, z, r: 0.6 });
+  fusionner(g); g.position.set(x, H(x, z), z); g.rotation.y = Math.atan2(-x, -z); scene.add(g); OBSTACLES.push({ x, z, r: 0.6 });
   BALISES.push({ x, z, s, g, feu, active: false });
 }
 const doreesRevelees = [];

@@ -1,4 +1,4 @@
-// Test de la v9 (étapes 1 et suivantes). Étapes 3 et 4 : l'interface et la boucle polliniser, vendre, acheter. Étape 1 (décor et charte) : la page se charge sans erreur sur ordinateur et téléphone,
+// Test de la v9, étapes 1 à 6. Étapes 3 et 4 : l'interface et la boucle polliniser, vendre, acheter ; 5 : activités ; 6 : automatisation. Étape 1 (décor et charte) : la page se charge sans erreur sur ordinateur et téléphone,
 // le terrain hexagonal a ses tuiles sèches et vertes, le collecteur est construit selon la charte :
 // aucune boîte à arêtes vives, quatre couleurs de matériel seulement, socle étagé avec bande lumineuse.
 // Lancer : node tests/v9-smoke.mjs
@@ -103,6 +103,22 @@ try {
       check(a.ruche && a.pots >= 1 && a.pollRuche > 3 && a.miel === a.pots && a.gainMiel === 40 * a.pots, `pc : ruche achetée, ${a.pollRuche} tuiles pollinisées par les abeilles, miel récolté et vendu (+${a.gainMiel} cr)`);
       check(a.essaim && a.capt.startsWith('Capturer') && a.ruches === 2, 'pc : essaim sauvage capturé : une ruche gratuite');
       check(a.baliseGain === 100 && a.revelees > 0 && a.doree >= 150, `pc : balise activée, ${a.revelees} fleurs dorées révélées, une dorée vaut ${a.doree} cr`);
+    }
+    // --- Étape 6 : l'automatisation et le monde (scénario dans tests/v9-automatisation.js) ---
+    if (cible === 'pc') {
+      const o = await page.evaluate(await readFile(join(root, 'tests', 'v9-automatisation.js'), 'utf8'));
+      check(o.avant && o.a8 && o.tout, 'pc : nouveautés : contrats et tuyau à 8 min, tout débloqué à 48 min');
+      check(o.pose && o.demonte && o.badge.includes('Poser'), 'pc : outil de construction : clic pose un convoyeur, clic sur une pièce la démonte');
+      check(o.depart === 1 && o.deposer.startsWith('Déposer') && o.silo >= 3 && o.ligne === 80 && o.energie === 120, `pc : ligne collecteur → extracteur → quai : 4 kg deviennent 2 pots vendus (+${o.ligne} cr), batterie de ${o.energie}`);
+      check(o.possede && o.monte && o.roule > 20 && o.parVehicule > 10 && o.cuves > 0 && o.vide && o.descendu, `pc : pollinisatrice achetée, ${o.roule.toFixed(0)} m parcourus, ${o.parVehicule} tuiles pollinisées en roulant, cuves vidées`);
+      check(o.contrats === 3 && o.panneau && o.encaisse, 'pc : trois contrats à la station, panneau (Tab), contrat rempli encaissé');
+      check(o.annonce.includes('dans 30 s') && o.prix3 === 3 && o.prixFin === 1, 'pc : événement annoncé 30 s avant : acheteur, prix ×3 pendant 60 s');
+      check(o.pluie && o.fanees === 20 && o.panne, `pc : orage (pluie, ${o.fanees} tuiles fanées) et panne de machine`);
+      check(o.nuit, 'pc : la nuit, le solaire s’arrête et la lampe frontale s’allume');
+      check(o.sauve, 'pc : sauvegarde écrite dans le navigateur');
+      await page.reload(); await page.waitForFunction(() => window.pollen, null, { timeout: 120000 }); await page.waitForTimeout(1500);
+      const re = await page.evaluate(() => { const P = window.pollen; return { credits: Math.round(P.S.credits), pieces: P.GRILLE.size, vehicule: P.V.possede, vertes: P.T.vert.reduce((s, v) => s + v, 0) }; });
+      check(re.credits >= o.credits && re.pieces === 6 && re.vehicule && re.vertes >= o.vertes, `pc : partie reprise après rechargement (${re.credits} cr, ${re.pieces} pièces, ${re.vertes} tuiles vertes)`);
     }
     const shot = await page.screenshot({ timeout: 240000 });
     check(shot.length > 30000, `${cible} : l'image n'est pas vide (${(shot.length / 1024).toFixed(0)} Ko)`);

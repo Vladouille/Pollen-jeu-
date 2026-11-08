@@ -131,7 +131,7 @@ MAJ.push(() => {
 function ecrireEcran(mat, texte) {
   const cv = mat.emissiveMap.image, g = cv.getContext('2d'), w = cv.width, h = cv.height;
   g.fillStyle = '#121518'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(244,180,26,.25)'; g.strokeRect(6, 6, w - 12, h - 12);
-  g.fillStyle = '#f4b41a'; g.font = '800 54px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(texte, w / 2, h / 2 + 4);
+  g.fillStyle = '#f4b41a'; let f = 54; do { g.font = `800 ${f}px system-ui, sans-serif`; f -= 2; } while (g.measureText(texte).width > w - 24 && f > 12); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(texte, w / 2, h / 2 + 4);
   mat.emissiveMap.needsUpdate = true;
 }
 let ECRAN_COLLECTEUR = null; COLLECTEUR.traverse((o) => { if (o.isMesh && o.material.emissiveMap) ECRAN_COLLECTEUR = o.material; });
@@ -151,7 +151,7 @@ INTER.push({ obj: COLLECTEUR, x: COLLECTEUR.position.x, z: COLLECTEUR.position.z
 // --- Le comptoir : chaque présentoir porte un outil ; grisé s'il est trop cher, « bientôt » s'il n'est pas encore débloqué. ---
 const VENTE_COMPTOIR = [['brosse', 300], ['large', 1200], ['xl', 3200], ['souffleur', 8000], ['tuyau', 150], ['ruche', 600], ['marteau', 500]];
 VENTE_COMPTOIR.forEach(([cle, prix], k) => presentoir(cle, prix, k, VENTE_COMPTOIR.length));
-const DEBLOQUE = new Set(['brosse', 'large', 'xl', 'souffleur']);   // complété par la table des nouveautés (étape 6)
+const DEBLOQUE = new Set(['brosse']);   // complété toutes les 8 minutes par la table des nouveautés
 const ACHAT = { ruche: null };   // effet d'achat des objets, fourni par l'étape 5
 function acheter(p) {
   const possede = S.outils.includes(p.cle);

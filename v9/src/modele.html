@@ -7,7 +7,9 @@
 <title>POLLEN station</title>
 <!-- Fichier généré par v9/construire.mjs à partir de v9/src : ne pas modifier à la main. -->
 <!--
-  POLLEN v9, étapes 1 à 4 : décor et charte, vue et commandes, interface, boucle (polliniser, vendre, acheter). Une station agricole propre à POLLEN :
+  POLLEN v9, étapes 1 à 6 : décor et charte, vue et commandes, interface, boucle (polliniser, vendre, acheter),
+  activités (chardons, irrigation, ruches, essaims, balises), automatisation (construction, convoyeurs, machines,
+  pollinisatrice, contrats, événements, nuit, nouveautés toutes les 8 minutes, sauvegarde). ?neuf pour repartir de zéro. Une station agricole propre à POLLEN :
   matériel manufacturé, arêtes chanfreinées, socles à gradins, rainures de panneaux,
   quatre couleurs pour tout le matériel (blanc cassé, graphite, jaune pollen, vert sève lumineux).
   Terrain hexagonal beige (sec) et vert (pollinisé), une machine (le collecteur), caméra libre.
@@ -102,10 +104,25 @@
   #messages p.gain { color: var(--pollen); } #messages p.alerte { color: #ffb4a0; } #messages p.evenement { color: var(--graphite); background: var(--pollen); }
   @keyframes surgir { from { opacity: 0; transform: translateY(-6px); } }
   @media (prefers-reduced-motion: reduce) { #messages p { animation: none; } }
+  /* Bandeau d'état (jour, énergie, événement) sous l'anneau du secteur. */
+  #etat { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); top: calc(var(--pad) + 66px + env(safe-area-inset-top, 0px)); padding: 6px 12px; font-size: 12px; }
+  #etat p { margin: 2px 0; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #etat small { color: #c9c3b6; font-size: 11px; } #etat b { color: var(--pollen); } #etat b.alerte { color: #ffb4a0; }
+  .soleil, .lune, .eclair { width: 12px; height: 12px; display: inline-block; flex: none; }
+  .soleil { border-radius: 50%; background: var(--pollen); box-shadow: 0 0 6px var(--pollen); }
+  .lune { border-radius: 50%; box-shadow: inset -4px -1px 0 0 #dfe6f2; }
+  .eclair { background: var(--seve); clip-path: polygon(55% 0, 15% 55%, 45% 55%, 35% 100%, 85% 40%, 55% 40%); }
+  /* Panneau des contrats (Tab ou E à la station). */
+  #contrats { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, 80vw); padding: 14px 18px; }
+  #contrats h2 { margin: 0 0 10px; font-size: 15px; color: var(--encre); } #contrats h2 small { color: var(--pollen); font-size: 11px; margin-left: 6px; }
+  .contrat { margin: 8px 0 12px; } .contrat p { margin: 0 0 5px; display: flex; justify-content: space-between; gap: 10px; font-size: 13px; } .contrat b { color: var(--pollen); white-space: nowrap; }
+  .contrat span { display: block; height: 6px; border-radius: 3px; background: rgba(255, 253, 247, .15); overflow: hidden; }
+  .contrat span i { display: block; height: 100%; background: var(--pollen); transform-origin: 0 50%; }
+  .contrat.fini span i { background: var(--seve); } .contrat small { font-size: 11px; color: #c9c3b6; }
   /* Téléphone : crédits en haut à droite (les boutons d'action occupent le bas), raccourcis réduits. */
   .mobile #credits { bottom: auto; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); }
   .mobile #gains { bottom: auto; top: 64px; }
-  .mobile #raccourcis { top: 42%; } .mobile #raccourcis li:not([data-tap]) { display: none; }
+  .mobile #raccourcis { top: 40%; } .mobile #etat { font-size: 11px; } .mobile #raccourcis li:not([data-tap]) { display: none; }
   .mobile #slots button { width: 44px; height: 44px; }
   .mobile #boussole { width: min(300px, 40vw); margin-left: calc(min(300px, 40vw) / -2); }
 

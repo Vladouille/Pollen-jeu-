@@ -67,6 +67,7 @@ const COMPTOIR = poser(batiment(['vitrine', 'porte', 'vitrine'], 3.2, 3.2, 'COMP
   placer(g, boite(6.4, 0.12, 1.8, M.blanc, 0.04), 0, base + 3.0, 2.4);                       // auvent
   for (let k = -3; k <= 3; k++) placer(g, boite(0.9, 0.02, 1.7, k % 2 ? M.pollen : M.blanc, 0.008), k * 0.9, base + 2.93, 2.4);   // bandes de l'auvent
   for (const s of [-1, 1]) placer(g, tube(0.05, 0.05, 2.5, M.graphite), s * 3.0, base + 1.75, 3.2);
+  fusionner(g);
 }
 const PRESENTOIRS = [];
 function presentoir(cle, prix, k, n) {
@@ -77,7 +78,7 @@ function presentoir(cle, prix, k, n) {
   placer(g, boite(0.62, 0.06, 0.62, M.graphite, 0.02), 0, 0.93, 0);
   const plaque = placer(g, new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.2), new THREE.MeshStandardMaterial({ roughness: 0.5 })), 0, 0.62, 0.285);
   let objet;
-  if (OUTILS_DEF[cle]) { objet = fabriquerOutil(cle); const l = { pinceau: 0.42, brosse: 1.05, large: 1.2, xl: 1.35 }[cle]; objet.scale.setScalar(l ? Math.min(1, 0.9 / l) * (cle === 'xl' ? 0.8 : 1) : 1); objet.position.y = 0.96; }
+  if (OUTILS_DEF[cle]) { objet = fusionner(fabriquerOutil(cle)); const l = { pinceau: 0.42, brosse: 1.05, large: 1.2, xl: 1.35 }[cle]; objet.scale.setScalar(l ? Math.min(1, 0.9 / l) * (cle === 'xl' ? 0.8 : 1) : 1); objet.position.y = 0.96; }
   else objet = new THREE.Group();
   g.add(objet);
   const x = COMPTOIR.position.x, z = COMPTOIR.position.z, yaw = COMPTOIR.rotation.y, a = u * 0.12;
@@ -85,6 +86,7 @@ function presentoir(cle, prix, k, n) {
   const wx = x + lx * Math.cos(yaw) + lz * Math.sin(yaw), wz = z - lx * Math.sin(yaw) + lz * Math.cos(yaw);
   g.position.set(wx, H(wx, wz), wz); g.rotation.y = yaw - a; scene.add(g);
   OBSTACLES.push({ x: wx, z: wz, r: 0.45 });
+  plaque.userData.garder = true; objet.userData.garder = true; g.traverse((o) => { if (o.userData.voyant) o.userData.garder = true; }); fusionner(g);
   const p = { cle, prix, g, objet, plaque, x: wx, z: wz, etat: '' };
   objet.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
   PRESENTOIRS.push(p); return p;
@@ -101,9 +103,9 @@ function majPresentoir(p, etat) {   // 'acquis' | 'abordable' | 'cher' | 'verrou
 }
 
 // La station : le bâtiment principal, avec le tableau des contrats en façade (étape 6).
-const STATION = poser(batiment(['grille', 'vitrine', 'porte', 'vitrine', 'grille'], 4, 4.2, 'STATION POLLEN'), 1, -12);
+const STATION = fusionner(poser(batiment(['grille', 'vitrine', 'porte', 'vitrine', 'grille'], 4, 4.2, 'STATION POLLEN'), 1, -12));
 // Le garage : deux volets roulants. La pollinisatrice y dort (étape 6).
-const GARAGE = poser(batiment(['volet', 'volet', 'grille'], 4.4, 3.6, 'GARAGE'), 11, -6);
+const GARAGE = fusionner(poser(batiment(['volet', 'volet', 'grille'], 4.4, 3.6, 'GARAGE'), 11, -6));
 // Le point d'eau : une pompe blanche sur socle, réservoir à hublot, robinet jaune (étape 5).
 const POMPE = (() => {
   const g = new THREE.Group(), base = socle(g, 1.2, 1.2);
@@ -116,5 +118,5 @@ const POMPE = (() => {
   placer(g, bouton(), 0.82, base + 0.5, 0.3).rotation.y = Math.PI / 2;
   g.position.set(-11, H(-11, 6), 6); g.rotation.y = Math.atan2(11, -6); scene.add(g);
   OBSTACLES.push({ x: -11, z: 6, r: 1.1 });
-  return g;
+  return fusionner(g);
 })();

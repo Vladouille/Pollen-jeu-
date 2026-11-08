@@ -41,10 +41,10 @@ function majHUD() {
   const s = secteurDe(joueur.x, joueur.z), sec = secteurs[s], p = sec.total ? sec.vert / sec.total : 0;
   hud.secN.textContent = s + 1; hud.secP.textContent = `${Math.floor(p * 100)} %`; hud.arc.style.strokeDashoffset = `${(1 - p) * 113.1}`;
   // Outil et charge.
-  const def = outilDef(), max = chargeMax();
-  hud.nomOutil.textContent = def.nom;
-  hud.charge.textContent = `${fmtKg(S.charge)} / ${max} KG`;
-  hud.jauge.style.transform = `scaleY(${max ? S.charge / max : 0})`; hud.jauge.parentNode.classList.toggle('plein', S.charge >= max - 1e-6);
+  let pa = { nom: outilDef().nom, charge: S.charge, max: chargeMax() }; for (const f of PASTILLE) { const r = f(); if (r) { pa = r; break; } }
+  hud.nomOutil.textContent = pa.nom;
+  hud.charge.textContent = `${fmtKg(pa.charge)} / ${pa.max} KG`;
+  hud.jauge.style.transform = `scaleY(${pa.max ? pa.charge / pa.max : 0})`; hud.jauge.parentNode.classList.toggle('plein', pa.charge >= pa.max - 1e-6);
   // Emplacements.
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;
   if (sig !== tSlots) { tSlots = sig; hud.slots.innerHTML = possedes.map((o) => `<button type="button" data-tactile data-outil="${o}" class="${o === outilEnMain ? 'actif' : ''}" aria-label="${OUTILS_DEF[o].nom}"><kbd>${ORDRE_OUTILS.indexOf(o) + 1}</kbd>${ICONES[o] || ''}</button>`).join(''); }
@@ -69,7 +69,7 @@ function majHUD() {
   hud.contexte.style.setProperty('--p', majAction.progres || 0);
   if (MOBILE) { $('agir').classList.toggle('pret', !!(st.peut && (st.groupe && st.groupe.length || st.cibleAction))); $('inter').classList.toggle('pret', !!(interVise && (!interVise.actif || interVise.actif()))); }
   // Étiquettes flottantes près des machines (dans les 14 m, devant soi).
-  const proches = INTER.filter((it) => !it.presentoir && !(it.cache && it.cache())).map((it) => ({ it, d: Math.hypot(it.x - joueur.x, it.z - joueur.z) })).filter((o) => o.d < 14).sort((a, b) => a.d - b.d);
+  const proches = INTER.filter((it) => !it.presentoir && !(it.cache && it.cache())).map((it) => ({ it, d: Math.hypot(it.x - joueur.x, it.z - joueur.z) })).filter((o) => o.d < 11).sort((a, b) => a.d - b.d).slice(0, 4);
   if (proches.length < etiquettes.length) { const pr = INTER.filter((it) => it.presentoir).map((it) => ({ it, d: Math.hypot(it.x - joueur.x, it.z - joueur.z) })).filter((o) => o.d < 4).sort((a, b) => a.d - b.d); proches.push(...pr); }
   etiquettes.forEach((el, k) => {
     const o = proches[k]; if (!o || joueur.enVehicule) { el.hidden = true; return; }
@@ -84,6 +84,7 @@ function majHUD() {
   if (hud.messages.dataset.s !== sigM) { hud.messages.dataset.s = sigM; hud.messages.innerHTML = m.map((x) => `<p class="${x.type}">${x.texte}</p>`).join(''); }
   const g = gainsFlottants.filter((x) => gt - x.t < 1.6); hud.gains.innerHTML = g.map((x) => `<p style="opacity:${1 - (gt - x.t) / 1.6};transform:translateY(${-(gt - x.t) * 30}px)">+${fmtCr(x.cr)}</p>`).join('');
 }
+const PASTILLE = [];   // ce que montre la pastille quand ce n'est pas l'outil (le véhicule)
 const CONTEXTES = [];   // badges de contexte prioritaires ajoutés par les étapes suivantes
 const RACCOURCIS = [
   { k: 'ZQSD', m: '◐', t: 'Se déplacer' },
