@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#cfe6f7">
+<title>POLLEN station</title>
+<!-- Fichier généré par v9/construire.mjs à partir de v9/src : ne pas modifier à la main. -->
+<!--
+  POLLEN v9, étape 1 : le décor et la charte. Une station agricole propre à POLLEN :
+  matériel manufacturé, arêtes chanfreinées, socles à gradins, rainures de panneaux,
+  quatre couleurs pour tout le matériel (blanc cassé, graphite, jaune pollen, vert sève lumineux).
+  Terrain hexagonal beige (sec) et vert (pollinisé), une machine (le collecteur), caméra libre.
+  ?mode=pc ou ?mode=mobile pour forcer l'appareil, ?debug pour les compteurs.
+-->
+<style>
+  /* Charte POLLEN : blanc cassé, graphite, jaune pollen, vert sève ; une seule police sans empattement, grasse. */
+  :root { --blanc: #ece8df; --graphite: #2f3338; --pollen: #f4b41a; --seve: #53d17a; --encre: #fffdf7; --voile: rgba(28, 31, 35, .55); --fond: #cfe6f7; color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fond); overscroll-behavior: none; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; font: 800 14px/1.2 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: var(--encre); }
+  #jeu { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
+  #c { display: block; width: 100%; height: 100%; outline: none; cursor: crosshair; }
+  #reticule { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .85); box-shadow: 0 0 0 1px rgba(28, 31, 35, .35); pointer-events: none; }
+  .stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .6); background: rgba(28, 31, 35, .18); pointer-events: none; }
+  .stick b { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255, 253, 247, .85); }
+  .btn { position: absolute; border-radius: 50%; border: 2.5px solid rgba(255, 253, 247, .75); background: rgba(28, 31, 35, .3); color: var(--encre); font: 800 20px/1 inherit; display: grid; place-items: center; touch-action: none; padding: 0; }
+  #agir { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(110px + env(safe-area-inset-bottom, 0px)); width: 84px; height: 84px; }
+  #agir.pret, #inter.pret { border-color: var(--pollen); box-shadow: 0 0 18px rgba(244, 180, 26, .5); }
+  #agir.appui { transform: scale(.92); background: rgba(244, 180, 26, .3); }
+  #inter { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
+  #debug { position: absolute; left: 10px; top: 60px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
+  #panne { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9; padding: 10px 14px; border-radius: 8px; background: rgba(47, 51, 56, .92); }
+  /*__CSS__*/
+</style>
+<script>
+  function panne(m) { var p = document.getElementById('panne'); if (p) { p.hidden = false; p.textContent = m; } }
+  window.addEventListener('error', function (e) { panne('Erreur : ' + (e.message || e.type)); });
+</script>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="jeu">
+  <canvas id="c" tabindex="0" aria-label="POLLEN, une station agricole au milieu des champs hexagonaux"></canvas>
+  <div id="reticule"></div>
+  <div class="stick" hidden><b></b></div>
+  <button id="agir" class="btn" type="button" hidden aria-label="Action">●</button>
+  <button id="inter" class="btn" type="button" hidden aria-label="Interagir">E</button>
+  <!--__HUD__-->
+  <pre id="debug" hidden></pre>
+</div>
+<div id="panne" hidden></div>
+<script type="module">
+/*__CODE__*/
+</script>
+</body>
+</html>
