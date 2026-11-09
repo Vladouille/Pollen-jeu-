@@ -6,6 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 
 // =====================================================================
 // 1. Appareil, qualité, outils
@@ -45,7 +46,7 @@ const CHARTE = {
 // =====================================================================
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;   // ombres nettes
 let dpr = Math.min(devicePixelRatio || 1, Q.dpr);
@@ -60,7 +61,10 @@ const sun = new THREE.DirectionalLight(0xfff3e2, 2.5);
 sun.castShadow = true; sun.shadow.mapSize.set(Q.ombres, Q.ombres); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02;
 Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 140 }); sun.shadow.camera.updateProjectionMatrix();
 sun.position.copy(SOLEIL).multiplyScalar(60); scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight(0xbfdcff, 0xb9ac8c, 0.5));
+scene.add(new THREE.HemisphereLight(0xbfdcff, 0xb9ac8c, 0.42));
+// Contre-jour discret : une lumière qui vient de derrière les objets vus, en hauteur ; elle souligne leurs bords supérieurs
+// et détache les silhouettes du fond. Elle suit le regard (réglée à chaque image).
+const contreJour = new THREE.DirectionalLight(0xfff0d8, 0.7); scene.add(contreJour, contreJour.target);
 const ciel = new THREE.Mesh(new THREE.SphereGeometry(800, 32, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: { uZen: { value: new THREE.Color(0x2c66c8) }, uHor: { value: HORIZON }, uSol: { value: SOLEIL } },
@@ -75,6 +79,15 @@ const ciel = new THREE.Mesh(new THREE.SphereGeometry(800, 32, 16), new THREE.Sha
     }`,
 }));
 ciel.frustumCulled = false; ciel.renderOrder = -10; scene.add(ciel);
+// Environnement en carte d'image : le ciel (et un sol clair) rendu une fois dans un cube filtré ; le métal, les vitres
+// et les écrans y prennent leurs reflets. Il ne sert qu'aux matières fabriquées (voir refleter, à chaque seconde).
+const ENV = { tex: null };
+{
+  const pmrem = new THREE.PMREMGenerator(renderer), sc = new THREE.Scene();
+  sc.add(new THREE.Mesh(ciel.geometry, ciel.material));
+  sc.add(new THREE.Mesh(new THREE.CircleGeometry(700, 32).rotateX(-Math.PI / 2).translate(0, -2, 0), new THREE.MeshBasicMaterial({ color: 0xa9a084 })));
+  ENV.tex = pmrem.fromScene(sc, 0.03).texture; pmrem.dispose();
+}
 
 function texture(w, h, fn, srgb = true, rep = 1) {   // texture générée sur canvas
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;

@@ -1,24 +1,35 @@
 
 // =====================================================================
-// 11. La boucle : on maintient l'action sur une tuile sèche ; une jauge circulaire se remplit sur la tuile
+// 11. La boucle : on maintient l'action sur une tuile sèche ; une jauge circulaire se remplit au-dessus de la tuile
 //     (2,5 s au pinceau, 0,5 s au souffleur) ; relâcher avant la fin annule. Pleine, la tuile fleurit et son pollen
-//     va au réservoir. On vide le réservoir au collecteur. Les achats, eux, sont immédiats.
-//     Une tuile donne 0,5 kg de pollen et rapporte le prix de son espèce (3 à 150 cr) ; une fleur dorée, 50 fois plus.
-//     Un secteur s'ouvre quand le précédent est pollinisé à 100 %.
+//     va au sac. Le sac porte 12 kg, toutes ressources confondues ; plein, on l'emballe en colis posé au sol (E).
+//     On vend au collecteur. Les achats sont immédiats. Un secteur s'ouvre quand le précédent est à 100 %.
 // =====================================================================
-const KG_TUILE = 0.5;
+const KG_TUILE = 0.5, SAC_MAX = 12;
+// Six ressources, chacune son prix et sa machine : { kg, valeur } dans le sac.
+const RESSOURCES = { pollen: 'Pollen', nectar: 'Nectar', graines: 'Graines', miel: 'Miel', cire: 'Cire', mere: 'Azurelle mère' };
 const OBJETS_DEF = { ruche: { nom: 'Ruche', court: 'Ruche' } };   // ce qui se vend au comptoir et n'est pas un outil en main
-const S = { credits: 0, charge: 0, valeur: 0, outils: ['pinceau'], tuiles: 0, ventes: 0, silo: 0, siloValeur: 0 };   // l'état du joueur (sauvegardé)
-const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'tuyau', 'marteau'];
+const sacVide = () => Object.fromEntries(Object.keys(RESSOURCES).map((k) => [k, { kg: 0, v: 0 }]));
+const S = { credits: 0, sac: sacVide(), outils: ['pinceau'], tuiles: 0, ventes: 0, silo: sacVide(), expedie: 0 };   // l'état du joueur (sauvegardé)
+const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'rateau', 'collecteur', 'enfumoir', 'tuyau', 'marteau'];
 const outilDef = () => OUTILS_DEF[outilEnMain];
-const chargeMax = () => { let m = 0; for (const o of S.outils) m = Math.max(m, OUTILS_DEF[o].charge || 0); return m; };   // le réservoir suit le meilleur outil acquis
+const chargeMax = () => SAC_MAX;
+const kgSac = (sac = S.sac) => Object.values(sac).reduce((s, r) => s + r.kg, 0);
+const valeurSac = (sac = S.sac) => Object.values(sac).reduce((s, r) => s + r.v, 0);
+const place = () => SAC_MAX - kgSac();
+function ajouter(type, kg, v, sac = S.sac) { sac[type].kg = +(sac[type].kg + kg).toFixed(3); sac[type].v += v; }
+function retirer(type, kg) { const r = S.sac[type]; if (r.kg < kg - 1e-6) return false; const part = r.v * kg / r.kg; r.kg = +(r.kg - kg).toFixed(3); r.v -= part; return true; }
 
 // --- Le son : synthèse WebAudio. Un pop varié par tuile, une petite fanfare par vente. ---
 Object.assign(sons, {
   ctx: null,
   init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; } try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.sortie = this.ctx.createGain(); this.sortie.gain.value = 0.35; this.sortie.connect(this.ctx.destination); } catch (e) { this.ctx = null; } },
   note(f, t0, d, type = 'sine', v = 0.3) { if (!this.ctx) return; const c = this.ctx, o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0; o.type = type; o.frequency.setValueAtTime(f, t); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g); g.connect(this.sortie); o.start(t); o.stop(t + d + 0.05); },
-  pop() { const f = 520 + Math.random() * 380; this.note(f, 0, 0.12, 'triangle', 0.25); this.note(f * 1.5, 0.03, 0.1, 'sine', 0.12); },
+  serie: 0, dernier: -10,
+  pop() {   // chaque tuile enchaînée monte d'un demi-ton ; après deux secondes d'arrêt, on repart de la note de base
+    this.serie = gt - this.dernier < 2 ? Math.min(this.serie + 1, 24) : 0; this.dernier = gt;
+    const f = 440 * Math.pow(2, this.serie / 12); this.note(f, 0, 0.14, 'triangle', 0.25); this.note(f * 2, 0.02, 0.1, 'sine', 0.1);
+  },
   vente() { [523, 659, 784, 1047].forEach((f, k) => this.note(f, k * 0.08, 0.25, 'triangle', 0.22)); },
   achat() { [392, 523, 784].forEach((f, k) => this.note(f, k * 0.1, 0.35, 'square', 0.08)); },
   refus() { this.note(180, 0, 0.18, 'square', 0.08); },
@@ -55,8 +66,9 @@ function viser() {
   return null;
 }
 // Une tuile est pollinisable si elle est sèche, sans chardons, et arrosée si elle est aride.
-const ouvert = (i) => T.secteur[i] < OUVERTS.value;
-const pollinisable = (i) => i >= 0 && ouvert(i) && !T.vert[i] && T.sorte[i] !== 1 && !(T.sorte[i] === 2 && !T.irrigue[i]);
+const ouvert = (i) => i >= 0 && T.secteur[i] < OUVERTS.value;
+const pollinisable = (i) => ouvert(i) && !T.vert[i] && (T.sorte[i] === 0 || (T.sorte[i] === 2 && T.irrigue[i]));
+const prixTuile = (i) => VARIETES[T.variete[i]].prix;
 function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'axe perpendiculaire au regard
   if (!v || v.i < 0) return [];
   const rx = Math.cos(joueur.yaw), rz = -Math.sin(joueur.yaw), out = [];
@@ -65,16 +77,14 @@ function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'ax
 }
 const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
 for (let i = 0; i < NT; i++) { secteurs[T.secteur[i]].total++; secteurs[T.secteur[i]].vert += T.vert[i]; }
-function polliniser(i, par = 'joueur') {   // rend une tuile à la vie, tout de suite ; renvoie la valeur de son pollen
+const FIN_SECTEUR = [];   // ce qui se joue quand un secteur atteint 100 % (vague, nuée d'abeilles, pourcentage qui pulse)
+function polliniser(i, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur de son pollen
   if (!pollinisable(i)) return 0;
-  const doree = T.sorte[i] === 3;
-  if (doree) cueillirDoree(i);
   fleurirTuile(i, gt); secteurs[T.secteur[i]].vert++; S.tuiles++;
-  const v = ESPECES[T.couleur[i]].prix * (doree ? 50 : 1);
-  bouffee(T.x[i], H(T.x[i], T.z[i]), T.z[i], par === 'joueur' ? 16 : 8, doree ? 0xffe27a : CHARTE.pollen);
+  bouffee(T.x[i], H(T.x[i], T.z[i]), T.z[i], par === 'joueur' ? 16 : 8, CHARTE.pollen);
   const s = T.secteur[i];   // secteur complet : le suivant s'ouvre
-  if (s === OUVERTS.value - 1 && secteurs[s].vert >= secteurs[s].total && OUVERTS.value < NSECT) { OUVERTS.value++; sons.vente(); setTimeout(() => sons.achat(), 400); }
-  return v;
+  if (s === OUVERTS.value - 1 && secteurs[s].vert >= secteurs[s].total) { if (OUVERTS.value < NSECT) OUVERTS.value++; for (const f of FIN_SECTEUR) f(s); }
+  return prixTuile(i);
 }
 // L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil (ou de l'action :
 // arracher, construire). Relâcher, ou changer de cible, remet la jauge à zéro.
@@ -85,11 +95,12 @@ function majAction(dt) {
   const def = outilDef();
   let cibleAction = null;
   for (const a of ACTIONS) if (a.quand(visee)) { cibleAction = a; break; }
-  if (cibleAction) groupe = visee && visee.i >= 0 ? [visee.i] : [];
-  else if (def.largeur && visee && visee.dist < 4.6 && S.charge < chargeMax() - 1e-6) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
+  if (cibleAction) groupe = cibleAction.objet ? [] : visee && visee.i >= 0 ? [visee.i] : [];
+  else if (def.largeur && visee && visee.dist < 4.6 && place() >= KG_TUILE) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
   else groupe = [];
   selectionner(groupe);
   gesteType = cibleAction && cibleAction.geste ? cibleAction.geste : 'brosser';
+  JAUGE_OBJ.pos = cibleAction && cibleAction.objet ? cibleAction.objet(visee) : null;   // la jauge se pose aussi sur une ruche, un panneau, une machine   (calculée avant l'action, qui peut faire disparaître la cible)
   const cle = groupe.join() + (cibleAction ? 'a' : '');
   if (cle !== cibleAvant) { progres = 0; cibleAvant = cle; }   // nouvelle cible : on recommence
   const duree = cibleAction ? cibleAction.duree : def.duree;
@@ -100,7 +111,7 @@ function majAction(dt) {
     SEL.value.set(0, 0, 0); return;
   }
   actionAvant = E.action;
-  if (E.action && groupe.length) {
+  if (E.action && (groupe.length || (cibleAction && cibleAction.objet))) {
     progres += dt;
     if (progres >= duree) {
       progres = 0; cibleAvant = '';
@@ -108,14 +119,14 @@ function majAction(dt) {
       else {
         let n = 0;
         for (const i of groupe) {
-          if (S.charge >= chargeMax() - 1e-6) break;
-          const v = polliniser(i); if (v > 0) { S.charge = Math.min(chargeMax(), S.charge + KG_TUILE); S.valeur += v; n++; }
+          if (place() < KG_TUILE) break;
+          const v = polliniser(i); if (v > 0) { ajouter('pollen', KG_TUILE, v); n++; }
         }
         if (n) sons.pop();
       }
     }
   } else progres = 0;   // relâcher annule
-  SEL.value.set(0, groupe.length ? progres / duree : 0, groupe.length ? 0.75 + Math.sin(gt * 5) * 0.1 : 0);
+  SEL.value.set(0, (groupe.length || cibleAction) ? progres / duree : 0, groupe.length ? 0.75 + Math.sin(gt * 5) * 0.1 : 0);
 }
 MAJ.push(majAction);
 // La jauge circulaire : un anneau posé juste au-dessus des fleurs de chaque tuile visée, qui se remplit en jaune pollen.
@@ -133,7 +144,9 @@ const JAUGES = Array.from({ length: 5 }, () => { const m = new THREE.Mesh(new TH
 MAJ.push(() => {
   JAUGE_MAT.uniforms.uP.value = SEL.value.y;
   JAUGES.forEach((m, k) => { const i = groupe[k]; m.visible = i !== undefined && !joueur.enVehicule; if (m.visible) m.position.set(T.x[i], H(T.x[i], T.z[i]) + 0.5, T.z[i]); });
+  if (JAUGE_OBJ.pos && !joueur.enVehicule) { JAUGES[0].visible = true; JAUGES[0].position.copy(JAUGE_OBJ.pos); }
 });
+const JAUGE_OBJ = { pos: null };
 
 // --- Changer d'outil : chiffres 1 à 7, molette, ou les ronds à l'écran. ---
 function changerOutil(cle) { if (!S.outils.includes(cle) || cle === outilEnMain) return; prendre(cle); }
@@ -152,15 +165,17 @@ function ecrireEcran(mat, texte) {
   mat.emissiveMap.needsUpdate = true;
 }
 let ECRAN_COLLECTEUR = null; COLLECTEUR.traverse((o) => { if (o.isMesh && o.material.emissiveMap) ECRAN_COLLECTEUR = o.material; });
-function vendre() {
-  const cr = Math.round(S.valeur); if (cr <= 0) { sons.refus(); return; }
-  S.credits += cr; S.ventes++; S.charge = 0; S.valeur = 0;
+function vendre(extra = 0) {   // le sac (et le colis porté, s'il y en a un) au prix de chaque ressource
+  const cr = Math.round(valeurSac() + extra); if (cr <= 0) { sons.refus(); return; }
+  S.credits += cr; S.ventes++; S.sac = sacVide();
   ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sons.vente();
 }
 INTER.push({ obj: COLLECTEUR, x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 3.4, agir: () => vendre() });
 
 // --- Le comptoir : chaque présentoir porte ce qu'il vend ; grisé tant que c'est trop cher. ---
-const VENTE_COMPTOIR = [['brosse', 300], ['large', 1200], ['xl', 3200], ['souffleur', 8000], ['tuyau', 150], ['ruche', 400], ['marteau', 500]];
+// Les prix sont échelonnés pour qu'une nouveauté devienne abordable environ toutes les cinq minutes dans la première heure.
+const VENTE_COMPTOIR = [['brosse', 250], ['rateau', 200], ['collecteur', 400], ['ruche', 350], ['enfumoir', 300], ['tuyau', 150],
+  ['marteau', 600], ['large', 1200], ['xl', 3200], ['souffleur', 8000]];
 VENTE_COMPTOIR.forEach(([cle, prix], k) => presentoir(cle, prix, k, VENTE_COMPTOIR.length));
 const ACHAT = { ruche: null };   // effet d'achat des objets, fourni par les activités
 function acheter(p) {

@@ -54,6 +54,7 @@ function batiment(modules, prof, haut, enseigne) {
 const INTER = [];   // tout ce qu'on peut utiliser avec E : { x, z, y, r, texte() (null = rien à faire), agir() }
 function poser(g, x, z) {   // pose un bâtiment face à la place centrale et le rend infranchissable
   g.position.set(x, H(x, z), z); g.rotation.y = Math.atan2(-x, -z); scene.add(g);
+  const ombre = ombreContact(g, 1); ombre.scale.set(g.userData.W / 2 + 0.8, 1, g.userData.D / 2 + 0.8); ombre.rotation.y = g.rotation.y;   // ombre de contact rectangulaire
   const W = g.userData.W + 0.7, D = g.userData.D + 0.7, n = Math.max(1, Math.round(W / D));
   for (let k = 0; k < n; k++) { const lx = -W / 2 + W * (k + 0.5) / n, c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y); OBSTACLES.push({ x: x + lx * c, z: z - lx * s, r: Math.max(D / 2, W / n / 2) * 0.98 }); }
   return g;
@@ -70,7 +71,7 @@ const COMPTOIR = poser(batiment(['vitrine', 'porte', 'vitrine'], 3.2, 3.2, 'COMP
 }
 const PRESENTOIRS = [];
 function presentoir(cle, prix, k, n) {
-  const g = new THREE.Group(), u = k - (n - 1) / 2;
+  const g = new THREE.Group();
   placer(g, boite(0.7, 0.14, 0.7, M.graphite, 0.03), 0, 0.07, 0);
   placer(g, boite(0.74, 0.03, 0.74, M.seve, 0.012), 0, 0.15, 0).userData.voyant = true;
   placer(g, boite(0.56, 0.75, 0.56, M.blanc, 0.04), 0, 0.53, 0);
@@ -80,10 +81,11 @@ function presentoir(cle, prix, k, n) {
   if (OUTILS_DEF[cle]) { objet = fusionner(fabriquerOutil(cle)); const l = { pinceau: 0.42, brosse: 1.05, large: 1.2, xl: 1.35 }[cle]; objet.scale.setScalar(l ? Math.min(1, 0.9 / l) * (cle === 'xl' ? 0.8 : 1) : 1); objet.position.y = 0.96; }
   else objet = new THREE.Group();
   g.add(objet);
-  const x = COMPTOIR.position.x, z = COMPTOIR.position.z, yaw = COMPTOIR.rotation.y, a = u * 0.12;
-  const lx = u * 1.25, lz = 4.8 + u * u * 0.12;   // en arc léger devant le comptoir
+  const rang = k < 6 ? 0 : 1, n2 = rang ? n - 6 : Math.min(6, n), v = (rang ? k - 6 : k) - (n2 - 1) / 2;   // deux rangées de présentoirs
+  const x = COMPTOIR.position.x, z = COMPTOIR.position.z, yaw = COMPTOIR.rotation.y, a = v * 0.1;
+  const lx = v * 1.25, lz = 4.6 + rang * 1.9 + v * v * 0.1;   // en arc léger devant le comptoir
   const wx = x + lx * Math.cos(yaw) + lz * Math.sin(yaw), wz = z - lx * Math.sin(yaw) + lz * Math.cos(yaw);
-  g.position.set(wx, H(wx, wz), wz); g.rotation.y = yaw - a; scene.add(g);
+  g.position.set(wx, H(wx, wz), wz); g.rotation.y = yaw - a; scene.add(g); ombreContact(g, 0.6);
   OBSTACLES.push({ x: wx, z: wz, r: 0.45 });
   plaque.userData.garder = true; objet.userData.garder = true; g.traverse((o) => { if (o.userData.voyant) o.userData.garder = true; }); fusionner(g);
   const p = { cle, prix, g, objet, plaque, x: wx, z: wz, etat: '' };
@@ -114,7 +116,7 @@ const POMPE = (() => {
   placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.035, 8, 24), M.graphite), 0, base + 1.0, 0.59);
   placer(g, tube(0.06, 0.06, 0.5, M.graphite), 0.55, base + 0.5, 0.3).rotation.z = Math.PI / 2;
   placer(g, bouton(), 0.82, base + 0.5, 0.3).rotation.y = Math.PI / 2;
-  g.position.set(-11, H(-11, 6), 6); g.rotation.y = Math.atan2(11, -6); scene.add(g);
+  g.position.set(-11, H(-11, 6), 6); g.rotation.y = Math.atan2(11, -6); scene.add(g); ombreContact(g, 1.3);
   OBSTACLES.push({ x: -11, z: 6, r: 1.1 });
   return fusionner(g);
 })();

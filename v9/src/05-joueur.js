@@ -5,16 +5,19 @@
 // =====================================================================
 const M_CHROME = new THREE.MeshStandardMaterial({ color: 0xd9dde0, roughness: 0.22, metalness: 0.95, map: M.graphite.map });
 const M_POILS = new THREE.MeshStandardMaterial({ color: CHARTE.pollen, roughness: 0.85, map: pixels(64, 16, (x) => { const v = 0.78 + 0.22 * ((x * 7919) % 13) / 13; return [255 * v, 255 * v, 255 * v]; }, true, 1) });
-function tube(r1, r2, l, mat, segs = 14) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, l, segs), mat); m.castShadow = true; return m; }
+function tube(r1, r2, l, mat, segs = 14) { const m = cylindre(r1, r2, l, mat, segs); m.castShadow = true; return m; }   // cylindre chanfreiné (voir la charte)
 // Chaque outil est construit le long de +Y : le manche part de l'origine, la tête est au bout.
 const OUTILS_DEF = {
-  pinceau: { nom: 'Pinceau à main', prix: 0, largeur: 1, duree: 2.5, charge: 6, effet: 'Une tuile à la fois, lentement' },
-  brosse: { nom: 'Brosse à pollen', prix: 300, largeur: 1, duree: 1.8, charge: 12, effet: 'Une tuile, trois fois plus vite, charge doublée' },
-  large: { nom: 'Brosse large', prix: 1200, largeur: 2, duree: 1.2, charge: 20, effet: 'Deux tuiles par passage' },
-  xl: { nom: 'Brosse extra-large', prix: 3200, largeur: 3, duree: 0.8, charge: 30, effet: 'Trois tuiles, roulette en bout de manche' },
-  souffleur: { nom: 'Souffleur à dos', prix: 8000, largeur: 5, duree: 0.5, charge: 50, effet: 'Cinq tuiles d’un souffle' },
-  tuyau: { nom: 'Tuyau d’irrigation', prix: 150, outilSpecial: true, effet: 'Déroule un tuyau depuis la pompe pour arroser les tuiles arides' },
-  marteau: { nom: 'Outil de construction', prix: 500, outilSpecial: true, effet: 'Pose convoyeurs, machines, panneaux solaires' },
+  pinceau: { nom: 'Pinceau à main', prix: 0, largeur: 1, duree: 2.5 },
+  brosse: { nom: 'Brosse à pollen', prix: 250, largeur: 1, duree: 1.8 },
+  large: { nom: 'Brosse large', prix: 1200, largeur: 2, duree: 1.2 },
+  xl: { nom: 'Brosse extra-large', prix: 3200, largeur: 3, duree: 0.8 },
+  souffleur: { nom: 'Souffleur à dos', prix: 8000, largeur: 5, duree: 0.5 },
+  rateau: { nom: 'Râteau à graines', prix: 200, special: true },      // graines sur les tuiles fanées, ou replanter une tuile nue
+  collecteur: { nom: 'Collecteur à main', prix: 400, special: true },  // nectar sur les fleurs déjà ouvertes
+  enfumoir: { nom: 'Enfumoir', prix: 300, special: true },             // miel et cire aux ruches
+  tuyau: { nom: 'Tuyau d’irrigation', prix: 150, special: true },
+  marteau: { nom: 'Outil de construction', prix: 600, special: true },
 };
 function fabriquerOutil(cle) {
   const g = new THREE.Group(); g.userData.outil = cle;
@@ -30,7 +33,7 @@ function fabriquerOutil(cle) {
     placer(tete, boite(W * 0.96, 0.08, 0.09, M_POILS, 0.02), 0, -0.04, 0);                    // poils jaune pollen
     placer(tete, boite(0.08, 0.06, 0.07, M.graphite, 0.02), 0, 0.075, 0);                     // raccord du manche
     if (cle === 'large' || cle === 'xl') for (let k = -3; k <= 3; k++) placer(tete, boite(W * 0.07, 0.012, 0.03, M.pollen, 0.005), k * W * 0.13, 0.068, 0);   // tirets jaunes sur le dessus
-    if (cle === 'xl') { placer(tete, boite(W * 0.96, 0.06, 0.06, M_POILS, 0.02), 0, -0.04, 0.07); placer(tete, new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 20).rotateZ(Math.PI / 2), M.graphite), W / 2 + 0.04, 0.0, 0); }   // deuxième rangée, roulette
+    if (cle === 'xl') { placer(tete, boite(W * 0.96, 0.06, 0.06, M_POILS, 0.02), 0, -0.04, 0.07); placer(tete, cylindre(0.05, 0.05, 0.04, M.graphite, 20), W / 2 + 0.04, 0.0, 0).rotation.z = Math.PI / 2; }   // deuxième rangée, roulette
     g.userData.tete = tete;
   } else if (cle === 'souffleur') {
     placer(g, tube(0.022, 0.022, 0.25, M.graphite), 0, 0.12, 0);                               // poignée
@@ -44,9 +47,23 @@ function fabriquerOutil(cle) {
     placer(g, boite(0.2, 0.08, 0.08, M.blanc, 0.02), 0, 0.42, 0);
     placer(g, boite(0.05, 0.085, 0.085, M.pollen, 0.015), 0.1, 0.42, 0);
     placer(g, boite(0.05, 0.085, 0.085, M.pollen, 0.015), -0.1, 0.42, 0);
+  } else if (cle === 'rateau') {   // manche chromé, traverse blanche, dents graphite
+    placer(g, tube(0.016, 0.016, 1.0, M_CHROME), 0, 0.5, 0); placer(g, tube(0.021, 0.021, 0.16, M.graphite), 0, 0.1, 0); bague(0.19);
+    placer(g, boite(0.45, 0.05, 0.06, M.blanc, 0.02), 0, 1.0, 0);
+    for (let k = -4; k <= 4; k++) placer(g, boite(0.018, 0.12, 0.018, M.graphite, 0.006), k * 0.05, 1.07, 0);
+  } else if (cle === 'collecteur') {   // un petit aspirateur : corps blanc, embout jaune, réservoir vitré
+    placer(g, tube(0.022, 0.022, 0.2, M.graphite), 0, 0.1, 0);
+    placer(g, boite(0.12, 0.26, 0.12, M.panneau, 0.03), 0, 0.33, 0);
+    placer(g, tube(0.045, 0.045, 0.12, M_VITRE, 16), 0, 0.33, 0.07).rotation.x = Math.PI / 2;
+    placer(g, tube(0.02, 0.03, 0.4, M.blanc), 0, 0.66, 0); placer(g, tube(0.032, 0.032, 0.05, M.pollen), 0, 0.87, 0);
+  } else if (cle === 'enfumoir') {   // un pot cylindrique blanc à bec, soufflet graphite
+    placer(g, tube(0.022, 0.022, 0.18, M.graphite), 0, 0.09, 0);
+    placer(g, tube(0.08, 0.08, 0.24, M.blanc, 16), 0, 0.32, 0); placer(g, tube(0.082, 0.082, 0.03, M.pollen, 16), 0, 0.42, 0);
+    placer(g, tube(0.03, 0.06, 0.1, M.graphite, 12), 0, 0.49, 0);
+    placer(g, boite(0.1, 0.18, 0.03, M.graphite, 0.01), 0.1, 0.3, 0);
   } else if (cle === 'tuyau') {
     placer(g, tube(0.02, 0.02, 0.3, M.graphite), 0, 0.15, 0);
-    const rouleau = placer(g, new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.09, 24).rotateZ(Math.PI / 2), M.blanc), 0, 0.36, 0);
+    const rouleau = placer(g, cylindre(0.11, 0.11, 0.09, M.blanc, 24), 0, 0.36, 0); rouleau.rotation.z = Math.PI / 2;
     rouleau.castShadow = true;
     for (let k = 0; k < 4; k++) placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.085 - k * 0.012, 0.008, 6, 24).rotateY(Math.PI / 2), M.graphite), 0, 0.36, 0);
     placer(g, tube(0.112, 0.112, 0.012, M.pollen, 24).rotateZ(Math.PI / 2), 0.05, 0.36, 0);
@@ -197,6 +214,9 @@ const POSE_OUTIL = {   // position et orientation de chaque outil dans la camér
   souffleur: { p: [0.26, -0.42, -0.55], r: [-1.25, 0.7, 0.1], s: 0.85 },
   marteau: { p: [0.24, -0.34, -0.5], r: [-0.7, 0.4, 0.2], s: 1.1 },
   tuyau: { p: [0.22, -0.32, -0.5], r: [-0.5, 0.3, 0.1], s: 1.0 },
+  rateau: { p: [0.36, -0.62, -0.6], r: [-1.2, 1.05, 0.12], s: 0.9 },
+  collecteur: { p: [0.24, -0.36, -0.5], r: [-1.1, 0.5, 0.1], s: 1.1 },
+  enfumoir: { p: [0.24, -0.34, -0.5], r: [-0.6, 0.4, 0.1], s: 1.1 },
 };
 const ENMAIN = {};
 let outilEnMain = 'pinceau';

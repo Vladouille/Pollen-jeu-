@@ -43,8 +43,11 @@
   #bande i.c { bottom: 8px; }
   /* 2. Pourcentage du secteur, en haut à droite. */
   #secteur { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 10px; }
-  #secteur .hex { width: 16px; height: 18px; background: var(--seve); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  #secteur .hex { width: 16px; height: 18px; background: #3b6fd4; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
   #secP { font-size: 20px; color: var(--encre); }
+  #secteur.fin { animation: fin 0.6s ease-in-out 5; } #secteur.fin #secP { color: var(--seve); }   /* fin de secteur : le pourcentage pulse en vert */
+  @keyframes fin { 50% { transform: scale(1.18); box-shadow: 0 0 22px rgba(83, 209, 122, .7); } }
+  @media (prefers-reduced-motion: reduce) { #secteur.fin { animation: none; } }
   /* 3. Outil et charge, en bas à gauche. */
   #pastille { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); padding: 9px 15px; }
   #pastille small { display: block; font-size: 11px; color: #c9c3b6; }

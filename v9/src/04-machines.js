@@ -24,5 +24,5 @@ function collecteur() {
 }
 const COLLECTEUR = collecteur();
 COLLECTEUR.position.set(2, H(2, -1), -1); COLLECTEUR.rotation.y = Math.atan2(SOLEIL.x, SOLEIL.z) - 0.5; scene.add(COLLECTEUR);   // façade éclairée par le soleil
-machines.push(COLLECTEUR);
+machines.push(COLLECTEUR); ombreContact(COLLECTEUR, 1.9);
 

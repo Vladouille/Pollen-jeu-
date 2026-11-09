@@ -1,28 +1,65 @@
 // =====================================================================
 // 5. Les matières et les briques de la charte
 // =====================================================================
-// Panneaux blancs : rainures sombres fines et liseré jaune pollen horizontal, peints sur la texture (aucun polygone en plus).
+// Panneaux blancs : rainures sombres fines, vis aux coins et liseré orange, peints sur la texture (aucun polygone en plus).
+// La texture couvre 1,2 m de côté ; les boîtes ont des coordonnées de texture à l'échelle du monde, donc toute grande
+// surface blanche porte ses rainures et ses liserés à la même taille, jamais une grande surface nue.
+const ORANGE = 0xf08a24;
 function texPanneaux(colonnes, rangs, liseres) {
   return texture(512, 512, (g, w, h) => {
     g.fillStyle = '#ece8df'; g.fillRect(0, 0, w, h);
     const im = g.getImageData(0, 0, w, h); for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() - 0.5) * 6; im.data[i] += v; im.data[i + 1] += v; im.data[i + 2] += v; } g.putImageData(im, 0, 0);
-    g.strokeStyle = 'rgba(47,51,56,.55)'; g.lineWidth = 2.5;
-    for (let c = 1; c < colonnes; c++) { g.beginPath(); g.moveTo(c * w / colonnes, 0); g.lineTo(c * w / colonnes, h); g.stroke(); }
-    for (let r = 1; r < rangs; r++) { g.beginPath(); g.moveTo(0, r * h / rangs); g.lineTo(w, r * h / rangs); g.stroke(); }
-    g.fillStyle = '#f4b41a'; for (const y of liseres) g.fillRect(0, y * h, w, h * 0.022);
-    g.fillStyle = 'rgba(47,51,56,.35)'; for (let c = 0; c < colonnes; c++) for (const [px, py] of [[0.08, 0.08], [0.92, 0.08], [0.08, 0.92], [0.92, 0.92]]) { g.beginPath(); g.arc((c + px) * w / colonnes, py * h, 2.4, 0, 6.3); g.fill(); }   // vis
+    g.strokeStyle = 'rgba(47,51,56,.55)'; g.lineWidth = 3;
+    for (let c = 0; c <= colonnes; c++) { g.beginPath(); g.moveTo(c * w / colonnes, 0); g.lineTo(c * w / colonnes, h); g.stroke(); }
+    for (let r = 0; r <= rangs; r++) { g.beginPath(); g.moveTo(0, r * h / rangs); g.lineTo(w, r * h / rangs); g.stroke(); }
+    g.fillStyle = '#f08a24'; for (const y of liseres) g.fillRect(0, y * h, w, h * 0.026);
+    g.fillStyle = 'rgba(47,51,56,.35)'; for (let c = 0; c < colonnes; c++) for (let r = 0; r < rangs; r++) for (const [px, py] of [[0.08, 0.08], [0.92, 0.08], [0.08, 0.92], [0.92, 0.92]]) { g.beginPath(); g.arc((c + px) * w / colonnes, (r + py) * h / rangs, 2.4, 0, 6.3); g.fill(); }   // vis
   });
 }
 const M = {
   blanc: new THREE.MeshStandardMaterial({ color: CHARTE.blanc, roughness: 0.6, metalness: 0, map: pixels(64, 64, () => { const v = 247 + (Math.random() - 0.5) * 10; return [v, v, v]; }, true, 2) }),
-  panneau: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0, map: texPanneaux(3, 2, [0.72]) }),
-  graphite: new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.35, metalness: 0.7, map: pixels(128, 8, (x) => { const v = 238 + 17 * bruit(x / 2, 0.5, 64); return [v, v, v]; }, true, 3) }),   // métal brossé
+  panneau: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0, map: texPanneaux(2, 2, [0.47]) }),
+  graphite: new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.3, metalness: 0.75, map: pixels(128, 8, (x) => { const v = 238 + 17 * bruit(x / 2, 0.5, 64); return [v, v, v]; }, true, 3) }),   // métal brossé, il reflète le ciel
   pollen: new THREE.MeshStandardMaterial({ color: CHARTE.pollen, roughness: 0.45, metalness: 0.05 }),
+  lisere: new THREE.MeshStandardMaterial({ color: ORANGE, roughness: 0.45, metalness: 0.05 }),
   seve: new THREE.MeshStandardMaterial({ color: 0x000000, emissive: CHARTE.seve, emissiveIntensity: 2.2, roughness: 1 }),   // émissif pur
 };
+M.panneau.map.repeat.set(1, 1);
 const machines = [];
 // Toute arête fabriquée est chanfreinée : une boîte arrondie, rayon 2 à 4 cm, jamais de cube brut.
-function boite(w, h, d, mat, r = 0.03) { const g = new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3)); g.type = 'RoundedBoxGeometry'; const m = new THREE.Mesh(g, mat); m.castShadow = m.receiveShadow = true; return m; }
+// Une surface blanche de plus de 50 cm devient un panneau rainuré, à l'échelle du monde (1,2 m par motif).
+function boite(w, h, d, mat, r = 0.03) {
+  const g = new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3)); g.type = 'RoundedBoxGeometry';
+  const grand = Math.max(w, h, d) >= 0.5, panneau = (x) => (x === M.blanc && grand) ? M.panneau : x;
+  mat = Array.isArray(mat) ? mat.map(panneau) : panneau(mat);
+  if ([].concat(mat).includes(M.panneau)) {   // coordonnées de texture à l'échelle du monde, face par face
+    const uv = g.attributes.uv, n = g.attributes.normal;
+    for (let i = 0; i < uv.count; i++) {
+      const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+      const [su, sv] = ax >= ay && ax >= az ? [d, h] : ay >= az ? [w, d] : [w, h];
+      uv.setXY(i, uv.getX(i) * su / 1.2, uv.getY(i) * sv / 1.2);
+    }
+  }
+  const m = new THREE.Mesh(g, mat); m.castShadow = m.receiveShadow = true; return m;
+}
+// Les cylindres fabriqués aussi sont chanfreinés : un profil tourné avec un biseau en haut et en bas.
+function cylindre(r1, r2, h, mat, segs = 16) {   // r1 en haut, r2 en bas, comme CylinderGeometry
+  const b = Math.min(0.02, h * 0.2, Math.min(r1, r2) * 0.3);
+  const pts = [[0, -h / 2], [r2 - b, -h / 2], [r2, -h / 2 + b], [r1, h / 2 - b], [r1 - b, h / 2], [0, h / 2]].map(([r, y]) => new THREE.Vector2(Math.max(r, 1e-4), y));
+  const m = new THREE.Mesh(new THREE.LatheGeometry(pts, segs), mat); m.castShadow = m.receiveShadow = true; return m;
+}
+// Ombre de contact : un disque sombre au bord net, posé au sol sous chaque objet.
+const TEX_CONTACT = texture(128, 128, (g, w) => { const r = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); r.addColorStop(0, 'rgba(0,0,0,.62)'); r.addColorStop(0.62, 'rgba(0,0,0,.5)'); r.addColorStop(0.86, 'rgba(0,0,0,.12)'); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, w, w); }, false);
+const M_CONTACT = new THREE.MeshBasicMaterial({ map: TEX_CONTACT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+const GEO_CONTACT = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
+function ombreContact(obj, r, suivre = false) {
+  const m = new THREE.Mesh(GEO_CONTACT, M_CONTACT); m.scale.set(r, 1, r); m.renderOrder = 1;
+  const p = obj.getWorldPosition ? obj.getWorldPosition(new THREE.Vector3()) : obj.position; m.position.set(p.x, H(p.x, p.z) + 0.02, p.z);
+  if (suivre) m.userData.suit = obj;
+  scene.add(m); OMBRES.push(m); return m;
+}
+const OMBRES = [];
+MAJ.push(() => { for (const m of OMBRES) { const o = m.userData.suit; if (o) { m.position.set(o.position.x, H(o.position.x, o.position.z) + 0.02, o.position.z); if (m.userData.tourne) m.rotation.y = o.rotation.y; } } });
 function placer(parent, o, x, y, z, ry = 0) { o.position.set(x, y, z); o.rotation.y = ry; parent.add(o); return o; }
 // Socle étagé : trois gradins plus larges que le corps, bande vert sève lumineuse au premier gradin.
 function socle(parent, w, d) {

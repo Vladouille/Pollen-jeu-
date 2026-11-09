@@ -15,12 +15,13 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   (esthétique et interface poste par poste) : refusé, comme la v6. Direction originale validée par le fondateur
   (« fais-le en plusieurs semaines ») : palette POLLEN blanc cassé #ECE8DF, graphite #2F3338, jaune pollen #F4B41A,
   vert sève lumineux #53D17A ; arêtes chanfreinées (RoundedBoxGeometry), socles à gradins, rainures de panneaux.
-  Six étapes faites, puis les corrections du fondateur qui priment sur tout le reste : un secteur = une espèce = une
-  couleur unie (3, 7, 15, 32, 70, 150 cr la tuile), le suivant s'ouvre à 100 % du précédent ; achats immédiats, jamais de
-  minuterie de déblocage ; les ACTIONS prennent du temps (maintien + jauge circulaire sur la tuile, relâcher annule ;
-  2,5 / 1,8 / 1,2 / 0,8 / 0,5 / 0,25 s selon l'outil) ; les machines ont des durées visibles réductibles par amélioration ;
-  interface à cinq éléments, aucun texte qui dise quoi faire. Code dans `v9/src`, assemblé par
-  `node v9/construire.mjs` ; ne pas modifier `v9/index.html` à la main. Test : `npm run smoke:v9`.
+  Dernières corrections du fondateur, qui priment : une seule fleur, l'Azurelle bleue (#3B6FD4, cœur #F5C518, tige
+  #4A7A3C, ±8 % de luminosité), six variétés par secteur (3, 7, 15, 32, 70, 150 cr), secteur suivant à 100 % ; six
+  ressources (pollen, nectar, graines, miel, cire, Azurelles mères), sac de 12 kg et colis ; actions avec durée et jauge,
+  achats immédiats, machines à durées améliorables ; désordre et accidents réversibles ; rendu GTAO, ombres de contact,
+  contre-jour, reflets, panneaux rainurés à liseré orange, chanfreins partout ; interface à cinq éléments, aucun texte
+  qui dise quoi faire. Code dans `v9/src`, assemblé par `node v9/construire.mjs` ; ne pas modifier `v9/index.html`
+  à la main. Test : `npm run smoke:v9`.
 - **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, mise de côté par la v9. Plus rien de dessiné en code : les
   modèles CC0 sont chargés depuis `v8/models` et `v8/hdri` (noms dans `v8/LISEZMOI.md`), avec des formes de substitution
   si un fichier manque. Boucle complète : polliniser (panier), vendre au marché, acheter le pinceau à l'atelier.

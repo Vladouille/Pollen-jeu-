@@ -29,14 +29,14 @@ const VEHICULE = new THREE.Group();
   const tete = new THREE.Group(); tete.position.set(0, 0.45, -3.15); c.add(tete);
   placer(tete, boite(3.3, 0.35, 0.55, M.blanc, 0.06), 0, 0.25, 0);
   placer(tete, boite(3.34, 0.05, 0.58, M.pollen, 0.02), 0, 0.42, 0);
-  const rouleau = placer(tete, new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 3.1, 18).rotateZ(Math.PI / 2), M_POILS), 0, -0.05, 0); g.userData.rouleau = rouleau;
+  const rouleau = placer(tete, cylindre(0.22, 0.22, 3.1, M_POILS, 18), 0, -0.05, 0); rouleau.geometry.rotateZ(Math.PI / 2); g.userData.rouleau = rouleau;
   for (const s of [-1, 1]) placer(c, boite(0.12, 0.12, 0.9, M.graphite, 0.03), s * 0.9, 0.7, -2.7);
   // Six roues graphite à moyeu jaune.
   g.userData.roues = [];
   for (const z of [-1.7, 0, 1.7]) for (const s of [-1, 1]) {
     const r = new THREE.Group(); r.position.set(s * 1.2, 0.45, z); g.add(r);
-    placer(r, new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.36, 22).rotateZ(Math.PI / 2), M.graphite), 0, 0, 0);
-    placer(r, new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.38, 12).rotateZ(Math.PI / 2), M.pollen), 0, 0, 0);
+    placer(r, cylindre(0.45, 0.45, 0.36, M.graphite, 22), 0, 0, 0).geometry.rotateZ(Math.PI / 2);
+    placer(r, cylindre(0.18, 0.18, 0.38, M.pollen, 12), 0, 0, 0).geometry.rotateZ(Math.PI / 2);
     g.userData.roues.push(r);
   }
   c.children.find((o) => o.material === g.userData.ecran).userData.garder = true; rouleau.userData.garder = true;
@@ -46,6 +46,7 @@ const VEHICULE = new THREE.Group();
   scene.add(g);
 }
 const obstVehicule = { x: V.x, z: V.z, r: 2.2 }; OBSTACLES.push(obstVehicule);
+{ const o = ombreContact(VEHICULE, 1); o.scale.set(1.6, 1, 3.2); o.userData.suit = VEHICULE; o.userData.tourne = true; }
 const eclairVehicule = () => { const f = [-Math.sin(V.yaw), -Math.cos(V.yaw)]; return { fx: f[0], fz: f[1], rx: Math.cos(V.yaw), rz: -Math.sin(V.yaw) }; };
 function majVehicule(dt) {
   const { fx, fz, rx, rz } = eclairVehicule();
