@@ -7,13 +7,10 @@
 <title>POLLEN station</title>
 <!-- Fichier généré par v9/construire.mjs à partir de v9/src : ne pas modifier à la main. -->
 <!--
-  POLLEN v9, étapes 1 à 6 : décor et charte, vue et commandes, interface, boucle (polliniser, vendre, acheter),
-  activités (chardons, irrigation, ruches, essaims, balises), automatisation (construction, convoyeurs, machines,
-  pollinisatrice, contrats, événements, nuit, nouveautés toutes les 8 minutes, sauvegarde). ?neuf pour repartir de zéro. Une station agricole propre à POLLEN :
-  matériel manufacturé, arêtes chanfreinées, socles à gradins, rainures de panneaux,
-  quatre couleurs pour tout le matériel (blanc cassé, graphite, jaune pollen, vert sève lumineux).
-  Terrain hexagonal beige (sec) et vert (pollinisé), une machine (le collecteur), caméra libre.
-  ?mode=pc ou ?mode=mobile pour forcer l'appareil, ?debug pour les compteurs.
+  POLLEN v9 : la station agricole. Fleurs en rangs serrés, six couleurs franches, une couleur par tuile, en bandes.
+  Une pression transforme une tuile ; tout s'achète tout de suite, seul l'argent manque. Interface : cinq éléments.
+  Activités (chardons, irrigation, ruches, balises) et automatisation (convoyeurs, extracteur, maturateur, quai,
+  pollinisatrice). ?mode=pc ou ?mode=mobile pour forcer l'appareil, ?debug pour les compteurs, ?neuf pour repartir de zéro.
 -->
 <style>
   /* Charte POLLEN : blanc cassé, graphite, jaune pollen, vert sève ; une seule police sans empattement, grasse. */
@@ -29,103 +26,42 @@
   .stick b { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255, 253, 247, .85); }
   .btn { position: absolute; border-radius: 50%; border: 2.5px solid rgba(255, 253, 247, .75); background: rgba(28, 31, 35, .3); color: var(--encre); font: 800 20px/1 inherit; display: grid; place-items: center; touch-action: none; padding: 0; }
   #agir { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(110px + env(safe-area-inset-bottom, 0px)); width: 84px; height: 84px; }
-  #agir.pret, #inter.pret { border-color: var(--pollen); box-shadow: 0 0 18px rgba(244, 180, 26, .5); }
   #agir.appui { transform: scale(.92); background: rgba(244, 180, 26, .3); }
   #inter { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
   #debug { position: absolute; left: 10px; top: 60px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
   #panne { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9; padding: 10px 14px; border-radius: 8px; background: rgba(47, 51, 56, .92); }
 
-  /* Interface : plaques graphite translucides, coins chanfreinés (clip-path), chiffres jaune pollen. */
+  /* Interface : cinq plaques graphite translucides aux coins chanfreinés, chiffres en jaune pollen. Rien d'autre. */
   #hud { position: absolute; inset: 0; pointer-events: none; --pad: 14px; }
-  .plaque { position: absolute; background: rgba(32, 35, 39, .62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px); }
-  kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; margin-right: 7px; border-radius: 4px; background: var(--pollen); color: var(--graphite); font: 900 12px/1 inherit; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25); }
-  kbd.off { background: #6c7076; color: var(--blanc); }
-  /* 1. Boussole : ruban centré en haut, trait jaune au cap, chevron de l'objectif avec sa distance. */
-  #boussole { left: 50%; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); width: min(380px, 46vw); height: 30px; margin-left: calc(min(380px, 46vw) / -2); overflow: hidden; }
+  .plaque { position: absolute; background: rgba(32, 35, 39, .58); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px); }
+  /* 1. Ruban de boussole, en haut au centre. */
+  #boussole { left: 50%; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); width: min(380px, 46vw); height: 30px; transform: translateX(-50%); overflow: hidden; }
   #boussole::after { content: ''; position: absolute; left: 50%; top: 0; width: 2px; height: 9px; margin-left: -1px; background: var(--pollen); }
   #bande { position: absolute; inset: 0; }
   #bande i { position: absolute; left: 50%; bottom: 3px; width: 30px; margin-left: -15px; text-align: center; font: 800 12px/1 inherit; font-style: normal; color: var(--encre); }
   #bande i.g::before { content: ''; display: block; width: 1px; height: 6px; margin: 0 auto; background: rgba(255, 253, 247, .5); }
   #bande i.c { bottom: 8px; }
-  #cible { position: absolute; left: 50%; top: calc(var(--pad) + 42px + env(safe-area-inset-top, 0px)); transform-origin: 0 0; white-space: nowrap; }
-  #cible::before { content: ''; position: absolute; left: -6px; top: -12px; border: 6px solid transparent; border-bottom: 8px solid var(--pollen); }
-  #cible span { position: absolute; left: 0; top: 2px; transform: translateX(-50%); padding: 3px 8px; background: rgba(32, 35, 39, .7); color: var(--pollen); font-size: 12px; border-radius: 3px; }
-  #cible.bord::before { border-bottom-color: #c9c3b6; }
-  #boussoleBloc { position: absolute; left: 0; right: 0; top: 0; height: 64px; }
-  .marq { position: absolute; left: 50%; top: 3px; width: 10px; height: 10px; margin-left: -5px; transform-origin: 5px 5px; background: var(--seve); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
-  .marq.essaim { background: #ffd35a; }
-  .marq.doree { background: var(--pollen); clip-path: circle(50%); }
-  /* 2. Secteur : anneau de progression en haut à gauche. */
-  #secteur { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 9px; padding: 6px 12px 6px 7px; }
-  #secteur svg { width: 44px; height: 44px; transform: rotate(-90deg); }
-  #secteur circle { fill: none; stroke-width: 5; }
-  #secteur .fond { stroke: rgba(255, 253, 247, .18); }
-  #arc { stroke: var(--seve); stroke-dasharray: 113.1; stroke-dashoffset: 113.1; stroke-linecap: round; transition: stroke-dashoffset .3s; }
-  #secteur small { display: block; font-size: 10px; letter-spacing: .08em; color: #c9c3b6; }
-  #secteur strong { font-size: 19px; color: var(--encre); }
-  /* 3. Pastille de l'outil en bas à gauche : nom, charge « x / 12 KG », jauge verticale. */
-  #pastille { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); display: flex; align-items: stretch; gap: 10px; padding: 9px 14px 9px 9px; }
-  #pastille .tube { position: relative; width: 12px; height: 40px; border-radius: 6px; background: rgba(255, 253, 247, .15); overflow: hidden; }
-  #jauge { position: absolute; inset: 0; background: linear-gradient(var(--pollen), #e09a00); transform-origin: 50% 100%; transform: scaleY(0); transition: transform .2s; }
-  #pastille .tube.plein #jauge { background: var(--seve); }
+  /* 2. Pourcentage du secteur, en haut à droite. */
+  #secteur { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 10px; }
+  #secteur .hex { width: 16px; height: 18px; background: var(--seve); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  #secP { font-size: 20px; color: var(--encre); }
+  /* 3. Outil et charge, en bas à gauche. */
+  #pastille { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); padding: 9px 15px; }
   #pastille small { display: block; font-size: 11px; color: #c9c3b6; }
   #charge { display: block; margin-top: 3px; font-size: 20px; color: var(--pollen); letter-spacing: .02em; }
-  /* 4. Emplacements d'outils : cercles en bas au centre. */
+  /* 4. Ronds des outils, en bas au centre. */
   #slots { position: absolute; left: 50%; bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 8px; pointer-events: auto; }
-  #slots button { position: relative; width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .35); background: rgba(32, 35, 39, .6); display: grid; place-items: center; cursor: pointer; }
-  #slots button.actif { border-color: var(--pollen); box-shadow: 0 0 0 3px rgba(244, 180, 26, .25); background: rgba(47, 51, 56, .85); }
+  #slots button { width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .35); background: rgba(32, 35, 39, .6); display: grid; place-items: center; cursor: pointer; }
+  #slots button.actif { border-color: var(--pollen); background: rgba(47, 51, 56, .85); }
   #slots svg { width: 24px; height: 24px; fill: none; stroke: var(--encre); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   #slots button.actif svg { stroke: var(--pollen); }
-  #slots kbd { position: absolute; top: -7px; right: -9px; min-width: 17px; height: 17px; margin: 0; font-size: 10px; padding: 0 3px; }
-  /* 5. Crédits en bas à droite, pièce hexagonale jaune. */
+  /* 5. Argent, en bas à droite. */
   #credits { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 9px; padding: 9px 15px 9px 11px; }
   .piece { width: 24px; height: 24px; background: var(--pollen); clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); position: relative; }
   .piece::after { content: ''; position: absolute; inset: 6px; background: #c78f00; clip-path: inherit; }
   #cr { font-size: 22px; color: var(--encre); min-width: 2ch; }
-  #gains { position: absolute; right: calc(var(--pad) + 16px + env(safe-area-inset-right, 0px)); bottom: calc(66px + env(safe-area-inset-bottom, 0px)); text-align: right; }
-  #gains p { margin: 0; font-size: 20px; color: var(--pollen); text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
-  /* 6. Raccourcis sur le bord droit. */
-  #raccourcis { position: absolute; right: calc(var(--pad) + env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; justify-items: end; }
-  #raccourcis li { display: flex; align-items: center; padding: 4px 9px 4px 5px; background: rgba(32, 35, 39, .45); border-radius: 4px; font-size: 12px; color: var(--encre); }
-  #raccourcis li[data-tap] { pointer-events: auto; cursor: pointer; }
-  /* 7. Badge de touche en contexte sous le réticule, avec la progression du geste. */
-  #contexte { position: absolute; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); display: flex; align-items: center; padding: 6px 12px 6px 6px; background: rgba(32, 35, 39, .62); border-radius: 4px; white-space: nowrap; font-size: 13px; --p: 0; }
-  #contexte::after { content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--p) * 100%); background: var(--seve); }
-  /* 8. Étiquettes flottantes près des machines : badge E et nom sur fond sombre. */
-  #etiquettes { position: absolute; inset: 0; }
-  .etiq { position: absolute; left: 0; top: 0; display: flex; align-items: center; padding: 4px 10px 4px 4px; background: rgba(26, 29, 33, .78); border-radius: 4px; white-space: nowrap; font-size: 13px; transform-origin: 50% 100%; }
-  .etiq::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: rgba(26, 29, 33, .78); }
-  .etiq kbd { background: #6c7076; color: var(--blanc); }
-  .etiq.vise { outline: 2px solid var(--pollen); }
-  .etiq.vise kbd { background: var(--pollen); color: var(--graphite); }
-  .etiq.off.vise kbd { background: #6c7076; color: var(--blanc); }
-  #messages { position: absolute; left: 50%; top: calc(var(--pad) + 76px); transform: translateX(-50%); text-align: center; }
-  #messages p { margin: 0 auto 5px; padding: 5px 12px; width: max-content; max-width: min(520px, 70vw); background: rgba(32, 35, 39, .65); border-radius: 4px; font-size: 13px; animation: surgir .25s ease-out; }
-  #messages p.gain { color: var(--pollen); } #messages p.alerte { color: #ffb4a0; } #messages p.evenement { color: var(--graphite); background: var(--pollen); }
-  @keyframes surgir { from { opacity: 0; transform: translateY(-6px); } }
-  @media (prefers-reduced-motion: reduce) { #messages p { animation: none; } }
-  /* Bandeau d'état (jour, énergie, événement) sous l'anneau du secteur. */
-  #etat { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); top: calc(var(--pad) + 66px + env(safe-area-inset-top, 0px)); padding: 6px 12px; font-size: 12px; }
-  #etat p { margin: 2px 0; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-  #etat small { color: #c9c3b6; font-size: 11px; } #etat b { color: var(--pollen); } #etat b.alerte { color: #ffb4a0; }
-  .soleil, .lune, .eclair { width: 12px; height: 12px; display: inline-block; flex: none; }
-  .soleil { border-radius: 50%; background: var(--pollen); box-shadow: 0 0 6px var(--pollen); }
-  .lune { border-radius: 50%; box-shadow: inset -4px -1px 0 0 #dfe6f2; }
-  .eclair { background: var(--seve); clip-path: polygon(55% 0, 15% 55%, 45% 55%, 35% 100%, 85% 40%, 55% 40%); }
-  /* Panneau des contrats (Tab ou E à la station). */
-  #contrats { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, 80vw); padding: 14px 18px; }
-  #contrats h2 { margin: 0 0 10px; font-size: 15px; color: var(--encre); } #contrats h2 small { color: var(--pollen); font-size: 11px; margin-left: 6px; }
-  .contrat { margin: 8px 0 12px; } .contrat p { margin: 0 0 5px; display: flex; justify-content: space-between; gap: 10px; font-size: 13px; } .contrat b { color: var(--pollen); white-space: nowrap; }
-  .contrat span { display: block; height: 6px; border-radius: 3px; background: rgba(255, 253, 247, .15); overflow: hidden; }
-  .contrat span i { display: block; height: 100%; background: var(--pollen); transform-origin: 0 50%; }
-  .contrat.fini span i { background: var(--seve); } .contrat small { font-size: 11px; color: #c9c3b6; }
-  /* Téléphone : crédits en haut à droite (les boutons d'action occupent le bas), raccourcis réduits. */
-  .mobile #credits { bottom: auto; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); }
-  .mobile #gains { bottom: auto; top: 64px; }
-  .mobile #raccourcis { top: 40%; } .mobile #etat { font-size: 11px; } .mobile #raccourcis li:not([data-tap]) { display: none; }
   .mobile #slots button { width: 44px; height: 44px; }
-  .mobile #boussole { width: min(300px, 40vw); margin-left: calc(min(300px, 40vw) / -2); }
-
+  .mobile #boussole { width: min(300px, 40vw); }
 </style>
 <script>
   function panne(m) { var p = document.getElementById('panne'); if (p) { p.hidden = false; p.textContent = m; } }
@@ -143,16 +79,11 @@
   <button id="agir" class="btn" type="button" hidden aria-label="Action">●</button>
   <button id="inter" class="btn" type="button" hidden aria-label="Interagir">E</button>
   <div id="hud">
-    <div id="boussoleBloc"><div id="boussole" class="plaque"><div id="bande"></div></div><div id="cible" hidden><span></span></div></div>
-    <div id="secteur" class="plaque"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="fond" cx="22" cy="22" r="18"/><circle id="arc" cx="22" cy="22" r="18"/></svg><div><small>SECTEUR <b id="secN">1</b></small><strong id="secP">0 %</strong></div></div>
-    <div id="messages"></div>
-    <div id="pastille" class="plaque"><div class="tube"><i id="jauge"></i></div><div><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div></div>
+    <div id="boussole" class="plaque"><div id="bande"></div></div>
+    <div id="secteur" class="plaque"><span class="hex" aria-hidden="true"></span><strong id="secP">0 %</strong></div>
+    <div id="pastille" class="plaque"><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div>
     <div id="slots"></div>
     <div id="credits" class="plaque"><span class="piece" aria-hidden="true"></span><strong id="cr">0</strong></div>
-    <div id="gains"></div>
-    <ul id="raccourcis"></ul>
-    <div id="contexte" hidden></div>
-    <div id="etiquettes"></div>
   </div>
   <pre id="debug" hidden></pre>
 </div>
@@ -173,7 +104,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const params = new URLSearchParams(location.search);
 const MOBILE = params.has('mode') ? params.get('mode') === 'mobile'
   : (matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, fleurs: 3, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, fleurs: 7, vignette: true };
+const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, vignette: true };
 const DEBUG = params.has('debug');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -189,7 +120,7 @@ function bruit(x, y, p = 256) {   // bruit de valeur, périodique de période p 
 const fbm = (x, y, o = 4, p = 256) => { let a = 0.5, f = 1, s = 0, n = 0; for (let k = 0; k < o; k++) { s += a * bruit(x * f, y * f, Math.min(256, p * f)); n += a; a *= 0.5; f *= 2; } return s / n; };
 
 // =====================================================================
-// 2. La charte : quatre couleurs pour tout le matériel, deux pour le sol, trois pour les fleurs
+// 2. La charte : quatre couleurs pour tout le matériel, deux pour le sol (les six des fleurs sont avec le terrain)
 // =====================================================================
 const CHARTE = {
   blanc: 0xece8df,     // corps des machines, bâtiments, outils : la couleur dominante
@@ -199,7 +130,6 @@ const CHARTE = {
   sec: 0xbfb49a,       // sol des tuiles sèches
   prairie: 0x6fa03c,   // sol des tuiles pollinisées
 };
-const FLEURS = [{ nom: 'lavande', c: 0x8b6fc4 }, { nom: 'colza', c: 0xf2c53d }, { nom: 'trèfle', c: 0xe48bb0 }];
 
 // =====================================================================
 // 3. Rendu, lumière dure, ciel de jour, brume légère
@@ -247,15 +177,11 @@ function texture(w, h, fn, srgb = true, rep = 1) {   // texture générée sur c
 function pixels(w, h, fn, srgb = true, rep = 1) {
   return texture(w, h, (g) => { const im = g.createImageData(w, h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = fn(x, y), i = (y * w + x) * 4; im.data[i] = c[0]; im.data[i + 1] = c[1]; im.data[i + 2] = c[2]; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); }, srgb, rep);
 }
-function normales(w, h, hf, k, rep = 1) {   // carte de normales tirée du même relief que la texture
-  const H = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) H[y * w + x] = hf(x, y);
-  return pixels(w, h, (x, y) => { const nx = (H[y * w + (x + w - 1) % w] - H[y * w + (x + 1) % w]) * k, ny = (H[((y + h - 1) % h) * w + x] - H[((y + 1) % h) * w + x]) * k, L = Math.hypot(nx, ny, 1); return [(nx / L * 0.5 + 0.5) * 255, (ny / L * 0.5 + 0.5) * 255, (1 / L * 0.5 + 0.5) * 255]; }, false, rep);
-}
 
 
 // =====================================================================
 // 4. Le terrain : relief léger, tuiles hexagonales de 2 m autour d'une esplanade (la base).
-//    Une tuile sèche est beige et poussiéreuse ; pollinisée, elle devient verte et ses fleurs se redressent.
+//    Une tuile sèche est beige ; pollinisée, ses fleurs se redressent et prennent leur couleur franche.
 //    Sortes de tuiles : 0 normale, 1 envahie de chardons (à désherber), 2 aride (à irriguer), 3 fleur dorée (rare).
 // =====================================================================
 const RAYON = 70, BASE = 15;   // rayon du terrain, rayon de l'esplanade sans tuiles
@@ -271,7 +197,11 @@ function versHex(x, z) {
 }
 const OFF = 48, NTEX = 96, NSECT = 6;
 const secteurDe = (x, z) => Math.floor(((Math.atan2(z, x) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2) * NSECT);
-const T = { q: [], r: [], x: [], z: [], vert: [], sorte: [], irrigue: [], t0: [], secteur: [], espece: [] };
+// Six couleurs franches. Chaque tuile a la sienne ; d'une rangée de tuiles à la suivante la couleur change,
+// si bien que, vu d'un peu haut, le champ se lit en bandes colorées.
+const COULEURS = [0xe23b2e, 0xf5c518, 0x8b4fc4, 0xe85c9a, 0xf7f4ee, 0xf08a24];
+const couleurDe = (q, r) => ((r % 6) + 6) % 6;
+const T = { q: [], r: [], x: [], z: [], vert: [], sorte: [], irrigue: [], t0: [], secteur: [], couleur: [] };
 const tuileIdx = new Int32Array(NTEX * NTEX).fill(-1);
 const idxDe = (q, r) => (q < -OFF || q >= OFF || r < -OFF || r >= OFF) ? -1 : tuileIdx[(r + OFF) * NTEX + (q + OFF)];
 {
@@ -282,116 +212,164 @@ const idxDe = (q, r) => (q < -OFF || q >= OFF || r < -OFF || r >= OFF) ? -1 : tu
     const s = secteurDe(x, z), aride = (s === 3 || s === 4) && fbm(x / 14 + 3, z / 14, 2) > 0.52 && d > 26;
     const sorte = d < 19 ? 0 : aride ? 2 : R() < 0.1 ? 1 : R() < 0.012 ? 3 : 0;
     tuileIdx[(r + OFF) * NTEX + (q + OFF)] = T.q.length;
-    const vert = d < 18.5 ? 1 : 0;   // le jardin de la station est déjà pollinisé ; tout le reste est à rendre à la vie
+    const vert = d < 18.5 ? 1 : 0;   // le jardin de la station est déjà en fleurs ; tout le reste est à rendre à la vie
     T.q.push(q); T.r.push(r); T.x.push(x); T.z.push(z); T.vert.push(vert); T.sorte.push(sorte); T.irrigue.push(0); T.t0.push(vert ? -1000 : 1e6); T.secteur.push(s);
-    T.espece.push(Math.floor(fbm(x / 22 + 5, z / 22, 2) * 3.6) % 3);
+    T.couleur.push(couleurDe(q, r));
   }
 }
 const NT = T.q.length;
-const voisins = (i) => { const out = []; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]]) { const j = idxDe(T.q[i] + a, T.r[i] + b); if (j >= 0) out.push(j); } return out; };
-// État lu par le shader du sol : R vert, G sorte, B irriguée, A tuile existante.
+// État des tuiles, lu par les shaders : R vert, G sorte, B irriguée, A tuile existante (200 = visée).
+// Une deuxième texture garde l'instant de floraison de chaque tuile : les fleurs s'animent seules.
 let selFlag = null;
-const etatSol = new Uint8Array(NTEX * NTEX * 4);
+const etatSol = new Uint8Array(NTEX * NTEX * 4), t0Sol = new Float32Array(NTEX * NTEX * 4).fill(1e6);
 const etatTex = new THREE.DataTexture(etatSol, NTEX, NTEX, THREE.RGBAFormat); etatTex.magFilter = etatTex.minFilter = THREE.NearestFilter;
-function ecrireTuile(i) { const k = ((T.r[i] + OFF) * NTEX + (T.q[i] + OFF)) * 4; etatSol[k] = T.vert[i] * 255; etatSol[k + 1] = T.sorte[i] * 60; etatSol[k + 2] = T.irrigue[i] * 255; etatSol[k + 3] = selFlag && selFlag[i] ? 200 : 255; etatTex.needsUpdate = true; }
+const t0Tex = new THREE.DataTexture(t0Sol, NTEX, NTEX, THREE.RGBAFormat, THREE.FloatType); t0Tex.magFilter = t0Tex.minFilter = THREE.NearestFilter;
+function ecrireTuile(i) {
+  const c = (T.r[i] + OFF) * NTEX + (T.q[i] + OFF), k = c * 4;
+  etatSol[k] = T.vert[i] * 255; etatSol[k + 1] = T.sorte[i] * 60; etatSol[k + 2] = T.irrigue[i] * 255; etatSol[k + 3] = selFlag && selFlag[i] ? 200 : 255; etatTex.needsUpdate = true;
+  if (t0Sol[k] !== T.t0[i]) { t0Sol[k] = T.t0[i]; t0Tex.needsUpdate = true; }
+}
 for (let i = 0; i < NT; i++) ecrireTuile(i);
 const SEL = { value: new THREE.Vector3(0, 0, 0) };   // z : intensité du liseré des tuiles visées
 selFlag = new Uint8Array(NT); let selListe = [];
-function selectionner(liste) {   // tuiles visées : alpha 200 dans la texture d'état (255 = tuile simple)
+function selectionner(liste) {
+  if (liste.length === selListe.length && liste.every((i, k) => i === selListe[k])) return;
   for (const i of selListe) { selFlag[i] = 0; ecrireTuile(i); }
   selListe = liste; for (const i of liste) { selFlag[i] = 1; ecrireTuile(i); }
 }
+const R_FLEURS = MOBILE ? 16 : 22;   // au-delà, le sol prend la couleur des fleurs : on lit les bandes jusqu'à l'horizon
+const UPAL = { value: COULEURS.map((c) => new THREE.Color(c)) };
+const GLSL_HEX = `
+  vec2 hexOf(vec2 p) { float qf = (0.5773503 * p.x - 0.3333333 * p.y) / ${HS.toFixed(7)}, rf = (0.6666667 * p.y) / ${HS.toFixed(7)};
+    vec3 c = vec3(qf, -qf - rf, rf); vec3 rc = floor(c + 0.5); vec3 d = abs(rc - c);
+    if (d.x > d.y && d.x > d.z) rc.x = -rc.y - rc.z; else if (d.y > d.z) rc.y = -rc.x - rc.z; else rc.z = -rc.x - rc.y; return vec2(rc.x, rc.z); }
+  vec2 hexC(vec2 h) { return vec2(${(HS * SQ3).toFixed(7)} * (h.x + 0.5 * h.y), ${(HS * 1.5).toFixed(7)} * h.y); }
+  float hexBord(vec2 d) { return max(abs(d.x), max(abs(0.5 * d.x + 0.8660254 * d.y), abs(-0.5 * d.x + 0.8660254 * d.y))); }
+  vec3 palette(float r) { int k = int(mod(r, 6.0) + 0.5); k = k > 5 ? 0 : k; return uPal[k]; }`;
+// Le sol : couleurs pleines, mat, sans texture de détail. Rainure entre les tuiles, liseré jaune sur la tuile visée.
 {
-  const grainH = (x, y) => fbm(x / 16, y / 16, 4, 16) * 0.6 + bruit(x / 3, y / 3, 85) * 0.3 + (bruit(x / 1.4, y / 1.4, 183) > 0.8 ? 0.4 : 0);
-  const grain = pixels(256, 256, (x, y) => { const v = 0.86 + 0.14 * grainH(x, y) + (Math.random() - 0.5) * 0.05; return [255 * v, 252 * v, 246 * v]; }, true, 80);
   const g = new THREE.PlaneGeometry(220, 220, MOBILE ? 110 : 180, MOBILE ? 110 : 180).rotateX(-Math.PI / 2);
   const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, H(p.getX(i), p.getZ(i))); g.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ map: grain, normalMap: normales(256, 256, grainH, 1.4, 80), normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.95 });
+  const mat = new THREE.MeshStandardMaterial({ roughness: 1 });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uEtat: { value: etatTex }, uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) }, uSel: SEL });
+    Object.assign(sh.uniforms, { uEtat: { value: etatTex }, uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) }, uSel: SEL, uPal: UPAL });
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMonde;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      varying vec3 vMonde; uniform sampler2D uEtat; uniform vec3 uSec, uVert, uSel;
-      vec2 hexOf(vec2 p) { float qf = (0.5773503 * p.x - 0.3333333 * p.y) / ${HS.toFixed(7)}, rf = (0.6666667 * p.y) / ${HS.toFixed(7)};
-        vec3 c = vec3(qf, -qf - rf, rf); vec3 rc = floor(c + 0.5); vec3 d = abs(rc - c);
-        if (d.x > d.y && d.x > d.z) rc.x = -rc.y - rc.z; else if (d.y > d.z) rc.y = -rc.x - rc.z; else rc.z = -rc.x - rc.y; return vec2(rc.x, rc.z); }
-      vec2 hexC(vec2 h) { return vec2(${(HS * SQ3).toFixed(7)} * (h.x + 0.5 * h.y), ${(HS * 1.5).toFixed(7)} * h.y); }
-      float hexBord(vec2 d) { return max(abs(d.x), max(abs(0.5 * d.x + 0.8660254 * d.y), abs(-0.5 * d.x + 0.8660254 * d.y))); }`)
+      varying vec3 vMonde; uniform sampler2D uEtat; uniform vec3 uSec, uVert, uSel; uniform vec3 uPal[6];` + GLSL_HEX)
       .replace('#include <map_fragment>', `#include <map_fragment>
       vec2 hq = hexOf(vMonde.xz); vec4 st = texture2D(uEtat, (hq + ${OFF}.0 + 0.5) / ${NTEX}.0);
       float bord = hexBord(vMonde.xz - hexC(hq)), dist = length(vMonde.xz);
       float dans = step(0.5, st.a) * step(dist, ${RAYON - 1.2}) * step(${BASE}.0, dist);
       float aride = (abs(st.g * 255.0 / 60.0 - 2.0) < 0.5 ? 1.0 : 0.0) * (1.0 - st.b);
-      vec3 sec = mix(uSec, uSec * vec3(0.86, 0.82, 0.74), aride);                    // aride : plus sombre, craquelé
-      sec *= 1.0 - aride * 0.25 * step(0.82, fract(sin(dot(floor(vMonde.xz * 3.0), vec2(12.9, 78.2))) * 437.5));
-      sec = mix(sec, sec * 0.82, st.b * (1.0 - st.r));                               // irriguée : terre humide
-      vec3 base = mix(sec, uVert, st.r * dans);
+      vec3 sec = mix(uSec, uSec * vec3(0.84, 0.8, 0.72), aride);                       // aride : terre plus sombre
+      sec = mix(sec, sec * 0.8, st.b * (1.0 - st.r));                                   // irriguée : terre humide
+      float loin = smoothstep(${R_FLEURS - 6}.0, ${R_FLEURS - 1}.0, length(vMonde.xz - cameraPosition.xz));
+      vec3 fleuri = mix(uVert, palette(hq.y), loin * 0.85);                             // de loin, la couleur des fleurs
+      vec3 base = mix(sec, fleuri, st.r * dans);
       vec3 esplanade = vec3(0.86, 0.85, 0.82) * (1.0 - 0.07 * step(0.94, hexBord((vMonde.xz - hexC(hexOf(vMonde.xz * 0.5)) * 2.0) * 0.5)));   // dalles claires de la base
       diffuseColor.rgb *= dist < ${BASE}.0 ? esplanade : mix(uSec * 1.04, base, dans);
-      diffuseColor.rgb *= 1.0 - dans * (0.22 * smoothstep(0.93, 0.985, bord) - 0.06 * (1.0 - smoothstep(0.0, 0.9, bord)) * st.r);   // rainure entre les tuiles
+      diffuseColor.rgb *= 1.0 - dans * 0.22 * smoothstep(0.93, 0.985, bord);          // rainure entre les tuiles
       float sel = step(0.5, st.a) * step(st.a, 0.9) * uSel.z;`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-      totalEmissiveRadiance += sel * vec3(0.96, 0.7, 0.1) * (smoothstep(0.82, 0.93, bord) * 0.9 + 0.06);   // tuile visée : liseré jaune pollen`);
+      totalEmissiveRadiance += sel * vec3(0.96, 0.7, 0.1) * (smoothstep(0.82, 0.93, bord) * 0.9 + 0.06);`);
   };
   const sol = new THREE.Mesh(g, mat); sol.receiveShadow = true; scene.add(sol);
 }
 
-// Les fleurs : chaque tuile porte ses fleurs dès le départ. Sèches, elles sont grises et couchées ;
-// à la pollinisation, elles se redressent et prennent leur couleur franche (dans le shader, par l'instant t0).
+// =====================================================================
+// Les fleurs : coupe de cinq pétales arrondis, tige droite et épaisse, deux feuilles à la base, 35 cm.
+// 43 triangles sur ordinateur, 23 sur téléphone (une quinzaine de faces : tige, deux feuilles, cinq pétales). Plantées en rangs réguliers sur tout le champ (espacement constant,
+// seule l'inclinaison varie), environ 65 par tuile. Fanées : beige-gris, tiges penchées vers le sol.
+// Au pollen, elles se redressent avec un petit rebond et prennent la couleur de leur tuile, d'un coup.
+// =====================================================================
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
-function fleurGeo(type) {
-  const tige = new THREE.CylinderGeometry(0.008, 0.011, 0.34, 3, 1, true).translate(0, 0.17, 0);
-  let tete;
-  if (type === 0) tete = new THREE.LatheGeometry([[0.0001, 0], [0.026, 0.03], [0.028, 0.1], [0.0001, 0.17]].map(([r, y]) => new THREE.Vector2(r, y)), 4).translate(0, 0.32, 0);   // épi de lavande
-  else if (type === 1) tete = new THREE.IcosahedronGeometry(0.05, 0).scale(1.2, 0.8, 1.2).translate(0, 0.37, 0);   // grappe de colza
-  else tete = new THREE.IcosahedronGeometry(0.045, 0).translate(0, 0.36, 0);   // pompon de trèfle
-  const feuille = new THREE.ConeGeometry(0.035, 0.14, 3).rotateZ(1.1).translate(0.06, 0.08, 0);
-  const g = [tige, feuille, tete].map((x) => (x.index ? x.toNonIndexed() : x));
-  const couleurs = [new THREE.Color(0x4f7d2e), new THREE.Color(0x5f8f34), new THREE.Color(FLEURS[type].c)];
-  const pos = [], nor = [], col = [], tete01 = [];
-  g.forEach((x, i) => { pos.push(...x.attributes.position.array); nor.push(...x.attributes.normal.array); for (let k = 0; k < x.attributes.position.count; k++) { col.push(couleurs[i].r, couleurs[i].g, couleurs[i].b); tete01.push(i === 2 ? 1 : 0); } });
-  const r = new THREE.BufferGeometry(); r.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); r.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); r.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); r.setAttribute('aTete', new THREE.Float32BufferAttribute(tete01, 1));
-  return r;
-}
-const UTEMPS = { value: 0 };
-function matPlante(base) {
-  base.onBeforeCompile = (sh) => {
-    sh.uniforms.uTemps = UTEMPS;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aT0; attribute float aTete; uniform float uTemps; varying float vVie;')
-      .replace('#include <begin_vertex>', `#include <begin_vertex>
-        float t = clamp((uTemps - aT0) / 0.6, 0.0, 1.0); float e = 1.0 - pow(1.0 - t, 3.0) * cos(t * 5.0);   // se redresse avec un rebond
-        float couche = (1.0 - e) * 1.15, ph = uTemps * 1.8 + instanceMatrix[3].x * 0.3 + instanceMatrix[3].z * 0.2;
-        float a = couche + sin(ph) * 0.06 * t, cy = cos(a), sy = sin(a);   // fanée : couchée vers le sol ; fleurie : ondule au vent
-        transformed = vec3(transformed.x, transformed.y * cy - transformed.z * sy, transformed.y * sy + transformed.z * cy);
-        vVie = t;`)
-      .replace('#include <color_vertex>', '#include <color_vertex>\n#ifdef USE_COLOR\n vColor = mix(vec3(0.62, 0.58, 0.5) * (0.85 + 0.15 * aTete), vColor, clamp((uTemps - aT0) / 0.6, 0.0, 1.0));\n#endif');
-  };
-  return base;
-}
-const NF = Q.fleurs;
-const fleurs = FLEURS.map((_, t) => {
-  const geo = fleurGeo(t), m = new THREE.InstancedMesh(geo, matPlante(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, flatShading: true })), NT * NF);
-  geo.setAttribute('aT0', new THREE.InstancedBufferAttribute(new Float32Array(NT * NF).fill(1e6), 1)); m.userData.n = 0; return m;
-});
-const slotsFleur = new Int32Array(NT * NF * 2).fill(-1);   // tuile → (espèce, index) de chacune de ses fleurs
-for (let i = 0; i < NT; i++) {
-  const R = mulberry(i * 131 + 7), esp = T.espece[i], m = fleurs[esp];
-  for (let k = 0; k < NF; k++) {
-    const a = R() * 6.283, d = Math.sqrt(R()) * 0.85, x = T.x[i] + Math.cos(a) * d, z = T.z[i] + Math.sin(a) * d, sc = 0.8 + R() * 0.4;
-    _q.setFromEuler(_e.set(0, R() * 6.283, 0));
-    const j = m.userData.n++; m.setMatrixAt(j, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(sc, sc, sc)));
-    m.geometry.attributes.aT0.array[j] = T.t0[i]; slotsFleur[(i * NF + k) * 2] = esp; slotsFleur[(i * NF + k) * 2 + 1] = j;
+const FLEUR_GEO = (() => {
+  const pos = [], nor = [], part = [];   // part : 0 tige et feuilles, 1 pétales, 2 cœur
+  const tri = (a, b, c, na, nb, nc, k) => { pos.push(...a, ...b, ...c); nor.push(...na, ...nb, ...nc); part.push(k, k, k); };
+  // Tige : prisme à trois pans, ouvert, rayon 1,4 cm.
+  for (let k = 0; k < 3; k++) {
+    const a0 = k / 3 * 6.283, a1 = (k + 1) / 3 * 6.283, r = 0.014, n0 = [Math.cos(a0), 0, Math.sin(a0)], n1 = [Math.cos(a1), 0, Math.sin(a1)];
+    const p0 = [Math.cos(a0) * r, 0, Math.sin(a0) * r], p1 = [Math.cos(a1) * r, 0, Math.sin(a1) * r], h0 = [p0[0], 0.3, p0[2]], h1 = [p1[0], 0.3, p1[2]];
+    tri(p0, h0, h1, n0, n0, n1, 0); tri(p0, h1, p1, n0, n1, n1, 0);
   }
+  // Deux feuilles en losange, de part et d'autre de la base.
+  for (const s of [-1, 1]) {
+    const b = [0, 0.02, 0], m1 = [s * 0.06, 0.1, 0.025], m2 = [s * 0.06, 0.1, -0.025], t = [s * 0.11, 0.17, 0], n = [s * 0.5, 0.85, 0];
+    tri(b, m1, t, n, n, n, 0); tri(b, t, m2, n, n, n, 0);
+  }
+  // Coupe en tulipe : un fond, un renflement, puis un bord à cinq pétales arrondis (creux peu marqués). Normales adoucies.
+  const fond = [0, 0.255, 0], milieu = [], bordP = [];
+  for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283, pointe = k % 2 === 0; milieu.push([Math.cos(a) * 0.058, 0.305, Math.sin(a) * 0.058]); bordP.push([Math.cos(a) * (pointe ? 0.082 : 0.066), pointe ? 0.41 : 0.375, Math.sin(a) * (pointe ? 0.082 : 0.066)]); }
+  const nb = (p, ny) => { const l = Math.hypot(p[0], ny, p[2]); return [p[0] / l, ny / l, p[2] / l]; };
+  for (let k = 0; k < 10; k++) {
+    const m0 = milieu[k], m1 = milieu[(k + 1) % 10], b0 = bordP[k], b1 = bordP[(k + 1) % 10];
+    if (MOBILE) { tri(fond, b1, b0, [0, -0.3, 0], nb(b1, 0.7), nb(b0, 0.7), 1); continue; }   // téléphone : coupe sans renflement, moitié moins de triangles
+    tri(fond, m1, m0, [0, -0.3, 0], nb(m1, 0.25), nb(m0, 0.25), 1);
+    tri(m0, m1, b1, nb(m0, 0.25), nb(m1, 0.25), nb(b1, 0.7), 1); tri(m0, b1, b0, nb(m0, 0.25), nb(b1, 0.7), nb(b0, 0.7), 1);
+  }
+  // Cœur : petite pyramide au centre de la coupe.
+  const c = [0, 0.345, 0], cp = [0, 1, 0];
+  for (let k = 0; k < 3; k++) { const a0 = k / 3 * 6.283, a1 = (k + 1) / 3 * 6.283; tri([Math.cos(a0) * 0.02, 0.3, Math.sin(a0) * 0.02], c, [Math.cos(a1) * 0.02, 0.3, Math.sin(a1) * 0.02], cp, cp, cp, 2); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('aPart', new THREE.Float32BufferAttribute(part, 1));
+  return g;
+})();
+const UTEMPS = { value: 0 };
+const M_FLEUR = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+M_FLEUR.onBeforeCompile = (sh) => {
+  Object.assign(sh.uniforms, { uTemps: UTEMPS, uT0: { value: t0Tex }, uPal: UPAL });
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
+    attribute float aPart; attribute vec3 aTuile; uniform float uTemps; uniform sampler2D uT0; uniform vec3 uPal[6]; varying vec3 vCouleur;
+    vec3 palette(float r) { int k = int(mod(r, 6.0) + 0.5); k = k > 5 ? 0 : k; return uPal[k]; }`)
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+      float t0 = texture2D(uT0, (aTuile.xy + ${OFF}.0 + 0.5) / ${NTEX}.0).r;
+      float t = clamp((uTemps - t0) / 0.45, 0.0, 1.0), e = 1.0 - pow(1.0 - t, 3.0) * cos(t * 6.0);   // se redresse avec un rebond
+      float a = (1.0 - e) * (0.7 + aTuile.z * 0.3);                                                  // fanée : penchée vers le sol
+      float cy = cos(a), sy = sin(a); transformed = vec3(transformed.x, transformed.y * cy - transformed.z * sy, transformed.y * sy + transformed.z * cy);
+      float d = length(instanceMatrix[3].xz - cameraPosition.xz); transformed *= 1.0 - smoothstep(${R_FLEURS - 5}.0, ${R_FLEURS}.0, d);   // disparaît en douceur au bord du rayon
+      vec3 vive = palette(aTuile.y), tige = vec3(0.24, 0.55, 0.18);
+      vec3 c = aPart > 1.5 ? vive * 0.55 + vec3(0.25, 0.2, 0.0) : aPart > 0.5 ? vive : tige;
+      vec3 fane = aPart > 0.5 ? vec3(0.62, 0.58, 0.5) : vec3(0.5, 0.48, 0.38);
+      vCouleur = mix(fane, c, t);`);
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCouleur;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = vCouleur;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vCouleur * 0.22;');   // couleur franche même à l'ombre
+};
+// Le champ est découpé en carrés de 8 m ; seuls ceux proches du joueur ont leurs fleurs (un InstancedMesh chacun,
+// écarté par la caméra quand il est hors champ). Rangs : 18 cm entre les fleurs, 20 cm entre les rangs, en quinconce.
+const CARRE = 8, PAS_X = 0.18, PAS_Z = 0.2, CARRES = new Map();
+function construireCarre(a, b) {
+  const pts = [], R = mulberry((a * 7919 + b * 104729) >>> 0);
+  const j0 = Math.ceil(b * CARRE / PAS_Z), j1 = Math.floor(((b + 1) * CARRE - 1e-4) / PAS_Z);
+  for (let j = j0; j <= j1; j++) {
+    const z = j * PAS_Z, dx = (j & 1) * PAS_X / 2, i0 = Math.ceil((a * CARRE - dx) / PAS_X), i1 = Math.floor(((a + 1) * CARRE - 1e-4 - dx) / PAS_X);
+    for (let i = i0; i <= i1; i++) {
+      const x = i * PAS_X + dx, [q, r] = versHex(x, z), t = idxDe(q, r); if (t < 0) continue;
+      const [cx, cz] = hexCentre(q, r), ex = x - cx, ez = z - cz;
+      if (Math.max(Math.abs(ex), Math.abs(0.5 * ex + 0.866 * ez), Math.abs(-0.5 * ex + 0.866 * ez)) > 0.84) continue;   // un liseré nu entre les tuiles
+      pts.push(x, z, q, r, R());
+    }
+  }
+  const n = pts.length / 5; if (!n) return null;
+  const g = FLEUR_GEO.clone(), tuile = new Float32Array(n * 3);
+  const m = new THREE.InstancedMesh(g, M_FLEUR, n);
+  for (let k = 0; k < n; k++) {
+    const x = pts[k * 5], z = pts[k * 5 + 1], al = pts[k * 5 + 4];
+    _q.setFromEuler(_e.set((al - 0.5) * 0.16, al * 6.283, (((al * 97) % 1) - 0.5) * 0.16));   // seule l'inclinaison varie
+    m.setMatrixAt(k, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(1, 1, 1)));
+    tuile[k * 3] = pts[k * 5 + 2]; tuile[k * 3 + 1] = pts[k * 5 + 3]; tuile[k * 3 + 2] = al;
+  }
+  g.setAttribute('aTuile', new THREE.InstancedBufferAttribute(tuile, 3));
+  m.computeBoundingSphere(); m.receiveShadow = true; m.castShadow = false;   // l'ombre de 50 000 fleurs coûterait autant que les fleurs m.userData.carre = true;
+  scene.add(m); return m;
 }
-fleurs.forEach((m) => { m.count = m.userData.n; m.receiveShadow = true; scene.add(m); });
-function fleurirTuile(i, t) {   // la tuile passe au vert, ses fleurs se redressent en 0,6 s
-  T.vert[i] = 1; T.t0[i] = t; ecrireTuile(i);
-  for (let k = 0; k < NF; k++) { const esp = slotsFleur[(i * NF + k) * 2], j = slotsFleur[(i * NF + k) * 2 + 1], a = fleurs[esp].geometry.attributes.aT0; a.array[j] = t; a.addUpdateRange(j, 1); a.needsUpdate = true; }
+function majFleurs(budget = 2) {   // construit les carrés qui entrent dans le rayon, libère ceux qui en sortent
+  const px = camera.position.x, pz = camera.position.z, rc = Math.ceil((R_FLEURS + CARRE) / CARRE), a0 = Math.floor(px / CARRE), b0 = Math.floor(pz / CARRE);
+  for (const [k, m] of CARRES) { const [a, b] = k.split(',').map(Number); if (Math.hypot((a + 0.5) * CARRE - px, (b + 0.5) * CARRE - pz) > R_FLEURS + CARRE * 2) { if (m) { scene.remove(m); m.geometry.dispose(); m.dispose(); } CARRES.delete(k); } }
+  const aFaire = [];
+  for (let a = a0 - rc; a <= a0 + rc; a++) for (let b = b0 - rc; b <= b0 + rc; b++) { const k = a + ',' + b; if (CARRES.has(k)) continue; const d = Math.hypot((a + 0.5) * CARRE - px, (b + 0.5) * CARRE - pz); if (d < R_FLEURS + CARRE * 0.75) aFaire.push([d, a, b, k]); }
+  aFaire.sort((u, v) => u[0] - v[0]);
+  for (const [, a, b, k] of aFaire.slice(0, budget)) CARRES.set(k, construireCarre(a, b));
 }
-function fanerTuile(i) {   // l'orage fane une tuile déjà traitée
-  T.vert[i] = 0; T.t0[i] = 1e6; ecrireTuile(i);
-  for (let k = 0; k < NF; k++) { const esp = slotsFleur[(i * NF + k) * 2], j = slotsFleur[(i * NF + k) * 2 + 1], a = fleurs[esp].geometry.attributes.aT0; a.array[j] = 1e6; a.addUpdateRange(j, 1); a.needsUpdate = true; }
-}
+function fleurirTuile(i, t) { T.vert[i] = 1; T.t0[i] = t; ecrireTuile(i); }   // la tuile passe en couleur, ses fleurs se redressent
+function fanerTuile(i) { T.vert[i] = 0; T.t0[i] = 1e6; ecrireTuile(i); }
 // Chardons gris (à arracher) et fleurs dorées rares (qui luisent faiblement).
 const chardonGeo = (() => { const parts = []; for (let k = 0; k < 7; k++) { const a = k * 0.9, c = new THREE.ConeGeometry(0.03, 0.42 + (k % 3) * 0.1, 4).translate(0, 0.2, 0).rotateZ(0.35).rotateY(a); parts.push(c.index ? c.toNonIndexed() : c); } parts.push(new THREE.IcosahedronGeometry(0.07, 0).translate(0, 0.5, 0)); const pos = [], nor = []; parts.forEach((p) => { pos.push(...p.attributes.position.array); nor.push(...p.attributes.normal.array); }); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g; })();
 const chardons = new THREE.InstancedMesh(chardonGeo, new THREE.MeshStandardMaterial({ color: 0x8c8794, roughness: 0.9, flatShading: true }), NT * 3);
@@ -560,7 +538,7 @@ function fabriquerOutil(cle) {
 //    au pouce gauche, regard au pouce droit en même temps, boutons action et E, paysage forcé.
 // =====================================================================
 const jeu = document.getElementById('jeu');
-const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, inter: false, outil: -1, construire: false, contrats: false, tourner: false };
+const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, tourner: false };   // presse : une pression, même brève, entre deux images
 let tourne = false;   // téléphone tenu en portrait : la scène tourne d'un quart de tour
 const versJeu = (cx, cy) => tourne ? [cy, innerWidth - cx] : [cx, cy];
 const sons = { init() {} };   // remplacé par le module du son
@@ -572,20 +550,20 @@ if (!MOBILE) {
     E.action = souris || !!touches.Space;
   };
   addEventListener('keydown', (e) => {
-    if (['Space', 'Tab'].includes(e.code) || e.code.startsWith('Arrow')) e.preventDefault();
+    if (['Space'].includes(e.code) || e.code.startsWith('Arrow')) e.preventDefault();
     if (e.repeat) return;
     touches[e.code] = true; sons.init(); maj();
     if (e.code === 'KeyE' || e.code === 'KeyF') E.inter = true;
     if (/^Digit[1-7]$/.test(e.code)) E.outil = +e.code.slice(5) - 1;
+    if (e.code === 'Space') E.presse = true;
     if (e.code === 'KeyB') E.construire = true;
-    if (e.code === 'Tab') E.contrats = true;
     if (e.code === 'KeyR') E.tourner = true;
   });
   addEventListener('keyup', (e) => { touches[e.code] = false; maj(); });
   const echec = () => { refus = true; if (glisse) { souris = true; maj(); } };
   canvas.addEventListener('mousedown', (e) => {
     sons.init(); if (e.button !== 0) return;
-    if (verrou || refus) { souris = true; glisse = !verrou; maj(); return; }
+    if (verrou || refus) { souris = true; glisse = !verrou; E.presse = true; maj(); return; }
     glisse = true;   // premier clic : il verrouille le pointeur, il n'agit pas
     try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(echec); } catch (err) { echec(); }
   });
@@ -606,7 +584,7 @@ if (!MOBILE) {
   const R = 56, SENS = 0.0056; let stick = null, regard = null, agirId = null, agirPos = null, essai = false;
   const majStick = (x, y) => { const l = Math.hypot(x, y); if (l < 0.12) { E.mx = 0; E.mz = 0; return; } const m = Math.max(0.18, Math.pow((Math.min(l, 1) - 0.12) / 0.88, 1.5)); E.mx = x / l * m; E.mz = -y / l * m; };
   const premier = () => { sons.init(); if (essai) return; essai = true; try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (err) { /* refusé : la scène tourne */ } };
-  agir.addEventListener('touchstart', (e) => { premier(); const t = e.changedTouches[0]; agirId = t.identifier; agirPos = versJeu(t.clientX, t.clientY); E.action = true; agir.classList.add('appui'); e.preventDefault(); e.stopPropagation(); }, { passive: false });
+  agir.addEventListener('touchstart', (e) => { premier(); const t = e.changedTouches[0]; agirId = t.identifier; agirPos = versJeu(t.clientX, t.clientY); E.action = true; E.presse = true; agir.classList.add('appui'); e.preventDefault(); e.stopPropagation(); }, { passive: false });
   inter.addEventListener('touchstart', (e) => { premier(); E.inter = true; e.preventDefault(); e.stopPropagation(); }, { passive: false });
   addEventListener('touchstart', (e) => {
     premier();
@@ -706,10 +684,10 @@ function prendre(cle) {
   const P = POSE_OUTIL[cle]; ENMAIN[cle].scale.setScalar(P.s);
 }
 prendre('pinceau');
-let geste = 0, gesteType = 'brosser';
+let geste = 0, coup = 0, gesteType = 'brosser';   // coup : 1 à la pression, retombe en 0,3 s
 function majVue(dt) {
   const P = POSE_OUTIL[outilEnMain], a = clamp(joueur.vitesse / VIT, 0, 1.3), sb = Math.sin(joueur.pas), cb = Math.abs(Math.cos(joueur.pas));
-  geste = lerp(geste, E.action ? 1 : 0, 1 - Math.exp(-dt * 10));
+  coup = Math.max(0, coup - dt * 3.3); geste = lerp(geste, coup > 0 ? 1 : 0, 1 - Math.exp(-dt * 18));
   const t = gt * (gesteType === 'arracher' ? 16 : 8), balai = Math.sin(t) * 0.06 * geste, souffle = Math.sin(gt * 1.3) * 0.004;
   vue.visible = !joueur.enVehicule;
   vue.position.set(P.p[0] + sb * 0.016 * a - retardRegard * 0.3 + balai, P.p[1] - cb * 0.014 * a + souffle + retardRegardV * 0.25 + 0.03 * geste, P.p[2] - 0.05 * geste);
@@ -776,7 +754,6 @@ function poser(g, x, z) {   // pose un bâtiment face à la place centrale et le
   for (let k = 0; k < n; k++) { const lx = -W / 2 + W * (k + 0.5) / n, c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y); OBSTACLES.push({ x: x + lx * c, z: z - lx * s, r: Math.max(D / 2, W / n / 2) * 0.98 }); }
   return g;
 }
-function versMonde(g, lx, ly, lz) { return new THREE.Vector3(lx, ly, lz).applyMatrix4(g.matrixWorld); }
 
 // Le comptoir : vitrine, porte, vitrine. Devant, un auvent et une rangée de présentoirs, chacun portant un outil debout.
 const COMPTOIR = poser(batiment(['vitrine', 'porte', 'vitrine'], 3.2, 3.2, 'COMPTOIR'), -9, -4);
@@ -809,13 +786,12 @@ function presentoir(cle, prix, k, n) {
   objet.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
   PRESENTOIRS.push(p); return p;
 }
-function majPresentoir(p, etat) {   // 'acquis' | 'abordable' | 'cher' | 'verrou'
+function majPresentoir(p, etat) {   // 'acquis' | 'abordable' | 'cher'
   if (p.etat === etat) return; p.etat = etat;
-  p.objet.visible = etat !== 'verrou';
   p.objet.traverse((o) => { if (o.isMesh) o.material = etat === 'cher' ? M_GRIS : o.userData.matOrigine; });
   p.g.traverse((o) => { if (o.userData.voyant) o.material = etat === 'acquis' ? M.seve : etat === 'abordable' ? M.pollen : M.graphite; });
   const def = OUTILS_DEF[p.cle] || OBJETS_DEF[p.cle];
-  const txt = etat === 'verrou' ? [['BIENTÔT', 54, '#8a8d90']] : etat === 'acquis' ? [[def.court || def.nom, 40], ['ACQUIS', 34, '#2f8f52']] : [[def.court || def.nom, 40], [`${p.prix.toLocaleString('fr-FR')} cr`, 40, etat === 'cher' ? '#8a8d90' : '#b07d00']];
+  const txt = etat === 'acquis' ? [[def.court || def.nom, 40], ['ACQUIS', 34, '#2f8f52']] : [[def.court || def.nom, 40], [`${p.prix.toLocaleString('fr-FR')} cr`, 40, etat === 'cher' ? '#8a8d90' : '#b07d00']];
   if (p.plaque.material.map) p.plaque.material.map.dispose();
   p.plaque.material.map = texteTex(txt, 256, 112); p.plaque.material.needsUpdate = true;
 }
@@ -841,23 +817,19 @@ const POMPE = (() => {
 
 
 // =====================================================================
-// 11. La boucle : polliniser (la charge monte, la tuile passe du beige au vert, les fleurs se redressent),
-//     vider la charge au collecteur (les crédits montent), acheter l'outil suivant au comptoir
-//     (il passe en main tout de suite). Une tuile donne 0,5 kg de pollen ; 1 kg vaut 10 cr.
+// 11. La boucle : une pression sur une tuile sèche la transforme aussitôt (ses fleurs se redressent et
+//     prennent leur couleur) et met son pollen dans le réservoir. On vide le réservoir au collecteur,
+//     on achète au comptoir : tout est en vente tout de suite, seul l'argent manque. Aucune attente.
+//     Une tuile donne 0,5 kg de pollen ; 1 kg vaut 10 cr ; une fleur dorée vaut 50 fois plus.
 // =====================================================================
-const KG_TUILE = 0.5, PRIX_KG = 10, VALEUR_ESPECE = [1, 0.8, 1.25];   // lavande, colza, trèfle
-const OBJETS_DEF = {   // ce qui se vend au comptoir et n'est pas un outil en main
-  ruche: { nom: 'Ruche', court: 'Ruche', effet: 'Pollinise autour d’elle et produit du miel' },
-};
-const S = {   // tout l'état du joueur (sauvegardé à l'étape 6)
-  credits: 0, charge: 0, valeur: 0, outils: ['pinceau'], miel: 0, temps: 0, tuiles: 0, ventes: 0, debloque: 0,
-  boost: 1, prixVente: 1,
-};
+const KG_TUILE = 0.5, PRIX_KG = 10;
+const OBJETS_DEF = { ruche: { nom: 'Ruche', court: 'Ruche' } };   // ce qui se vend au comptoir et n'est pas un outil en main
+const S = { credits: 0, charge: 0, valeur: 0, outils: ['pinceau'], tuiles: 0, ventes: 0, silo: 0 };   // l'état du joueur (sauvegardé)
 const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'tuyau', 'marteau'];
 const outilDef = () => OUTILS_DEF[outilEnMain];
 const chargeMax = () => { let m = 0; for (const o of S.outils) m = Math.max(m, OUTILS_DEF[o].charge || 0); return m; };   // le réservoir suit le meilleur outil acquis
 
-// --- Le son : synthèse WebAudio, rien à charger. Un pop varié par tuile, une petite fanfare par vente. ---
+// --- Le son : synthèse WebAudio. Un pop varié par tuile, une petite fanfare par vente. ---
 Object.assign(sons, {
   ctx: null,
   init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; } try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.sortie = this.ctx.createGain(); this.sortie.gain.value = 0.35; this.sortie.connect(this.ctx.destination); } catch (e) { this.ctx = null; } },
@@ -869,8 +841,8 @@ Object.assign(sons, {
   arrache() { this.note(140 + Math.random() * 60, 0, 0.15, 'sawtooth', 0.08); },
 });
 
-// --- Les particules de pollen : un nuage jaune qui jaillit de la tuile pollinisée. ---
-const NPART = 400, partPos = new Float32Array(NPART * 3), partVel = new Float32Array(NPART * 3), partVie = new Float32Array(NPART);
+// --- Les particules : un nuage de pollen jaillit de la tuile transformée. ---
+const NPART = 500, partPos = new Float32Array(NPART * 3), partVel = new Float32Array(NPART * 3), partVie = new Float32Array(NPART);
 const partGeo = new THREE.BufferGeometry(); partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
 const particules = new THREE.Points(partGeo, new THREE.PointsMaterial({ color: CHARTE.pollen, size: 0.07, transparent: true, opacity: 0.9, depthWrite: false }));
 particules.frustumCulled = false; scene.add(particules);
@@ -882,13 +854,10 @@ function bouffee(x, y, z, n = 18, couleur) {
 MAJ.push((dt) => {
   for (let i = 0; i < NPART; i++) { if (partVie[i] <= 0) { partPos[i * 3 + 1] = -100; continue; } partVie[i] -= dt; partVel[i * 3 + 1] -= dt * 1.2; for (let a = 0; a < 3; a++) partPos[i * 3 + a] += partVel[i * 3 + a] * dt; }
   partGeo.attributes.position.needsUpdate = true;
+  UTEMPS.value = gt; majFleurs();
 });
 
-// --- Messages : une ligne qui apparaît sous la boussole puis s'efface. ---
-const MESSAGES = [];
-function message(texte, type = '') { MESSAGES.push({ texte, type, t: gt }); if (MESSAGES.length > 3) MESSAGES.shift(); }
-
-// --- La visée : rayon depuis l'œil vers le centre de l'écran, jusqu'au sol, portée 4,5 m. ---
+// --- La visée : rayon depuis l'œil vers le centre de l'écran, jusqu'au sol, portée 5 m. ---
 const _dir = new THREE.Vector3();
 let visee = null;   // { x, z, i (tuile), dist }
 function viser() {
@@ -901,7 +870,7 @@ function viser() {
   }
   return null;
 }
-// Une tuile est pollinisable si elle est sèche, sans chardons et arrosée si elle est aride.
+// Une tuile est pollinisable si elle est sèche, sans chardons, et arrosée si elle est aride.
 const pollinisable = (i) => i >= 0 && !T.vert[i] && T.sorte[i] !== 1 && !(T.sorte[i] === 2 && !T.irrigue[i]);
 function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'axe perpendiculaire au regard
   if (!v || v.i < 0) return [];
@@ -911,56 +880,44 @@ function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'ax
 }
 const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
 for (let i = 0; i < NT; i++) { secteurs[T.secteur[i]].total++; secteurs[T.secteur[i]].vert += T.vert[i]; }
-const ECOUTE = { tuile: [] };   // abonnés aux tuiles fleuries (contrats, étape 6)
-function polliniser(i, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur du pollen récolté
+function polliniser(i, par = 'joueur') {   // rend une tuile à la vie, tout de suite ; renvoie la valeur de son pollen
   if (!pollinisable(i)) return 0;
   const doree = T.sorte[i] === 3;
   if (doree) cueillirDoree(i);
   fleurirTuile(i, gt); secteurs[T.secteur[i]].vert++; S.tuiles++;
   bouffee(T.x[i], H(T.x[i], T.z[i]), T.z[i], par === 'joueur' ? 16 : 8, doree ? 0xffe27a : CHARTE.pollen);
-  for (const f of ECOUTE.tuile) f(i, par);
-  return KG_TUILE * PRIX_KG * VALEUR_ESPECE[T.espece[i]] * (doree ? 50 : 1) * S.boost;
+  return KG_TUILE * PRIX_KG * (doree ? 50 : 1);
 }
-let progres = 0, groupe = [], dernierPop = 0;
-const ACTIONS = [];   // actions de l'outil en main ajoutées par les étapes 5 et 6 : { quand(v), duree, faire(v), texte }
-function majAction(dt) {
+// L'action de l'outil en main se déclenche à la pression (pas de maintien). Les étapes suivantes ajoutent
+// leurs actions (arracher, construire) : { quand(v), faire(v), geste }.
+let groupe = [], actionAvant = false;
+const ACTIONS = [];
+function majAction() {
   visee = joueur.enVehicule ? null : viser();
   const def = outilDef();
   let cibleAction = null;
   for (const a of ACTIONS) if (a.quand(visee)) { cibleAction = a; break; }
-  if (cibleAction) { groupe = cibleAction.groupe ? cibleAction.groupe(visee) : visee && visee.i >= 0 ? [visee.i] : []; }
-  else if (def.largeur && visee && visee.dist < 4.6) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
+  if (cibleAction) groupe = visee && visee.i >= 0 ? [visee.i] : [];
+  else if (def.largeur && visee && visee.dist < 4.6 && S.charge < chargeMax() - 1e-6) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
   else groupe = [];
   selectionner(groupe);
-  const plein = S.charge >= chargeMax() - 1e-6;
-  const peut = cibleAction ? true : groupe.length > 0 && !plein;
-  majAction.etat = { cibleAction, peut, plein, groupe };
+  SEL.value.z = groupe.length ? 0.7 + Math.sin(gt * 5) * 0.15 : 0;
   gesteType = cibleAction && cibleAction.geste ? cibleAction.geste : 'brosser';
-  if (E.action && peut) {
-    const duree = cibleAction ? cibleAction.duree : def.duree;
-    progres += dt;
-    if (progres >= duree) {
-      progres = 0;
-      if (cibleAction) cibleAction.faire(visee, groupe);
-      else {
-        let n = 0;
-        for (const i of groupe) {
-          if (S.charge >= chargeMax() - 1e-6) break;
-          const v = polliniser(i); if (v > 0) { S.charge = Math.min(chargeMax(), S.charge + KG_TUILE); S.valeur += v; n++; }
-        }
-        if (n && gt - dernierPop > 0.05) { sons.pop(); dernierPop = gt; }
-        if (S.charge >= chargeMax() - 1e-6) message('Réservoir plein : vide-le au collecteur', 'alerte');
-      }
-    }
-  } else progres = Math.max(0, progres - dt * 3);
-  SEL.value.z = groupe.length ? 0.55 + 0.45 * Math.sin(gt * 6) * 0.3 + (progres / ((cibleAction ? cibleAction.duree : def.duree) || 1)) * 0.9 : 0;
-  majAction.progres = groupe.length ? progres / ((cibleAction ? cibleAction.duree : def.duree) || 1) : 0;
+  const presse = E.presse || (E.action && !actionAvant); actionAvant = E.action;
+  if (!presse) return;
+  coup = 1;   // le geste de l'outil à l'écran
+  if (cibleAction) { cibleAction.faire(visee); return; }
+  let n = 0;
+  for (const i of groupe) {
+    if (S.charge >= chargeMax() - 1e-6) break;
+    const v = polliniser(i); if (v > 0) { S.charge = Math.min(chargeMax(), S.charge + KG_TUILE); S.valeur += v; n++; }
+  }
+  if (n) sons.pop();
 }
 MAJ.push(majAction);
-MAJ.push(() => { UTEMPS.value = gt; S.temps += 0; });
 
-// --- Changer d'outil : chiffres 1 à 7, molette, ou les emplacements à l'écran. ---
-function changerOutil(cle) { if (!S.outils.includes(cle) || cle === outilEnMain) return; prendre(cle); progres = 0; }
+// --- Changer d'outil : chiffres 1 à 7, molette, ou les ronds à l'écran. ---
+function changerOutil(cle) { if (!S.outils.includes(cle) || cle === outilEnMain) return; prendre(cle); }
 MAJ.push(() => {
   if (E.outil === -1) return;
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o));
@@ -968,7 +925,7 @@ MAJ.push(() => {
   else { const k = possedes.indexOf(outilEnMain), n = possedes.length; changerOutil(possedes[(k + (E.outil === -3 ? 1 : -1) + n) % n]); }
 });
 
-// --- Le collecteur : on y vide la charge. Son écran affiche la dernière vente. ---
+// --- Le collecteur : E y vide le réservoir. Son écran affiche le gain de la dernière vente. ---
 function ecrireEcran(mat, texte) {
   const cv = mat.emissiveMap.image, g = cv.getContext('2d'), w = cv.width, h = cv.height;
   g.fillStyle = '#121518'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(244,180,26,.25)'; g.strokeRect(6, 6, w - 12, h - 12);
@@ -976,163 +933,71 @@ function ecrireEcran(mat, texte) {
   mat.emissiveMap.needsUpdate = true;
 }
 let ECRAN_COLLECTEUR = null; COLLECTEUR.traverse((o) => { if (o.isMesh && o.material.emissiveMap) ECRAN_COLLECTEUR = o.material; });
-const VENTES = [];   // ce qui se vend au collecteur en plus du pollen (miel, étape 5) : { qte(), libelle(n), prix, retirer() }
-function venteTotale() { let cr = S.valeur * S.prixVente, parts = []; if (S.charge > 0) parts.push(`${S.charge.toFixed(1).replace('.', ',')} kg`); for (const v of VENTES) { const n = v.qte(); if (n > 0) { cr += n * v.prix * S.prixVente; parts.push(v.libelle(n)); } } return { cr: Math.round(cr), parts }; }
 function vendre() {
-  const { cr, parts } = venteTotale(); if (cr <= 0) { sons.refus(); return; }
-  S.credits += cr; S.ventes++; S.charge = 0; S.valeur = 0; for (const v of VENTES) v.retirer();
-  ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sons.vente(); gainAffiche(cr);
-  message(`Vendu : ${parts.join(' + ')} → ${cr.toLocaleString('fr-FR')} cr`, 'gain');
+  const cr = Math.round(S.valeur); if (cr <= 0) { sons.refus(); return; }
+  S.credits += cr; S.ventes++; S.charge = 0; S.valeur = 0;
+  ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sons.vente();
 }
-const gainsFlottants = []; function gainAffiche(cr) { gainsFlottants.push({ cr, t: gt }); }
-INTER.push({ obj: COLLECTEUR, x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, y: 2.7, r: 3.4, nom: 'Collecteur',
-  texte() { const { cr, parts } = venteTotale(); return cr > 0 ? `Vendre ${parts.join(' + ')} · ${cr.toLocaleString('fr-FR')} cr` : 'Collecteur · rien à vendre'; },
-  actif() { return venteTotale().cr > 0; }, agir: vendre });
+INTER.push({ obj: COLLECTEUR, x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 3.4, agir: () => vendre() });
 
-// --- Le comptoir : chaque présentoir porte un outil ; grisé s'il est trop cher, « bientôt » s'il n'est pas encore débloqué. ---
-const VENTE_COMPTOIR = [['brosse', 300], ['large', 1200], ['xl', 3200], ['souffleur', 8000], ['tuyau', 150], ['ruche', 600], ['marteau', 500]];
+// --- Le comptoir : chaque présentoir porte ce qu'il vend ; grisé tant que c'est trop cher. ---
+const VENTE_COMPTOIR = [['brosse', 300], ['large', 1200], ['xl', 3200], ['souffleur', 8000], ['tuyau', 150], ['ruche', 400], ['marteau', 500]];
 VENTE_COMPTOIR.forEach(([cle, prix], k) => presentoir(cle, prix, k, VENTE_COMPTOIR.length));
-const DEBLOQUE = new Set(['brosse']);   // complété toutes les 8 minutes par la table des nouveautés
-const ACHAT = { ruche: null };   // effet d'achat des objets, fourni par l'étape 5
+const ACHAT = { ruche: null };   // effet d'achat des objets, fourni par les activités
 function acheter(p) {
-  const possede = S.outils.includes(p.cle);
-  if (possede || !DEBLOQUE.has(p.cle)) return;
-  if (S.credits < p.prix) { sons.refus(); message(`Il manque ${(p.prix - S.credits).toLocaleString('fr-FR')} cr`, 'alerte'); return; }
+  if (OUTILS_DEF[p.cle] && S.outils.includes(p.cle)) return;
+  if (S.credits < p.prix) { sons.refus(); return; }
   S.credits -= p.prix; sons.achat();
-  if (OUTILS_DEF[p.cle]) { S.outils.push(p.cle); changerOutil(p.cle); message(`${OUTILS_DEF[p.cle].nom} en main : ${OUTILS_DEF[p.cle].effet}`, 'gain'); }
+  if (OUTILS_DEF[p.cle]) { S.outils.push(p.cle); changerOutil(p.cle); }
   else if (ACHAT[p.cle]) ACHAT[p.cle](p);
 }
-for (const p of PRESENTOIRS) INTER.push({ obj: p.g, x: p.x, z: p.z, y: 1.5, r: 1.6, nom: (OUTILS_DEF[p.cle] || OBJETS_DEF[p.cle]).nom, presentoir: p,
-  texte() { const d = OUTILS_DEF[p.cle] || OBJETS_DEF[p.cle]; if (!DEBLOQUE.has(p.cle)) return `${d.nom} · bientôt`; if (S.outils.includes(p.cle)) return `${d.nom} · acquis`; return `Acheter ${d.nom} · ${p.prix.toLocaleString('fr-FR')} cr`; },
-  actif() { return DEBLOQUE.has(p.cle) && !S.outils.includes(p.cle) && S.credits >= p.prix; }, agir() { acheter(p); } });
-MAJ.push(() => { for (const p of PRESENTOIRS) majPresentoir(p, !DEBLOQUE.has(p.cle) ? 'verrou' : (S.outils.includes(p.cle) && OUTILS_DEF[p.cle]) ? 'acquis' : S.credits >= p.prix ? 'abordable' : 'cher'); });
+for (const p of PRESENTOIRS) INTER.push({ obj: p.g, x: p.x, z: p.z, r: 1.6, presentoir: p, agir() { acheter(p); } });
+MAJ.push(() => { for (const p of PRESENTOIRS) majPresentoir(p, (S.outils.includes(p.cle) && OUTILS_DEF[p.cle]) ? 'acquis' : S.credits >= p.prix ? 'abordable' : 'cher'); });
 
-// --- Interagir : l'objet utilisable le plus proche, dans le champ de vision. ---
-const INTER_HORS = [];   // E sans objet proche (descendre du véhicule, couper le tuyau…)
+// --- Interagir (E) : l'objet utilisable le plus proche, devant soi. ---
+const INTER_HORS = [];   // E sans objet proche (descendre du véhicule, couper le tuyau, changer de pièce)
 let interVise = null;
 MAJ.push(() => {
   interVise = null; let best = 1e9;
   if (!joueur.enVehicule) {
     const fx = -Math.sin(joueur.yaw), fz = -Math.cos(joueur.yaw);
-    for (const it of INTER) { if (it.cache && it.cache()) continue; const dx = it.x - joueur.x, dz = it.z - joueur.z, d = Math.hypot(dx, dz); if (d > it.r) continue; const face = (dx * fx + dz * fz) / (d || 1); if (face < 0.2 && d > 1.2) continue; const sc = d - face; if (sc < best && it.texte()) { best = sc; interVise = it; } }
+    for (const it of INTER) { if (it.cache && it.cache()) continue; const dx = it.x - joueur.x, dz = it.z - joueur.z, d = Math.hypot(dx, dz); if (d > it.r) continue; const face = (dx * fx + dz * fz) / (d || 1); if (face < 0.2 && d > 1.2) continue; const sc = d - face; if (sc < best) { best = sc; interVise = it; } }
   }
   if (E.inter && interVise) interVise.agir();
-  else if (E.inter && INTER_HORS.length) for (const f of INTER_HORS) if (f()) break;
+  else if (E.inter) for (const f of INTER_HORS) if (f()) break;
 });
-
-// --- L'objectif de la boussole : la prochaine chose utile à faire. ---
-function objectif() {
-  for (const f of OBJECTIFS) { const o = f(); if (o) return o; }
-  if (S.charge >= chargeMax() - 1e-6 || (S.charge > 0 && S.charge >= chargeMax() * 0.8)) return { x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, nom: 'Collecteur' };
-  const p = PRESENTOIRS.find((p) => DEBLOQUE.has(p.cle) && !S.outils.includes(p.cle) && S.credits >= p.prix && OUTILS_DEF[p.cle]);
-  if (p) return { x: p.x, z: p.z, nom: 'Comptoir' };
-  return tuileProche();
-}
-const OBJECTIFS = [];   // contrats, essaims… insérés par les étapes suivantes
-let tuileCache = null, tuileCacheT = -10;
-function tuileProche() {   // la tuile pollinisable la plus proche (recalculée deux fois par seconde)
-  if (gt - tuileCacheT < 0.5 && tuileCache && pollinisable(tuileCache.i)) return tuileCache;
-  tuileCacheT = gt; let best = 1e9, bi = -1;
-  for (let i = 0; i < NT; i++) if (pollinisable(i)) { const d = (T.x[i] - joueur.x) ** 2 + (T.z[i] - joueur.z) ** 2; if (d < best) { best = d; bi = i; } }
-  tuileCache = bi >= 0 ? { x: T.x[bi], z: T.z[bi], nom: 'Tuile sèche', i: bi } : null;
-  return tuileCache;
-}
 
 
 // =====================================================================
-// 12. L'interface, composée à la manière de POLLEN : plaques graphite translucides aux coins chanfreinés,
-//     chiffres jaune pollen, voyants vert sève. Sept éléments :
-//     boussole avec distance à l'objectif, anneau de progression du secteur, pastille de l'outil avec sa charge,
-//     emplacements d'outils, crédits, liste des raccourcis, badges de touche en contexte et étiquettes flottantes.
+// 12. L'interface : cinq choses, rien d'autre. Ruban de boussole en haut, pourcentage du secteur en haut
+//     à droite, outil et charge en bas à gauche, ronds des outils en bas au centre, argent en bas à droite.
+//     Aucun texte qui dise quoi faire.
 // =====================================================================
 const $ = (id) => document.getElementById(id);
 if (MOBILE) jeu.classList.add('mobile');
-const hud = { bande: $('bande'), cible: $('cible'), secN: $('secN'), secP: $('secP'), arc: $('arc'), nomOutil: $('nomOutil'), charge: $('charge'), jauge: $('jauge'),
-  slots: $('slots'), cr: $('cr'), raccourcis: $('raccourcis'), contexte: $('contexte'), etiquettes: $('etiquettes'), messages: $('messages'), gains: $('gains') };
+const hud = { bande: $('bande'), secP: $('secP'), nomOutil: $('nomOutil'), charge: $('charge'), slots: $('slots'), cr: $('cr') };
 const fmtKg = (v) => v.toFixed(1).replace('.', ',');
 const fmtCr = (v) => Math.round(v).toLocaleString('fr-FR');
-// Boussole : un ruban de ±90° autour du cap, graduations tous les 15°, lettres cardinales, chevron de l'objectif.
+// Boussole : un ruban de ±90° autour du cap, graduations tous les 15°, lettres cardinales.
 const CARD = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
-{
-  let h = ''; for (let d = 0; d < 360; d += 15) h += `<i data-a="${d}" class="${d % 45 ? 'g' : 'c'}">${d % 45 ? '' : CARD[d / 45]}</i>`;
-  hud.bande.innerHTML = h;
-}
+{ let h = ''; for (let d = 0; d < 360; d += 15) h += `<i data-a="${d}" class="${d % 45 ? 'g' : 'c'}">${d % 45 ? '' : CARD[d / 45]}</i>`; hud.bande.innerHTML = h; }
 const marques = [...hud.bande.children].map((el) => ({ el, a: +el.dataset.a }));
-const angle = (a) => ((a % 360) + 540) % 360 - 180;   // ramené entre -180 et 180
-function cap() { return (-joueur.yaw * 180 / Math.PI + 360) % 360; }   // 0 = nord (-z), 90 = est (+x)
-function relatif(x, z) { return angle(Math.atan2(x - joueur.x, -(z - joueur.z)) * 180 / Math.PI - cap()); }
-const MARQUEURS = [];   // marqueurs secondaires de la boussole (balises, essaims) : { x, z, cls, actif() }
-const marqueursEl = [];
-let dernierHUD = 0, tSlots = '', tRacc = '';
-const etiquettes = []; for (let k = 0; k < 6; k++) { const d = document.createElement('div'); d.className = 'etiq'; d.hidden = true; d.innerHTML = '<kbd>E</kbd><span></span>'; hud.etiquettes.appendChild(d); etiquettes.push(d); }
-const _v = new THREE.Vector3();
+const angle = (a) => ((a % 360) + 540) % 360 - 180;
+const cap = () => (-joueur.yaw * 180 / Math.PI + 360) % 360;   // 0 = nord (-z), 90 = est (+x)
+const PASTILLE = [];   // ce que montre la pastille quand ce n'est pas l'outil (le véhicule)
+let tSlots = '', dernierHUD = -1;
 function majHUD() {
-  // Boussole.
   const c = cap(), L = hud.bande.parentNode.clientWidth || 360, px = L / 180;
   for (const m of marques) { const r = angle(m.a - c); m.el.style.display = Math.abs(r) > 92 ? 'none' : ''; m.el.style.transform = `translateX(${r * px}px)`; }
-  const ob = objectif();
-  if (ob) { const r = relatif(ob.x, ob.z), d = Math.hypot(ob.x - joueur.x, ob.z - joueur.z); hud.cible.hidden = false; hud.cible.style.transform = `translateX(${clamp(r, -88, 88) * px}px)`; hud.cible.classList.toggle('bord', Math.abs(r) > 88); hud.cible.lastChild.textContent = `${ob.nom} · ${d < 10 ? d.toFixed(1).replace('.', ',') : Math.round(d)} m`; }
-  else hud.cible.hidden = true;
-  MARQUEURS.forEach((m, k) => {
-    if (!marqueursEl[k]) { const el = document.createElement('b'); el.className = 'marq ' + (m.cls || ''); hud.bande.parentNode.appendChild(el); marqueursEl[k] = el; }
-    const el = marqueursEl[k], vis = !m.actif || m.actif(); el.hidden = !vis; if (vis) { const r = relatif(m.x, m.z); el.style.transform = `translateX(${clamp(r, -90, 90) * px}px)`; el.style.opacity = Math.abs(r) > 90 ? 0.35 : 1; }
-  });
-  // Secteur.
-  const s = secteurDe(joueur.x, joueur.z), sec = secteurs[s], p = sec.total ? sec.vert / sec.total : 0;
-  hud.secN.textContent = s + 1; hud.secP.textContent = `${Math.floor(p * 100)} %`; hud.arc.style.strokeDashoffset = `${(1 - p) * 113.1}`;
-  // Outil et charge.
+  const s = secteurs[secteurDe(joueur.x, joueur.z)];
+  hud.secP.textContent = `${Math.floor(s.total ? s.vert / s.total * 100 : 0)} %`;
   let pa = { nom: outilDef().nom, charge: S.charge, max: chargeMax() }; for (const f of PASTILLE) { const r = f(); if (r) { pa = r; break; } }
-  hud.nomOutil.textContent = pa.nom;
-  hud.charge.textContent = `${fmtKg(pa.charge)} / ${pa.max} KG`;
-  hud.jauge.style.transform = `scaleY(${pa.max ? pa.charge / pa.max : 0})`; hud.jauge.parentNode.classList.toggle('plein', pa.charge >= pa.max - 1e-6);
-  // Emplacements.
+  hud.nomOutil.textContent = pa.nom; hud.charge.textContent = `${fmtKg(pa.charge)} / ${pa.max} KG`;
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;
-  if (sig !== tSlots) { tSlots = sig; hud.slots.innerHTML = possedes.map((o) => `<button type="button" data-tactile data-outil="${o}" class="${o === outilEnMain ? 'actif' : ''}" aria-label="${OUTILS_DEF[o].nom}"><kbd>${ORDRE_OUTILS.indexOf(o) + 1}</kbd>${ICONES[o] || ''}</button>`).join(''); }
-  // Crédits.
+  if (sig !== tSlots) { tSlots = sig; hud.slots.innerHTML = possedes.map((o) => `<button type="button" data-tactile data-outil="${o}" class="${o === outilEnMain ? 'actif' : ''}" aria-label="${OUTILS_DEF[o].nom}">${ICONES[o] || ''}</button>`).join(''); }
   hud.cr.textContent = fmtCr(S.credits);
-  // Raccourcis (seulement ce qui sert déjà).
-  const R = RACCOURCIS.filter((r) => !r.si || r.si()), sigR = R.map((r) => r.t).join();
-  if (sigR !== tRacc) { tRacc = sigR; hud.raccourcis.innerHTML = R.map((r) => `<li${r.tap ? ` data-tactile data-tap="${r.tap}"` : ''}><kbd>${MOBILE ? (r.m || r.k) : r.k}</kbd>${r.t}</li>`).join(''); }
-  // Badge de contexte sous le réticule.
-  const st = majAction.etat || {};
-  let ctx = '';
-  const btnA = MOBILE ? '●' : 'Clic', btnE = 'E';
-  if (interVise) ctx = `<kbd class="${interVise.actif && !interVise.actif() ? 'off' : ''}">${btnE}</kbd>${interVise.texte()}`;
-  else if (st.cibleAction) ctx = `<kbd>${btnA}</kbd>${st.cibleAction.texte}`;
-  else if (st.plein && visee) ctx = '<kbd class="off">!</kbd>Réservoir plein · collecteur';
-  else if (st.groupe && st.groupe.length) ctx = `<kbd>${btnA}</kbd>Maintenir · polliniser${st.groupe.length > 1 ? ` ${st.groupe.length} tuiles` : ''}`;
-  else if (visee && visee.i >= 0 && T.sorte[visee.i] === 1) ctx = '<kbd class="off">✕</kbd>Chardons · à arracher d’abord';
-  else if (visee && visee.i >= 0 && T.sorte[visee.i] === 2 && !T.irrigue[visee.i]) ctx = '<kbd class="off">✕</kbd>Tuile aride · à irriguer d’abord';
-  for (const f of CONTEXTES) { const t = f(); if (t) { ctx = t; break; } }
-  if (hud.contexte.innerHTML !== ctx) hud.contexte.innerHTML = ctx;
-  hud.contexte.hidden = !ctx;
-  hud.contexte.style.setProperty('--p', majAction.progres || 0);
-  if (MOBILE) { $('agir').classList.toggle('pret', !!(st.peut && (st.groupe && st.groupe.length || st.cibleAction))); $('inter').classList.toggle('pret', !!(interVise && (!interVise.actif || interVise.actif()))); }
-  // Étiquettes flottantes près des machines (dans les 14 m, devant soi).
-  const proches = INTER.filter((it) => !it.presentoir && !(it.cache && it.cache())).map((it) => ({ it, d: Math.hypot(it.x - joueur.x, it.z - joueur.z) })).filter((o) => o.d < 11).sort((a, b) => a.d - b.d).slice(0, 4);
-  if (proches.length < etiquettes.length) { const pr = INTER.filter((it) => it.presentoir).map((it) => ({ it, d: Math.hypot(it.x - joueur.x, it.z - joueur.z) })).filter((o) => o.d < 4).sort((a, b) => a.d - b.d); proches.push(...pr); }
-  etiquettes.forEach((el, k) => {
-    const o = proches[k]; if (!o || joueur.enVehicule) { el.hidden = true; return; }
-    _v.set(o.it.x, H(o.it.x, o.it.z) + o.it.y, o.it.z).project(camera);
-    if (_v.z > 1 || Math.abs(_v.x) > 1.05 || Math.abs(_v.y) > 1.05) { el.hidden = true; return; }
-    el.hidden = false; el.classList.toggle('vise', o.it === interVise); el.classList.toggle('off', !!(o.it.actif && !o.it.actif()));
-    el.style.transform = `translate(${(_v.x * 0.5 + 0.5) * LARG}px, ${(-_v.y * 0.5 + 0.5) * HAUT}px) translate(-50%, -100%) scale(${clamp(1.25 - o.d / 18, 0.6, 1)})`;
-    const t = o.it === interVise ? o.it.texte() : o.it.nom; if (el.lastChild.textContent !== t) el.lastChild.textContent = t;
-  });
-  // Messages et gains.
-  const m = MESSAGES.filter((x) => gt - x.t < 4.5), sigM = m.map((x) => x.texte + x.t).join();
-  if (hud.messages.dataset.s !== sigM) { hud.messages.dataset.s = sigM; hud.messages.innerHTML = m.map((x) => `<p class="${x.type}">${x.texte}</p>`).join(''); }
-  const g = gainsFlottants.filter((x) => gt - x.t < 1.6); hud.gains.innerHTML = g.map((x) => `<p style="opacity:${1 - (gt - x.t) / 1.6};transform:translateY(${-(gt - x.t) * 30}px)">+${fmtCr(x.cr)}</p>`).join('');
 }
-const PASTILLE = [];   // ce que montre la pastille quand ce n'est pas l'outil (le véhicule)
-const CONTEXTES = [];   // badges de contexte prioritaires ajoutés par les étapes suivantes
-const RACCOURCIS = [
-  { k: 'ZQSD', m: '◐', t: 'Se déplacer' },
-  { k: 'Clic', m: '●', t: 'Polliniser' },
-  { k: 'E', t: 'Utiliser' },
-  { k: '1-7', m: '⇆', t: 'Outils', si: () => S.outils.length > 1 },
-];
-const ICONES = {   // pictogrammes des emplacements, dessinés au trait
+const ICONES = {   // pictogrammes des ronds, dessinés au trait
   pinceau: '<svg viewBox="0 0 24 24"><path d="M5 19l9-9m1-1l3-3 1 1-3 3"/><path d="M4 20c1-3 2-4 3-3s0 2-3 3z"/></svg>',
   brosse: '<svg viewBox="0 0 24 24"><path d="M12 3v10"/><rect x="7" y="13" width="10" height="3" rx="1"/><path d="M8 16v4m2-4v4m2-4v4m2-4v4m2-4v4"/></svg>',
   large: '<svg viewBox="0 0 24 24"><path d="M12 3v9"/><rect x="4" y="12" width="16" height="3" rx="1"/><path d="M5 15v4m3-4v4m3-4v4m3-4v4m3-4v4m2-4v4"/></svg>',
@@ -1141,144 +1006,98 @@ const ICONES = {   // pictogrammes des emplacements, dessinés au trait
   tuyau: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M18 12h4"/></svg>',
   marteau: '<svg viewBox="0 0 24 24"><path d="M6 20l8-8"/><rect x="11" y="4" width="9" height="5" rx="1" transform="rotate(45 15 7)"/></svg>',
 };
-// Les emplacements et les raccourcis se touchent sur téléphone ; ils se cliquent aussi sur ordinateur.
-hud.slots.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-outil]'); if (b) { changerOutil(b.dataset.outil); e.stopPropagation(); e.preventDefault(); } });
-hud.raccourcis.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-tap]'); if (b) { E[b.dataset.tap] = true; e.stopPropagation(); e.preventDefault(); } });
-MAJ.push(() => { if (gt - dernierHUD > 1 / 30 || window.pollen && window.pollen.figer) { dernierHUD = gt; majHUD(); } });
+// Toucher ou cliquer un rond prend l'outil ; toucher le rond de l'outil déjà en main le fait « tourner »
+// (utile à l'outil de construction sur téléphone, qui n'a pas de touche R).
+hud.slots.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-outil]'); if (!b) return; if (b.dataset.outil === outilEnMain) E.tourner = true; else changerOutil(b.dataset.outil); e.stopPropagation(); e.preventDefault(); });
+MAJ.push(() => { if (gt - dernierHUD > 1 / 30 || (window.pollen && window.pollen.figer)) { dernierHUD = gt; majHUD(); } });
 
 
 // =====================================================================
-// 13. Les activités (étape 5) : désherber les chardons, irriguer les tuiles arides avec un tuyau
-//     déroulé depuis la pompe, poser des ruches et récolter le miel, capturer les essaims sauvages
-//     (une ruche gratuite), explorer : activer les balises de relevé révèle les fleurs dorées (50 fois le prix).
+// 13. Les activités, toutes immédiates : arracher les chardons d'une pression, irriguer les tuiles arides
+//     avec un tuyau déroulé depuis la pompe, poser une ruche (elle met en fleurs tout son voisinage d'un coup),
+//     activer les balises de relevé (elles font briller les fleurs dorées de leur secteur, 50 fois le prix).
 // =====================================================================
-const PRIX_MIEL = 40;
-const ECOUTE_ACT = { desherbe: [], miel: [] };   // abonnés (contrats, étape 6)
-
-// --- Désherber : viser une tuile à chardons avec une brosse, maintenir : on arrache. ---
+// --- Désherber : viser une tuile à chardons avec une brosse et presser : arrachés. ---
 const brosseEnMain = () => !!OUTILS_DEF[outilEnMain].largeur;
 ACTIONS.push({
-  quand: (v) => brosseEnMain() && v && v.i >= 0 && T.sorte[v.i] === 1 && v.dist < 4,
-  duree: 1.1, geste: 'arracher', texte: 'Maintenir · arracher les chardons',
-  faire(v) { desherber(v.i); sons.arrache(); bouffee(T.x[v.i], H(T.x[v.i], T.z[v.i]), T.z[v.i], 14, 0x8c8794); S.credits += 2; gainAffiche(2); for (const f of ECOUTE_ACT.desherbe) f(v.i); },
+  quand: (v) => brosseEnMain() && v && v.i >= 0 && T.sorte[v.i] === 1 && v.dist < 4.6, geste: 'arracher',
+  faire(v) { desherber(v.i); sons.arrache(); bouffee(T.x[v.i], H(T.x[v.i], T.z[v.i]), T.z[v.i], 14, 0x8c8794); S.credits += 2; },
 });
 
-// --- Irriguer : tuyau en main, on le branche à la pompe (E) et on marche : il se déroule derrière soi
-//     (45 m au plus) et arrose les tuiles arides qu'il longe. E loin de la pompe le coupe ; il reste posé. ---
+// --- Irriguer : tuyau en main, E à la pompe le branche ; on marche et il se déroule derrière soi (45 m au plus),
+//     arrosant les tuiles arides qu'il longe. E ailleurs le coupe ; il reste posé. ---
 const SEG_MAX = 600, LONG_TUYAU = 45;
-const segTuyau = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8, 1, true).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.5 }), SEG_MAX);
+const segTuyau = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8, 1, true).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.6 }), SEG_MAX);
 segTuyau.count = 0; segTuyau.receiveShadow = true; segTuyau.frustumCulled = false; scene.add(segTuyau);
 const bagues = new THREE.InstancedMesh(new THREE.TorusGeometry(0.065, 0.018, 6, 12).rotateY(Math.PI / 2), M.pollen, SEG_MAX); bagues.count = 0; bagues.frustumCulled = false; scene.add(bagues);
 const TUYAUX = [];   // { pts: [[x, z]...] } : les tuyaux posés (sauvegardés)
 let tuyauCourant = null;
-const SORTIE_POMPE = (() => { POMPE.updateMatrixWorld(true); const v = new THREE.Vector3(0.82, 0.5 + 0.49, 0.3).applyMatrix4(POMPE.matrixWorld); return [v.x, v.z]; })();
-function segment(a, b) {   // un tronçon de tuyau posé au sol entre deux points, bague jaune à chaque jonction
+const SORTIE_POMPE = (() => { POMPE.updateMatrixWorld(true); const v = new THREE.Vector3(0.82, 0.99, 0.3).applyMatrix4(POMPE.matrixWorld); return [v.x, v.z]; })();
+function segment(a, b) {   // un tronçon posé au sol entre deux points, bague jaune à chaque jonction
   if (segTuyau.count >= SEG_MAX) return;
   const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz), mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
   _m.compose(_p.set(mx, H(mx, mz) + 0.06, mz), _q.setFromEuler(_e.set(0, -Math.atan2(dz, dx), 0)), _s.set(l, 1, 1));
   segTuyau.setMatrixAt(segTuyau.count++, _m); segTuyau.instanceMatrix.needsUpdate = true;
   _m.compose(_p.set(b[0], H(b[0], b[1]) + 0.06, b[1]), _q, _s.set(1, 1, 1)); bagues.setMatrixAt(bagues.count++, _m); bagues.instanceMatrix.needsUpdate = true;
 }
-function arroser(x, z) {   // les tuiles arides à moins de 1,4 m du tuyau deviennent humides et pollinisables
+function arroser(x, z) {   // les tuiles arides à moins de 1,6 m du tuyau deviennent humides et pollinisables
   const [q0, r0] = versHex(x, z);
   for (let dq = -1; dq <= 1; dq++) for (let dr = -1; dr <= 1; dr++) { const i = idxDe(q0 + dq, r0 + dr); if (i < 0 || T.irrigue[i] || T.sorte[i] !== 2) continue; if (Math.hypot(T.x[i] - x, T.z[i] - z) > 1.6) continue; T.irrigue[i] = 1; ecrireTuile(i); bouffee(T.x[i], H(T.x[i], T.z[i]) - 0.2, T.z[i], 10, 0x6fb6ea); }
 }
 const longueur = (t) => { let l = 0; for (let k = 1; k < t.pts.length; k++) l += Math.hypot(t.pts[k][0] - t.pts[k - 1][0], t.pts[k][1] - t.pts[k - 1][1]); return l; };
-INTER.push({ obj: POMPE, x: POMPE.position.x, z: POMPE.position.z, y: 3.0, r: 3.2, nom: 'Pompe',
-  texte() { if (outilEnMain !== 'tuyau') return S.outils.includes('tuyau') ? 'Pompe · prends le tuyau (touche 6)' : 'Pompe · tuyau en vente au comptoir'; return tuyauCourant ? 'Couper le tuyau' : 'Brancher le tuyau'; },
-  actif() { return outilEnMain === 'tuyau'; },
-  agir() { if (outilEnMain !== 'tuyau') { sons.refus(); return; } if (tuyauCourant) { tuyauCourant = null; return; } tuyauCourant = { pts: [SORTIE_POMPE.slice()] }; TUYAUX.push(tuyauCourant); sons.achat(); message('Tuyau branché : marche jusqu’aux tuiles arides', 'gain'); } });
-INTER_HORS.push(() => { if (!tuyauCourant) return false; tuyauCourant = null; message('Tuyau coupé : il reste posé et continue d’arroser'); return true; });
+INTER.push({ obj: POMPE, x: POMPE.position.x, z: POMPE.position.z, r: 3.2,
+  agir() { if (outilEnMain !== 'tuyau') { sons.refus(); return; } if (tuyauCourant) { tuyauCourant = null; return; } tuyauCourant = { pts: [SORTIE_POMPE.slice()] }; TUYAUX.push(tuyauCourant); sons.achat(); } });
+INTER_HORS.push(() => { if (!tuyauCourant) return false; tuyauCourant = null; return true; });
 MAJ.push(() => {
   if (!tuyauCourant) return;
   if (outilEnMain !== 'tuyau') { tuyauCourant = null; return; }
   const t = tuyauCourant, d = t.pts[t.pts.length - 1], l = Math.hypot(joueur.x - d[0], joueur.z - d[1]);
   if (l < 1) return;
-  if (longueur(t) + l > LONG_TUYAU) { tuyauCourant = null; message('Tuyau au bout : 45 m déroulés', 'alerte'); return; }
+  if (longueur(t) + l > LONG_TUYAU) { tuyauCourant = null; sons.refus(); return; }
   const p = [joueur.x, joueur.z]; segment(d, p); t.pts.push(p); arroser(p[0], p[1]); arroser((p[0] + d[0]) / 2, (p[1] + d[1]) / 2);
 });
-CONTEXTES.push(() => tuyauCourant ? `<kbd>E</kbd>Tuyau branché · ${Math.round(longueur(tuyauCourant))} / ${LONG_TUYAU} m · E pour couper` : '');
 
-// --- Les ruches : posées sur six emplacements autour de la station. Chacune pollinise autour d'elle
-//     (une tuile toutes les 6 s dans un rayon de 9 m) et fait un pot de miel toutes les 45 s (6 au plus). ---
-const EMPL_RUCHE = [0.35, 1.4, 2.45, 3.5, 4.55, 5.6].map((a) => { const x = Math.cos(a) * 23, z = Math.sin(a) * 23; return { x, z, ruche: null }; });
-const M_CIRE = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffb300, emissiveIntensity: 1.6 });
-function fabriquerRuche() {   // corps blanc en trois hausses, toit graphite à liseré jaune, planche d'envol, fenêtre de cire
+// --- Les ruches : six emplacements autour de la station. Posée, une ruche met en fleurs d'un coup toutes les
+//     tuiles pollinisables à moins de 10 m, et leur pollen est payé aussitôt. Les abeilles restent autour. ---
+const RAYON_RUCHE = 10;
+const EMPL_RUCHE = [0.35, 1.4, 2.45, 3.5, 4.55, 5.6].map((a) => { const x = Math.cos(a) * 24, z = Math.sin(a) * 24; return { x, z, ruche: null }; });
+function fabriquerRuche() {   // corps blanc en trois hausses, toit graphite à liseré jaune, planche d'envol
   const g = new THREE.Group(), base = socle(g, 0.7, 0.7);
   for (let k = 0; k < 3; k++) placer(g, boite(0.7, 0.3, 0.7, k === 1 ? M.panneau : M.blanc, 0.03), 0, base + 0.15 + k * 0.32, 0);
   for (let k = 0; k < 2; k++) placer(g, boite(0.74, 0.025, 0.74, M.graphite, 0.01), 0, base + 0.31 + k * 0.32, 0);
   placer(g, boite(0.86, 0.1, 0.86, M.graphite, 0.03), 0, base + 1.02, 0);
   placer(g, boite(0.88, 0.03, 0.88, M.pollen, 0.012), 0, base + 0.96, 0);
-  placer(g, boite(0.4, 0.03, 0.14, M.pollen, 0.01), 0, base + 0.05, 0.42);                   // planche d'envol
+  placer(g, boite(0.4, 0.03, 0.14, M.pollen, 0.01), 0, base + 0.05, 0.42);
   placer(g, boite(0.3, 0.04, 0.02, M.graphite, 0.01), 0, base + 0.09, 0.355);
-  g.userData.cire = placer(g, boite(0.28, 0.12, 0.02, M_CIRE, 0.01), 0, base + 0.5, 0.355); g.userData.cire.userData.garder = true;   // fenêtre : la cire luit quand il y a du miel
   return fusionner(g);
 }
 const ABEILLES = 14, abeillesGeo = new THREE.BufferGeometry(), abeillesPos = new Float32Array(EMPL_RUCHE.length * ABEILLES * 3);
 abeillesGeo.setAttribute('position', new THREE.BufferAttribute(abeillesPos, 3));
 const abeilles = new THREE.Points(abeillesGeo, new THREE.PointsMaterial({ color: 0x3b2f12, size: 0.05 })); abeilles.frustumCulled = false; scene.add(abeilles);
-{ const g = new THREE.Group();   // les emplacements libres : une dalle hexagonale graphite au liseré jaune
+{ const g = new THREE.Group();   // les emplacements : une dalle hexagonale graphite au liseré jaune
   for (const e of EMPL_RUCHE) { placer(g, new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.95, 0.08, 6), M.graphite), e.x, H(e.x, e.z) + 0.04, e.z); placer(g, new THREE.Mesh(new THREE.CylinderGeometry(0.97, 0.97, 0.02, 6, 1, true), M.pollen), e.x, H(e.x, e.z) + 0.07, e.z); }
   scene.add(fusionner(g)); }
-function installerRuche(e, sauvage = false) {
+function installerRuche(e, pollinise = true) {
   const g = fabriquerRuche(); g.position.set(e.x, H(e.x, e.z), e.z); g.rotation.y = Math.atan2(-e.x, -e.z); scene.add(g);
-  e.ruche = { g, pots: 0, tMiel: 0, tPoll: Math.random() * 6, sauvage }; OBSTACLES.push({ x: e.x, z: e.z, r: 0.8 });
-  return e;
+  e.ruche = { g }; OBSTACLES.push({ x: e.x, z: e.z, r: 0.8 });
+  if (!pollinise) return 0;
+  let cr = 0; const [q0, r0] = versHex(e.x, e.z);
+  for (let dq = -7; dq <= 7; dq++) for (let dr = -7; dr <= 7; dr++) { const i = idxDe(q0 + dq, r0 + dr); if (i >= 0 && T.sorte[i] !== 3 && Math.hypot(T.x[i] - e.x, T.z[i] - e.z) < RAYON_RUCHE) cr += polliniser(i, 'ruche'); }
+  S.credits += Math.round(cr); return cr;
 }
-{ const p = PRESENTOIRS.find((p) => p.cle === 'ruche'), o = fabriquerRuche(); o.scale.setScalar(0.5); o.position.y = 0.96; p.g.remove(p.objet); p.g.add(o); p.objet = o; o.traverse((m) => { if (m.isMesh) m.userData.matOrigine = m.material; }); p.etat = ''; }   // une ruche miniature sur son présentoir
-ACHAT.ruche = () => {
-  const e = EMPL_RUCHE.find((e) => !e.ruche);
-  if (!e) { S.credits += 600; message('Les six emplacements sont pris', 'alerte'); return; }
-  installerRuche(e); message('Ruche posée : elle pollinise autour d’elle et fait du miel', 'gain');
-};
-for (const e of EMPL_RUCHE) INTER.push({ x: e.x, z: e.z, y: 2.0, r: 2.6, nom: 'Ruche', cache: () => !e.ruche,
-  texte() { const n = e.ruche.pots; return n ? `Récolter le miel · ${n} pot${n > 1 ? 's' : ''}` : 'Ruche · le miel se fait'; },
-  actif() { return e.ruche.pots > 0; },
-  agir() { const n = e.ruche.pots; if (!n) { sons.refus(); return; } e.ruche.pots = 0; S.miel += n; sons.vente(); message(`+${n} pot${n > 1 ? 's' : ''} de miel : à vendre au collecteur`, 'gain'); for (const f of ECOUTE_ACT.miel) f(n); } });
-VENTES.push({ qte: () => S.miel, libelle: (n) => `${n} pot${n > 1 ? 's' : ''} de miel`, prix: PRIX_MIEL, retirer() { S.miel = 0; } });
-MAJ.push((dt) => {
+{ const p = PRESENTOIRS.find((p) => p.cle === 'ruche'), o = fabriquerRuche(); o.scale.setScalar(0.5); o.position.y = 0.96; o.userData.garder = true; p.g.remove(p.objet); p.g.add(o); p.objet = o; o.traverse((m) => { if (m.isMesh) m.userData.matOrigine = m.material; }); p.etat = ''; }   // une ruche miniature sur son présentoir
+ACHAT.ruche = (p) => { const e = EMPL_RUCHE.find((e) => !e.ruche); if (!e) { S.credits += p.prix; sons.refus(); return; } installerRuche(e); };
+MAJ.push(() => {
   let k = 0;
-  for (const e of EMPL_RUCHE) {
-    const r = e.ruche;
-    for (let b = 0; b < ABEILLES; b++, k++) {
-      if (!r) { abeillesPos[k * 3 + 1] = -100; continue; }
-      const a = gt * (1.2 + (b % 5) * 0.3) + b * 2.1, rr = 0.8 + (b % 4) * 0.5 + Math.sin(gt * 0.7 + b) * 0.3;
-      abeillesPos.set([e.x + Math.cos(a) * rr, H(e.x, e.z) + 0.7 + Math.sin(a * 1.7 + b) * 0.4 + (b % 3) * 0.25, e.z + Math.sin(a) * rr], k * 3);
-    }
-    if (!r) continue;
-    r.tMiel += dt; if (r.tMiel >= 45) { r.tMiel = 0; r.pots = Math.min(6, r.pots + 1); }
-    r.tPoll += dt; if (r.tPoll >= 6) { r.tPoll = 0; const [q0, r0] = versHex(e.x, e.z); const c = []; for (let dq = -5; dq <= 5; dq++) for (let dr = -5; dr <= 5; dr++) { const i = idxDe(q0 + dq, r0 + dr); if (pollinisable(i) && T.sorte[i] !== 3 && Math.hypot(T.x[i] - e.x, T.z[i] - e.z) < 9) c.push(i); } if (c.length) polliniser(c[Math.floor(Math.random() * c.length)], 'ruche'); }
-    r.g.userData.cire.visible = r.pots > 0;
+  for (const e of EMPL_RUCHE) for (let b = 0; b < ABEILLES; b++, k++) {
+    if (!e.ruche) { abeillesPos[k * 3 + 1] = -100; continue; }
+    const a = gt * (1.2 + (b % 5) * 0.3) + b * 2.1, rr = 0.8 + (b % 4) * 0.5 + Math.sin(gt * 0.7 + b) * 0.3;
+    abeillesPos.set([e.x + Math.cos(a) * rr, H(e.x, e.z) + 0.7 + Math.sin(a * 1.7 + b) * 0.4 + (b % 3) * 0.25, e.z + Math.sin(a) * rr], k * 3);
   }
   abeillesGeo.attributes.position.needsUpdate = true;
 });
 
-// --- Les essaims sauvages : un nuage d'abeilles se pose quelque part dans les champs (toutes les 2 à 4 min).
-//     E à côté : capturé, il devient une ruche gratuite sur le premier emplacement libre. Il repart après 2 min. ---
-const essaim = { actif: false, x: 0, z: 0, t: 0, prochain: 100 };
-const NESS = 90, essaimPos = new Float32Array(NESS * 3), essaimGeo = new THREE.BufferGeometry(); essaimGeo.setAttribute('position', new THREE.BufferAttribute(essaimPos, 3));
-const nuage = new THREE.Points(essaimGeo, new THREE.PointsMaterial({ color: 0x2b220c, size: 0.07 })); nuage.frustumCulled = false; nuage.visible = false; scene.add(nuage);
-const ESSAIMS_ACTIFS = { v: false };   // allumé avec les ruches par la table des nouveautés
-function lancerEssaim() {
-  for (let n = 0; n < 50; n++) { const a = Math.random() * 6.283, d = 28 + Math.random() * 30, x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x - joueur.x, z - joueur.z) > 15) { Object.assign(essaim, { actif: true, x, z, t: 120 }); message('Un essaim sauvage s’est posé dans les champs', 'evenement'); return; } }
-}
-MAJ.push((dt) => {
-  if (!essaim.actif) { if (ESSAIMS_ACTIFS.v) { essaim.prochain -= dt; if (essaim.prochain <= 0) { essaim.prochain = 120 + Math.random() * 120; lancerEssaim(); } } nuage.visible = false; return; }
-  essaim.t -= dt; if (essaim.t <= 0) { essaim.actif = false; message('L’essaim est reparti'); }
-  nuage.visible = true; const y = H(essaim.x, essaim.z) + 1.2;
-  for (let k = 0; k < NESS; k++) { const a = gt * (2 + (k % 7) * 0.4) + k, r = 0.3 + (k % 9) * 0.09 + Math.sin(gt * 3 + k) * 0.1; essaimPos.set([essaim.x + Math.cos(a) * r, y + Math.sin(a * 1.3 + k) * 0.45, essaim.z + Math.sin(a) * r], k * 3); }
-  essaimGeo.attributes.position.needsUpdate = true;
-});
-INTER.push({ get x() { return essaim.x; }, get z() { return essaim.z; }, y: 2.2, r: 3, nom: 'Essaim sauvage', cache: () => !essaim.actif,
-  texte: () => 'Capturer l’essaim · ruche gratuite', agir() {
-    essaim.actif = false; sons.achat(); const e = EMPL_RUCHE.find((e) => !e.ruche);
-    if (e) { installerRuche(e, true); message('Essaim capturé : une ruche de plus, gratuite', 'gain'); } else { S.credits += 300; gainAffiche(300); message('Plus d’emplacement : l’essaim est vendu 300 cr', 'gain'); }
-  } });
-MARQUEURS.push({ get x() { return essaim.x; }, get z() { return essaim.z; }, cls: 'essaim', actif: () => essaim.actif });
-OBJECTIFS.push(() => essaim.actif && Math.hypot(essaim.x - joueur.x, essaim.z - joueur.z) < 30 ? { x: essaim.x, z: essaim.z, nom: 'Essaim' } : null);
-
-// --- L'exploration : six balises de relevé au bord du terrain. Activée, une balise rapporte 100 cr
-//     et révèle les fleurs dorées de son secteur (elles s'allument et apparaissent sur la boussole). ---
+// --- L'exploration : six balises au bord du terrain. E : +100 cr, et les fleurs dorées de son secteur s'allument. ---
 const BALISES = [];
 for (let s = 0; s < NSECT; s++) {
   const a = (s + 0.5) / NSECT * Math.PI * 2, x = Math.cos(a) * 60, z = Math.sin(a) * 60, g = new THREE.Group(), base = socle(g, 0.6, 0.6);
@@ -1290,36 +1109,30 @@ for (let s = 0; s < NSECT; s++) {
   BALISES.push({ x, z, s, g, feu, active: false });
 }
 const doreesRevelees = [];
-function activerBalise(b) {
-  b.active = true; b.feu.material.emissive.set(CHARTE.seve); S.credits += 100; gainAffiche(100); sons.vente();
-  let n = 0; for (const [i] of slotsDore) if (T.secteur[i] === b.s && T.sorte[i] === 3) { doreesRevelees.push(i); n++; }
-  message(`Balise activée : ${n} fleur${n > 1 ? 's' : ''} dorée${n > 1 ? 's' : ''} révélée${n > 1 ? 's' : ''} dans le secteur ${b.s + 1}`, 'gain');
+function activerBalise(b, payer = true) {
+  b.active = true; b.feu.material.emissive.set(CHARTE.seve);
+  if (payer) { S.credits += 100; sons.vente(); }
+  for (const [i] of slotsDore) if (T.secteur[i] === b.s && T.sorte[i] === 3) doreesRevelees.push(i);
 }
-for (const b of BALISES) INTER.push({ x: b.x, z: b.z, y: 4.3, r: 2.6, nom: 'Balise de relevé', texte: () => b.active ? 'Balise active' : 'Activer la balise · +100 cr', actif: () => !b.active, agir() { if (!b.active) activerBalise(b); } });
-for (const b of BALISES) MARQUEURS.push({ x: b.x, z: b.z, cls: '', actif: () => !b.active });
-const doreeProche = () => { let best = 1e9, bi = -1; for (const i of doreesRevelees) if (T.sorte[i] === 3) { const d = (T.x[i] - joueur.x) ** 2 + (T.z[i] - joueur.z) ** 2; if (d < best) { best = d; bi = i; } } return bi; };
-MARQUEURS.push({ get x() { const i = doreeProche(); return i >= 0 ? T.x[i] : 0; }, get z() { const i = doreeProche(); return i >= 0 ? T.z[i] : 0; }, cls: 'doree', actif: () => doreeProche() >= 0 });
-// Les fleurs dorées pulsent ; une fois révélées, elles brillent plus fort.
-MAJ.push(() => { dorees.material.emissiveIntensity = (doreesRevelees.length ? 1.6 : 0.9) + Math.sin(gt * 3) * 0.3; });
+for (const b of BALISES) INTER.push({ x: b.x, z: b.z, r: 2.6, agir() { if (!b.active) activerBalise(b); } });
+MAJ.push(() => { dorees.material.emissiveIntensity = (doreesRevelees.length ? 1.6 : 0.9) + Math.sin(gt * 3) * 0.3; });   // les dorées pulsent
 
 
 // =====================================================================
 // 14. L'automatisation (étape 6) : l'outil de construction pose des pièces sur une grille de 2 m.
-//     Convoyeurs (des capsules y roulent), extracteur (2 kg de pollen → 1 pot de miel), maturateur
-//     (miel → miel de cru), panneau solaire, batterie, quai d'expédition (vend ce qui arrive).
+//     Convoyeurs (des capsules y roulent), extracteur (2 kg de pollen → 1 pot de miel, sur-le-champ), maturateur
+//     (miel → miel de cru, sur-le-champ), quai d'expédition (vend ce qui arrive). Tout est en vente tout de suite.
 //     Un convoyeur qui part du collecteur y emporte le pollen déposé, une capsule par kilo.
 // =====================================================================
 const GR = 2, DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];   // nord (-z), est, sud, ouest
 const PIECES = {
   convoyeur: { nom: 'Convoyeur', prix: 20 },
   quai: { nom: 'Quai d’expédition', prix: 100 },
-  extracteur: { nom: 'Extracteur', prix: 800, entree: 'pollen', besoin: 2, sortie: 'miel', duree: 4 },
-  maturateur: { nom: 'Maturateur', prix: 1500, entree: 'miel', besoin: 1, sortie: 'cru', duree: 6 },
-  solaire: { nom: 'Panneau solaire', prix: 400 },
-  batterie: { nom: 'Batterie', prix: 600 },
+  extracteur: { nom: 'Extracteur', prix: 800, entree: 'pollen', besoin: 2, sortie: 'miel' },
+  maturateur: { nom: 'Maturateur', prix: 1500, entree: 'miel', besoin: 1, sortie: 'cru' },
 };
-const PIECES_DEBLOQUEES = new Set(['convoyeur', 'quai']);
-const VALEUR_CAPSULE = { pollen: PRIX_KG, miel: PRIX_MIEL, cru: 90 };
+const ORDRE_PIECES = Object.keys(PIECES);
+const VALEUR_CAPSULE = { pollen: PRIX_KG, miel: 40, cru: 90 };
 const COULEUR_CAPSULE = { pollen: CHARTE.pollen, miel: 0xd98a14, cru: 0x9a5a12 };
 const GRILLE = new Map();   // "cx,cz" → pièce { cle, cx, cz, dir, g, ... }
 const cle2 = (cx, cz) => cx + ',' + cz;
@@ -1327,7 +1140,6 @@ const centre = (c) => (c + 0.5) * GR;
 // --- Les modèles des pièces, tous à la charte. Ils regardent vers -z (leur sortie). ---
 const tapis = texture(64, 128, (g, w, h) => { g.fillStyle = '#ece8df'; g.fillRect(0, 0, w, h); g.fillStyle = '#f4b41a'; for (let k = 0; k < 2; k++) { const y = k * h / 2 + 10; g.beginPath(); g.moveTo(w / 2, y); g.lineTo(w * 0.82, y + 22); g.lineTo(w * 0.62, y + 22); g.lineTo(w * 0.62, y + 40); g.lineTo(w * 0.38, y + 40); g.lineTo(w * 0.38, y + 22); g.lineTo(w * 0.18, y + 22); g.closePath(); g.fill(); } });
 tapis.wrapT = THREE.RepeatWrapping; const M_TAPIS = new THREE.MeshStandardMaterial({ map: tapis, roughness: 0.7 });
-const M_PANNEAU_PV = new THREE.MeshStandardMaterial({ color: 0x1b2a44, roughness: 0.15, metalness: 0.5, map: texture(128, 128, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.strokeStyle = '#8fa3c0'; g.lineWidth = 2; for (let k = 1; k < 4; k++) { g.beginPath(); g.moveTo(k * w / 4, 0); g.lineTo(k * w / 4, h); g.stroke(); g.beginPath(); g.moveTo(0, k * h / 4); g.lineTo(w, k * h / 4); g.stroke(); } }) });
 function modelePiece(cle) {
   const g = new THREE.Group();
   if (cle === 'convoyeur') {
@@ -1354,21 +1166,8 @@ function modelePiece(cle) {
       g.userData.rotor = placer(g, boite(0.2, 0.2, 0.06, M.seve, 0.02), 0.5, b + 1.25, -0.56);
     }
     g.userData.voyant = placer(g, boite(0.16, 0.16, 0.04, M.seve, 0.02), -0.45, b + 1.25, -0.56);
-  } else if (cle === 'solaire') {
-    placer(g, boite(0.5, 0.2, 0.5, M.graphite, 0.04), 0, 0.1, 0);
-    placer(g, tube(0.06, 0.06, 1.1, M.blanc), 0, 0.75, 0);
-    const p = new THREE.Group(); p.position.y = 1.35; p.rotation.x = -0.55; g.add(p);
-    placer(p, boite(1.8, 0.06, 1.3, M.graphite, 0.02), 0, 0, 0);
-    placer(p, new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.2).rotateX(-Math.PI / 2), M_PANNEAU_PV), 0, 0.035, 0);
-    placer(p, boite(1.82, 0.04, 0.05, M.pollen, 0.01), 0, 0.02, 0.65);
-  } else if (cle === 'batterie') {
-    const b = socle(g, 1.0, 0.8);
-    placer(g, boite(1.0, 1.3, 0.8, M.blanc, 0.04), 0, b + 0.65, 0);
-    placer(g, boite(0.3, 0.12, 0.3, M.graphite, 0.03), -0.25, b + 1.36, 0); placer(g, boite(0.3, 0.12, 0.3, M.pollen, 0.03), 0.25, b + 1.36, 0);
-    g.userData.barres = [];
-    for (let k = 0; k < 5; k++) g.userData.barres.push(placer(g, boite(0.6, 0.12, 0.04, M.graphite, 0.02), 0, b + 0.25 + k * 0.2, -0.41));
   }
-  for (const o of [g.userData.rotor, g.userData.voyant, ...(g.userData.barres || [])]) if (o) o.userData.garder = true;
+  for (const o of [g.userData.rotor, g.userData.voyant]) if (o) o.userData.garder = true;
   return fusionner(g);
 }
 // --- Poser, démonter. ---
@@ -1382,36 +1181,18 @@ function libre(cx, cz) {
 function poserPiece(cle, cx, cz, dir, gratuit = false) {
   const g = modelePiece(cle), x = centre(cx), z = centre(cz);
   g.position.set(x, H(x, z), z); g.rotation.y = -dir * Math.PI / 2; scene.add(g);
-  const p = { cle, cx, cz, dir, g, stock: 0, sortie: null, t: 0, marche: false, panne: false };
+  const p = { cle, cx, cz, dir, g, stock: 0, sortie: null, anim: 0 };
   GRILLE.set(cle2(cx, cz), p);
-  if (cle !== 'convoyeur') { const o = { x, z, r: 0.85, piece: p }; OBSTACLES.push(o); p.obstacle = o; INTER.push(p.inter = interPiece(p)); }
+  if (cle !== 'convoyeur') { const o = { x, z, r: 0.85, piece: p }; OBSTACLES.push(o); p.obstacle = o; }
   if (!gratuit) S.credits -= PIECES[cle].prix;
   return p;
 }
 function demonter(p) {
   scene.remove(p.g); GRILLE.delete(cle2(p.cx, p.cz));
   if (p.obstacle) OBSTACLES.splice(OBSTACLES.indexOf(p.obstacle), 1);
-  if (p.inter) INTER.splice(INTER.indexOf(p.inter), 1);
   for (let k = CAPSULES.length - 1; k >= 0; k--) if (CAPSULES[k].p === p) CAPSULES.splice(k, 1);
   S.credits += Math.round(PIECES[p.cle].prix / 2);
 }
-function interPiece(p) {
-  const def = PIECES[p.cle];
-  return { x: centre(p.cx), z: centre(p.cz), y: 2.6, r: 2.4, nom: def.nom, piece: p,
-    texte() {
-      if (p.panne) return `${def.nom} en panne · Réparer`;
-      if (def.entree) return `${def.nom} · ${p.stock}/${def.besoin} ${def.entree === 'pollen' ? 'kg de pollen' : 'pot'} · ${p.marche ? 'en marche' : ENERGIE.manque ? 'sans énergie' : 'en attente'}`;
-      if (p.cle === 'batterie') return `Batterie · ${Math.round(ENERGIE.stock)} / ${Math.round(ENERGIE.max)}`;
-      if (p.cle === 'solaire') return `Panneau solaire · ${JOUR.nuit ? 'à l’arrêt la nuit' : '1,5 ⚡/s'}`;
-      if (p.cle === 'quai') return 'Quai d’expédition · vend ce qui arrive';
-      return def.nom;
-    },
-    actif: () => p.panne, agir() { if (p.panne) { p.panne = false; sons.achat(); message(`${def.nom} réparé`, 'gain'); } } };
-}
-// --- L'énergie : chaque panneau donne 1,5 unité par seconde de jour ; chaque batterie en garde 120 ;
-//     une machine qui travaille en consomme 1 par seconde. ---
-const ENERGIE = { stock: 0, max: 0, prod: 0, manque: false };
-const JOUR = { nuit: false, lumiere: 1 };   // réglé par le cycle jour/nuit (module suivant)
 // --- Les capsules. ---
 const CAPSULES = [];   // { p (convoyeur), t (0 → 1 le long du tapis), type }
 const NCAP = 400, capsules = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.13, 0.22, 4, 10).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.1 }), NCAP);
@@ -1430,11 +1211,6 @@ function departs() {   // les convoyeurs qui partent du collecteur
 }
 let tSilo = 0;
 MAJ.push((dt) => {
-  // Énergie.
-  let pv = 0, bat = 0, demande = 0; for (const p of GRILLE.values()) { if (p.cle === 'solaire') pv++; else if (p.cle === 'batterie') bat++; else if (PIECES[p.cle].entree && p.stock >= PIECES[p.cle].besoin && !p.panne && !p.sortie) demande++; }
-  ENERGIE.max = bat * 120; ENERGIE.prod = pv * 1.5 * JOUR.lumiere;
-  const bilan = (ENERGIE.prod - demande) * dt; ENERGIE.stock = clamp(ENERGIE.stock + bilan, 0, ENERGIE.max);
-  const dispo = ENERGIE.prod >= demande || ENERGIE.stock > 0.01; ENERGIE.manque = demande > 0 && !dispo;
   // Le silo du collecteur alimente les convoyeurs de départ.
   tSilo += dt;
   if (S.silo >= 1 && tSilo > 0.7) { for (const p of departs()) if (S.silo >= 1 && pousser(p, 'pollen')) { S.silo -= 1; tSilo = 0; } }
@@ -1442,9 +1218,9 @@ MAJ.push((dt) => {
   for (const p of GRILLE.values()) {
     const def = PIECES[p.cle]; if (!def.entree) continue;
     if (p.sortie) { const [dx, dz] = DIRS[p.dir], n = GRILLE.get(cle2(p.cx + dx, p.cz + dz)); if (n && n.cle === 'quai') { vendreCapsule(p.sortie); p.sortie = null; } else if (pousser(n, p.sortie)) p.sortie = null; }
-    p.marche = !p.panne && !p.sortie && p.stock >= def.besoin && dispo;
-    if (p.marche) { p.t += dt; if (p.g.userData.rotor) p.g.userData.rotor.rotation.y += dt * 8; if (p.t >= def.duree) { p.t = 0; p.stock -= def.besoin; p.sortie = def.sortie; } }
-    p.g.userData.voyant.material = p.panne ? M.pollen : p.marche ? M.seve : M.graphite;
+    if (!p.sortie && p.stock >= def.besoin) { p.stock -= def.besoin; p.sortie = def.sortie; p.anim = 0.6; }   // transformation immédiate
+    p.anim = Math.max(0, p.anim - dt); if (p.g.userData.rotor) p.g.userData.rotor.rotation.y += dt * 14 * (p.anim > 0 ? 1 : 0);
+    p.g.userData.voyant.material = p.anim > 0 ? M.seve : M.graphite;
   }
   // Capsules : 1,2 tapis par seconde.
   for (let k = CAPSULES.length - 1; k >= 0; k--) {
@@ -1461,18 +1237,14 @@ MAJ.push((dt) => {
   for (const c of CAPSULES) { if (i >= NCAP) break; const x = centre(c.p.cx) + DIRS[c.p.dir][0] * (c.t - 0.5) * GR, z = centre(c.p.cz) + DIRS[c.p.dir][1] * (c.t - 0.5) * GR; _m.compose(_p.set(x, H(centre(c.p.cx), centre(c.p.cz)) + 0.64, z), _q.setFromEuler(_e.set(0, -c.p.dir * Math.PI / 2, 0)), _s.set(1, 1, 1)); capsules.setMatrixAt(i, _m); capsules.setColorAt(i, _c.set(COULEUR_CAPSULE[c.type])); i++; }
   capsules.count = i; capsules.instanceMatrix.needsUpdate = true; if (capsules.instanceColor) capsules.instanceColor.needsUpdate = true;
   tapis.offset.y = (tapis.offset.y + dt * 0.6) % 1;
-  for (const p of GRILLE.values()) if (p.cle === 'batterie') p.g.userData.barres.forEach((b, k) => { b.material = ENERGIE.max && ENERGIE.stock / ENERGIE.max > k / 5 ? M.seve : M.graphite; });
 });
-const ECOUTE_CAP = [];
-function vendreCapsule(type) { const cr = Math.round(VALEUR_CAPSULE[type] * S.prixVente); S.credits += cr; gainAffiche(cr); for (const f of ECOUTE_CAP) f(type); }
+function vendreCapsule(type) { S.credits += VALEUR_CAPSULE[type]; }
 // Le collecteur : s'il a une ligne de départ, on y dépose le pollen (le miel reste vendu directement).
-const venteAvant = vendre;
 function deposerOuVendre() {
-  if (departs().length && S.charge > 0) { const kg = S.charge; S.silo += kg; S.charge = 0; S.valeur = 0; sons.achat(); message(`${fmtKg(kg)} kg déposés dans la ligne`, 'gain'); if (venteTotale().cr > 0) venteAvant(); return; }
-  venteAvant();
+  if (departs().length && S.charge > 0) { S.silo += S.charge; S.charge = 0; S.valeur = 0; sons.achat(); ecrireEcran(ECRAN_COLLECTEUR, `${Math.floor(S.silo)} kg`); return; }
+  vendre();
 }
-{ const it = INTER.find((it) => it.obj === COLLECTEUR); const t0 = it.texte; it.agir = deposerOuVendre; it.texte = () => (departs().length && S.charge > 0) ? `Déposer ${fmtKg(S.charge)} kg dans la ligne${S.silo >= 1 ? ` · silo ${Math.floor(S.silo)} kg` : ''}` : t0(); it.actif = () => S.charge > 0 || venteTotale().cr > 0; }
-S.silo = 0;
+INTER.find((it) => it.obj === COLLECTEUR).agir = deposerOuVendre;
 
 // --- L'outil de construction : clic pose, E change de pièce, R tourne, clic sur une pièce posée la démonte. ---
 const fantome = new THREE.Group(), M_FANT = new THREE.MeshBasicMaterial({ color: CHARTE.seve, transparent: true, opacity: 0.35, depthWrite: false });
@@ -1481,6 +1253,13 @@ placer(fantome, new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.7, 3).rotateX(-Mat
 fantome.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
 fantome.visible = false; scene.add(fantome);
 const CONS = { piece: 'convoyeur', dir: 0, cible: null, avant: false, modele: null };
+// Le fantôme montre la pièce elle-même, translucide : on voit ce qu'on pose sans un mot.
+const M_FANT_PIECE = new THREE.MeshBasicMaterial({ color: CHARTE.seve, transparent: true, opacity: 0.4, depthWrite: false });
+function majFantome() {
+  if (CONS.modele) fantome.remove(CONS.modele);
+  const m = modelePiece(CONS.piece); m.traverse((o) => { if (o.isMesh) { o.material = M_FANT_PIECE; o.castShadow = o.receiveShadow = false; } }); fantome.add(m); CONS.modele = m;
+}
+majFantome();
 function viseeLoin() { camera.getWorldDirection(_dir); const o = camera.position; for (let t = 0.5; t <= 10; t += 0.1) { const x = o.x + _dir.x * t, y = o.y + _dir.y * t, z = o.z + _dir.z * t; if (y <= H(x, z)) return [x, z]; } return null; }
 MAJ.push(() => {
   if (E.construire) { if (outilEnMain === 'marteau') changerOutil(S.outils.find((o) => OUTILS_DEF[o].largeur && o !== 'marteau') || 'pinceau'); else changerOutil('marteau'); }
@@ -1494,9 +1273,9 @@ MAJ.push(() => {
     CONS.cible = { cx, cz, p, ok: !p && libre(cx, cz) && S.credits >= PIECES[CONS.piece].prix };
     if (!p) {
       fantome.visible = true; fantome.position.set(centre(cx), H(centre(cx), centre(cz)) + 0.02, centre(cz)); fantome.rotation.y = -CONS.dir * Math.PI / 2;
-      M_FANT.color.set(CONS.cible.ok ? CHARTE.seve : 0xd9534f);
+      M_FANT.color.set(CONS.cible.ok ? CHARTE.seve : 0xd9534f); M_FANT_PIECE.color.copy(M_FANT.color);
     }
-    if (E.action && !CONS.avant) {
+    if (E.presse || (E.action && !CONS.avant)) {
       if (p) { demonter(p); sons.arrache(); }
       else if (CONS.cible.ok) { poserPiece(CONS.piece, cx, cz, CONS.dir); sons.pop(); if (CONS.piece === 'convoyeur') { const [dx, dz] = DIRS[CONS.dir]; CONS.suivant = [cx + dx, cz + dz]; } }
       else sons.refus();
@@ -1504,13 +1283,7 @@ MAJ.push(() => {
   }
   CONS.avant = E.action;
 });
-INTER_HORS.unshift(() => { if (outilEnMain !== 'marteau') return false; const l = [...PIECES_DEBLOQUEES]; CONS.piece = l[(l.indexOf(CONS.piece) + 1) % l.length]; return true; });
-CONTEXTES.unshift(() => {
-  if (outilEnMain !== 'marteau' || joueur.enVehicule) return '';
-  const d = PIECES[CONS.piece], c = CONS.cible, a = MOBILE ? '●' : 'Clic';
-  if (c && c.p) return `<kbd>${a}</kbd>Démonter ${PIECES[c.p.cle].nom} · +${Math.round(PIECES[c.p.cle].prix / 2)} cr`;
-  return `<kbd>${a}</kbd>Poser ${d.nom} · ${d.prix} cr <kbd style="margin-left:9px">E</kbd>pièce <kbd style="margin-left:9px">${MOBILE ? '⟳' : 'R'}</kbd>${['nord', 'est', 'sud', 'ouest'][CONS.dir]}`;
-});
+INTER_HORS.unshift(() => { if (outilEnMain !== 'marteau') return false; CONS.piece = ORDRE_PIECES[(ORDRE_PIECES.indexOf(CONS.piece) + 1) % ORDRE_PIECES.length]; majFantome(); sons.pop(); return true; });
 
 
 // =====================================================================
@@ -1581,7 +1354,6 @@ function majVehicule(dt) {
         const v = polliniser(i, 'vehicule'); if (v > 0) { V.charge += KG_TUILE; V.valeur += v; n++; }
       }
       if (n) sons.pop();
-      if (V.charge >= CUVES && !V.plein) { V.plein = true; message('Cuves pleines : vide-les au collecteur', 'alerte'); }
     }
     // L'œil du conducteur, dans la cabine.
     joueur.x = V.x + fx * 0.85; joueur.z = V.z + fz * 0.85; joueur.y = H(V.x, V.z) + 0.75; joueur.vitesse = 0;
@@ -1596,180 +1368,40 @@ function majVehicule(dt) {
 MAJ.push(majVehicule);
 // Après le véhicule, la caméra se recale sur l'œil du conducteur (sans balancement de marche).
 MAJ.push(() => { if (joueur.enVehicule) majCamera(); });
-function monter() { joueur.enVehicule = true; V.plein = false; obstVehicule.r = 0; message('Z / S pour rouler, Q / D pour tourner, E pour descendre'); }
+function monter() { joueur.enVehicule = true; obstVehicule.r = 0; }
 function descendre() {
   const { rx, rz } = eclairVehicule(); joueur.enVehicule = false; V.v = 0; obstVehicule.r = 2.2;
   joueur.x = V.x - rx * 2.4; joueur.z = V.z - rz * 2.4; joueur.y = H(joueur.x, joueur.z);
 }
 const presDuCollecteur = () => Math.hypot(V.x - COLLECTEUR.position.x, V.z - COLLECTEUR.position.z) < 8;
-function viderCuves() { if (V.valeur <= 0) return false; const cr = Math.round(V.valeur * S.prixVente); S.credits += cr; S.ventes++; gainAffiche(cr); sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); message(`Cuves vidées : ${fmtKg(V.charge)} kg → ${fmtCr(cr)} cr`, 'gain'); V.charge = 0; V.valeur = 0; V.plein = false; return true; }
+function viderCuves() { if (V.valeur <= 0) return false; const cr = Math.round(V.valeur); S.credits += cr; S.ventes++; sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); V.charge = 0; V.valeur = 0; return true; }
 INTER_HORS.unshift(() => { if (!joueur.enVehicule) return false; if (presDuCollecteur() && viderCuves()) return true; descendre(); return true; });
-INTER.push({ get x() { return V.x; }, get z() { return V.z; }, y: 3.3, r: 3.6, nom: 'Pollinisatrice',
-  texte() { if (V.possede) return 'Monter dans la pollinisatrice'; return DEBLOQUE.has('pollinisatrice') ? `Acheter la pollinisatrice · ${fmtCr(PRIX_VEHICULE)} cr` : 'Pollinisatrice · bientôt'; },
-  actif() { return V.possede || (DEBLOQUE.has('pollinisatrice') && S.credits >= PRIX_VEHICULE); },
+INTER.push({ get x() { return V.x; }, get z() { return V.z; }, r: 3.6,   // à vendre au garage, tout de suite ; E pour monter
   agir() {
     if (V.possede) { monter(); return; }
-    if (!DEBLOQUE.has('pollinisatrice')) return;
-    if (S.credits < PRIX_VEHICULE) { sons.refus(); message(`Il manque ${fmtCr(PRIX_VEHICULE - S.credits)} cr`, 'alerte'); return; }
-    S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat(); message('La pollinisatrice est à toi : E pour monter', 'gain');
+    if (S.credits < PRIX_VEHICULE) { sons.refus(); return; }
+    S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat();
   } });
 PASTILLE.push(() => joueur.enVehicule ? { nom: 'Pollinisatrice', charge: V.charge, max: CUVES } : null);
-CONTEXTES.unshift(() => joueur.enVehicule ? (presDuCollecteur() && V.valeur > 0 ? `<kbd>E</kbd>Vider les cuves · ${fmtCr(V.valeur * S.prixVente)} cr` : `<kbd>E</kbd>Descendre · ${Math.abs(V.v * 3.6).toFixed(0)} km/h`) : '');
 
 
 // =====================================================================
-// 16. Le monde qui tourne (étape 6) : une nouveauté toutes les 8 minutes, trois contrats à la station
-//     payés le double, un événement toutes les 10 à 15 minutes annoncé 30 s avant, le jour et la nuit
-//     (le solaire s'arrête, la batterie prend le relais, la lampe frontale s'allume), la sauvegarde.
+// 16. La sauvegarde : dans le navigateur, toutes les 30 s et en quittant la page. ?neuf repart de zéro.
+//     Format 2 (les fleurs à six couleurs, sans déblocage par le temps) ; une sauvegarde d'un autre format est ignorée.
 // =====================================================================
-// --- La table des nouveautés : le temps de jeu (en minutes) débloque la suite. ---
-const NOUVEAUTES = [
-  { min: 0, faire() {} },
-  { min: 8, texte: 'Tuyau d’irrigation au comptoir · contrats à la station', faire() { DEBLOQUE.add('tuyau'); CONTRATS.ouverts = true; remplirContrats(); } },
-  { min: 16, texte: 'Brosse large et ruches au comptoir · essaims sauvages', faire() { DEBLOQUE.add('large'); DEBLOQUE.add('ruche'); ESSAIMS_ACTIFS.v = true; } },
-  { min: 24, texte: 'Brosse extra-large et outil de construction : convoyeurs, quai', faire() { DEBLOQUE.add('xl'); DEBLOQUE.add('marteau'); } },
-  { min: 32, texte: 'Extracteur (pollen → miel) et panneau solaire', faire() { PIECES_DEBLOQUEES.add('extracteur'); PIECES_DEBLOQUEES.add('solaire'); } },
-  { min: 40, texte: 'Souffleur à dos, maturateur (miel → miel de cru), batterie', faire() { DEBLOQUE.add('souffleur'); PIECES_DEBLOQUEES.add('maturateur'); PIECES_DEBLOQUEES.add('batterie'); } },
-  { min: 48, texte: 'La pollinisatrice attend au garage', faire() { DEBLOQUE.add('pollinisatrice'); } },
-];
-function debloquerJusqua(n, annoncer = true) {
-  while (S.debloque < n && S.debloque < NOUVEAUTES.length - 1) { S.debloque++; const nv = NOUVEAUTES[S.debloque]; nv.faire(); if (annoncer) { message('Nouveau : ' + nv.texte, 'evenement'); sons.achat(); } }
-}
-MAJ.push((dt) => {
-  S.temps += dt;
-  const n = NOUVEAUTES.findLastIndex((nv) => S.temps >= nv.min * 60);
-  if (n > S.debloque) debloquerJusqua(n);
-});
-const prochaineNouveaute = () => { const nv = NOUVEAUTES[S.debloque + 1]; return nv ? Math.max(0, nv.min * 60 - S.temps) : -1; };
-
-// --- Les contrats : trois à la fois, chacun payé le double de ce que rapporte le travail. On encaisse à la station. ---
-const CONTRATS = { ouverts: false, liste: [], panneau: false };
-const MODELES_CONTRAT = [
-  { type: 'tuiles', si: () => true, faire() { const esp = Math.floor(Math.random() * 3), n = 15 + Math.floor(Math.random() * 4) * 5; return { esp, n, texte: `Polliniser ${n} tuiles de ${FLEURS[esp].nom}`, prime: Math.round(n * KG_TUILE * PRIX_KG * VALEUR_ESPECE[esp] * 2) }; } },
-  { type: 'chardons', si: () => true, faire() { const n = 6 + Math.floor(Math.random() * 3) * 3; return { n, texte: `Désherber ${n} tuiles de chardons`, prime: n * 30 }; } },
-  { type: 'miel', si: () => DEBLOQUE.has('ruche'), faire() { const n = 3 + Math.floor(Math.random() * 3); return { n, texte: `Récolter ${n} pots de miel`, prime: n * PRIX_MIEL * 2 }; } },
-  { type: 'cru', si: () => PIECES_DEBLOQUEES.has('maturateur'), faire() { const n = 4 + Math.floor(Math.random() * 3); return { n, texte: `Expédier ${n} capsules de miel de cru`, prime: n * VALEUR_CAPSULE.cru * 2 }; } },
-];
-function remplirContrats() {
-  while (CONTRATS.liste.length < 3) {
-    const pris = CONTRATS.liste.map((c) => c.type), m = MODELES_CONTRAT.filter((m) => m.si() && !pris.includes(m.type)), ch = m.length ? m : MODELES_CONTRAT.filter((m) => m.si());
-    const mod = ch[Math.floor(Math.random() * ch.length)]; CONTRATS.liste.push({ type: mod.type, fait: 0, ...mod.faire() });
-  }
-}
-const avancer = (type, test = () => true) => { for (const c of CONTRATS.liste) if (c.type === type && c.fait < c.n && test(c)) { c.fait++; if (c.fait === c.n) message(`Contrat rempli : ${c.texte} · encaisse ${fmtCr(c.prime)} cr à la station`, 'gain'); } };
-ECOUTE.tuile.push((i) => avancer('tuiles', (c) => c.esp === T.espece[i]));
-ECOUTE_ACT.desherbe.push(() => avancer('chardons'));
-ECOUTE_ACT.miel.push((n) => { for (let k = 0; k < n; k++) avancer('miel'); });
-ECOUTE_CAP.push((type) => { if (type === 'cru') avancer('cru'); });
-const contratsFinis = () => CONTRATS.liste.filter((c) => c.fait >= c.n);
-function encaisser() {
-  const f = contratsFinis(); if (!f.length) { CONTRATS.panneau = !CONTRATS.panneau; return; }
-  const cr = f.reduce((s, c) => s + c.prime, 0); S.credits += cr; gainAffiche(cr); sons.vente();
-  CONTRATS.liste = CONTRATS.liste.filter((c) => c.fait < c.n); remplirContrats();
-  message(`${f.length} contrat${f.length > 1 ? 's' : ''} encaissé${f.length > 1 ? 's' : ''} : +${fmtCr(cr)} cr`, 'gain');
-}
-{   // le tableau des contrats sur la façade de la station : écran graphite au-dessus de la porte
-  const g = STATION, b = g.userData.base;
-  placer(g, boite(2.6, 1.0, 0.1, M.graphite, 0.03), -2, b + 3.0, 2.08);
-  g.userData.ecranContrats = placer(g, new THREE.Mesh(new THREE.PlaneGeometry(2.45, 0.86), ecran('CONTRATS')), -2, b + 3.0, 2.135);
-}
-const PORTE_STATION = (() => { STATION.updateMatrixWorld(true); const v = new THREE.Vector3(0, 0, 3.4).applyMatrix4(STATION.matrixWorld); return v; })();
-INTER.push({ x: PORTE_STATION.x, z: PORTE_STATION.z, y: 3.2, r: 3.4, nom: 'Station · contrats',
-  texte() { if (!CONTRATS.ouverts) return 'Station · contrats bientôt'; const f = contratsFinis(); return f.length ? `Encaisser ${f.length} contrat${f.length > 1 ? 's' : ''} · ${fmtCr(f.reduce((s, c) => s + c.prime, 0))} cr` : 'Voir les contrats'; },
-  actif: () => CONTRATS.ouverts, agir() { if (CONTRATS.ouverts) encaisser(); } });
-OBJECTIFS.unshift(() => contratsFinis().length ? { x: PORTE_STATION.x, z: PORTE_STATION.z, nom: 'Station' } : null);
-MAJ.push(() => { if (E.contrats && CONTRATS.ouverts) CONTRATS.panneau = !CONTRATS.panneau; });
-const panneauContrats = document.createElement('div'); panneauContrats.id = 'contrats'; panneauContrats.className = 'plaque'; panneauContrats.hidden = true; hud.raccourcis.parentNode.appendChild(panneauContrats);
-let sigContrats = '';
-MAJ.push(() => {
-  panneauContrats.hidden = !CONTRATS.panneau;
-  if (!CONTRATS.panneau) return;
-  const sig = CONTRATS.liste.map((c) => c.texte + c.fait).join();
-  if (sig === sigContrats) return; sigContrats = sig;
-  panneauContrats.innerHTML = `<h2>Contrats de la station <small>payés double</small></h2>` + CONTRATS.liste.map((c) => `<div class="contrat${c.fait >= c.n ? ' fini' : ''}"><p>${c.texte}<b>${fmtCr(c.prime)} cr</b></p><span><i style="transform:scaleX(${c.fait / c.n})"></i></span><small>${c.fait >= c.n ? 'Rempli · encaisse à la station' : `${c.fait} / ${c.n}`}</small></div>`).join('');
-});
-
-// --- Le jour et la nuit : un cycle de 12 minutes, dont 2 min 30 de nuit. ---
-const CYCLE = 720, HEMI = scene.children.find((o) => o.isHemisphereLight);
-const lampe = new THREE.SpotLight(0xfff1d6, 0, 28, 0.5, 0.55, 1.4); lampe.position.set(0, 0.1, 0); lampe.target.position.set(0, -0.2, -1); camera.add(lampe, lampe.target);
-const NUIT = { zen: new THREE.Color(0x0b1430), hor: new THREE.Color(0x26324c) }, JOURC = { zen: new THREE.Color(0x2c66c8), hor: new THREE.Color(0xd3e8f5) }, ORAGE = { zen: new THREE.Color(0x3c434c), hor: new THREE.Color(0x8d969e) };
-let orageFondu = 0;
-MAJ.push((dt) => {
-  const ph = (S.temps % CYCLE) / CYCLE, nuit = THREE.MathUtils.smoothstep(ph, 0.76, 0.8) * (1 - THREE.MathUtils.smoothstep(ph, 0.97, 1.0));
-  orageFondu = lerp(orageFondu, EV.actif && EV.actif.cle === 'orage' ? 1 : 0, 1 - Math.exp(-dt * 0.8));
-  const l = (1 - nuit) * (1 - orageFondu * 0.6);
-  if (JOUR.nuit !== nuit > 0.5) { JOUR.nuit = nuit > 0.5; message(JOUR.nuit ? 'La nuit tombe : panneaux solaires à l’arrêt, lampe frontale allumée' : 'Le jour se lève', 'evenement'); }
-  JOUR.lumiere = (1 - nuit) * (1 - orageFondu * 0.7);
-  sun.intensity = 2.5 * l + 0.04; HEMI.intensity = 0.5 * (0.3 + 0.7 * l) + 0.05;
-  const u = ciel.material.uniforms; u.uZen.value.copy(JOURC.zen).lerp(ORAGE.zen, orageFondu).lerp(NUIT.zen, nuit); u.uHor.value.copy(JOURC.hor).lerp(ORAGE.hor, orageFondu).lerp(NUIT.hor, nuit);
-  scene.fog.color.copy(u.uHor.value);
-  lampe.intensity = nuit * 22;
-});
-
-// --- Les événements : toutes les 10 à 15 minutes, annoncés 30 s avant. ---
-const EVENEMENTS = {
-  orage: { nom: 'Orage', annonce: 'Orage dans', duree: 40, debut() { pluie.visible = true; }, fin() { pluie.visible = false; let n = 0; const vertes = []; for (let i = 0; i < NT; i++) if (T.vert[i]) vertes.push(i); for (let k = 0; k < 20 && vertes.length; k++) { const i = vertes.splice(Math.floor(Math.random() * vertes.length), 1)[0]; fanerTuile(i); secteurs[T.secteur[i]].vert--; n++; } message(`L’orage a fané ${n} tuiles : à repolliniser`, 'alerte'); } },
-  floraison: { nom: 'Floraison exceptionnelle', annonce: 'Floraison exceptionnelle dans', duree: 60, debut() { S.boost = 2; }, fin() { S.boost = 1; } },
-  panne: { nom: 'Panne', annonce: 'Panne dans', duree: 0, debut() { const m = [...GRILLE.values()].filter((p) => PIECES[p.cle].entree); if (m.length) { const p = m[Math.floor(Math.random() * m.length)]; p.panne = true; message(`${PIECES[p.cle].nom} en panne : va le réparer (E)`, 'alerte'); } else { COLLECTEUR.userData.panne = true; message('Collecteur en panne : va le réparer (E)', 'alerte'); } } },
-  acheteur: { nom: 'Acheteur pressé · prix ×3', annonce: 'Un acheteur paie triple dans', duree: 60, debut() { S.prixVente = 3; }, fin() { S.prixVente = 1; } },
-};
-const EV = { prochain: 600 + Math.random() * 300, prevu: null, actif: null, reste: 0 };
-MAJ.push((dt) => {
-  if (EV.actif) { EV.reste -= dt; if (EV.reste <= 0) { const a = EV.actif; EV.actif = null; if (a.fin) a.fin(); } }
-  EV.prochain -= dt;
-  if (!EV.prevu && EV.prochain <= 30) { const cles = Object.keys(EVENEMENTS); EV.prevu = cles[Math.floor(Math.random() * cles.length)]; sons.refus(); }
-  if (EV.prevu && EV.prochain <= 0) { const e = EVENEMENTS[EV.prevu]; EV.actif = { cle: EV.prevu, ...e }; EV.reste = e.duree; EV.prevu = null; EV.prochain = 600 + Math.random() * 300; message(e.nom, 'evenement'); e.debut(); if (!e.duree) EV.actif = null; }
-});
-function lancerEvenement(cle) { EV.prevu = cle; EV.prochain = 30; }   // pour les essais
-// La pluie : des traits qui tombent autour du joueur.
-const NP = MOBILE ? 600 : 1500, pluiePos = new Float32Array(NP * 6), pluieGeo = new THREE.BufferGeometry();
-pluieGeo.setAttribute('position', new THREE.BufferAttribute(pluiePos, 3));
-const pluie = new THREE.LineSegments(pluieGeo, new THREE.LineBasicMaterial({ color: 0xc9d6e2, transparent: true, opacity: 0.5 })); pluie.frustumCulled = false; pluie.visible = false; scene.add(pluie);
-const gouttes = new Float32Array(NP * 3); for (let k = 0; k < NP; k++) gouttes.set([(Math.random() - 0.5) * 40, Math.random() * 14, (Math.random() - 0.5) * 40], k * 3);
-MAJ.push((dt) => {
-  if (!pluie.visible) return;
-  for (let k = 0; k < NP; k++) { let y = gouttes[k * 3 + 1] - dt * 16; if (y < 0) y += 14; gouttes[k * 3 + 1] = y; const x = joueur.x + gouttes[k * 3], z = joueur.z + gouttes[k * 3 + 2], b = joueur.y + y - 2; pluiePos.set([x, b, z, x + 0.05, b + 0.45, z], k * 6); }
-  pluieGeo.attributes.position.needsUpdate = true;
-});
-// Le collecteur peut tomber en panne : on ne vend plus tant qu'il n'est pas réparé.
-{ const it = INTER.find((it) => it.obj === COLLECTEUR), t0 = it.texte, a0 = it.agir, ac0 = it.actif;
-  it.texte = () => COLLECTEUR.userData.panne ? 'Collecteur en panne · Réparer' : t0();
-  it.agir = () => { if (COLLECTEUR.userData.panne) { COLLECTEUR.userData.panne = false; sons.achat(); message('Collecteur réparé', 'gain'); } else a0(); };
-  it.actif = () => COLLECTEUR.userData.panne || ac0(); }
-
-// --- Bandeau d'état en haut à gauche : jour ou nuit, énergie, événement en cours ou annoncé. ---
-const bandeau = document.createElement('div'); bandeau.id = 'etat'; bandeau.className = 'plaque'; hud.raccourcis.parentNode.appendChild(bandeau);
-const mn = (s) => s >= 60 ? `${Math.ceil(s / 60)} min` : `${Math.ceil(s)} s`;
-MAJ.push(() => {
-  if (gt - (bandeau.t || 0) < 0.25) return; bandeau.t = gt;
-  const ph = (S.temps % CYCLE) / CYCLE, l = [];
-  l.push(JOUR.nuit ? `<span class="lune"></span>Nuit · jour dans ${mn((1 - ph) * CYCLE)}` : `<span class="soleil"></span>Jour · nuit dans ${mn(Math.max(0, 0.78 - ph) * CYCLE)}`);
-  if (ENERGIE.max > 0 || ENERGIE.prod > 0) l.push(`<span class="eclair"></span>${Math.round(ENERGIE.stock)} / ${Math.round(ENERGIE.max)} · ${ENERGIE.prod.toFixed(1).replace('.', ',')}/s`);
-  if (EV.prevu) l.push(`<b class="alerte">${EVENEMENTS[EV.prevu].annonce} ${Math.ceil(EV.prochain)} s</b>`);
-  if (EV.actif) l.push(`<b>${EV.actif.nom} · ${Math.ceil(EV.reste)} s</b>`);
-  const pn = prochaineNouveaute(); if (pn >= 0) l.push(`<small>Nouveauté dans ${mn(pn)}</small>`);
-  const h = l.map((x) => `<p>${x}</p>`).join(''); if (bandeau.innerHTML !== h) bandeau.innerHTML = h;
-});
-RACCOURCIS.push(
-  { k: 'B', m: '⚒', t: 'Construire', tap: 'construire', si: () => S.outils.includes('marteau') },
-  { k: 'R', m: '⟳', t: 'Tourner la pièce', tap: 'tourner', si: () => outilEnMain === 'marteau' },
-  { k: 'Tab', m: '☰', t: 'Contrats', tap: 'contrats', si: () => CONTRATS.ouverts },
-);
-
-// --- La sauvegarde : dans le navigateur, toutes les 30 s et en quittant la page. ?neuf repart de zéro. ---
 const CLE_SAUVEGARDE = 'pollen-v9-sauvegarde';
 function etatSauve() {
   let tuiles = ''; for (let i = 0; i < NT; i++) tuiles += (T.vert[i] | (T.sorte[i] << 1) | (T.irrigue[i] << 3)).toString(16);
-  return { v: 1, S: { ...S }, outil: outilEnMain, tuiles, tuyaux: TUYAUX.map((t) => t.pts.map((p) => [+p[0].toFixed(2), +p[1].toFixed(2)])),
-    ruches: EMPL_RUCHE.map((e) => e.ruche ? { pots: e.ruche.pots, sauvage: e.ruche.sauvage } : null), balises: BALISES.map((b) => b.active),
-    pieces: [...GRILLE.values()].map((p) => [p.cle, p.cx, p.cz, p.dir, p.stock]), energie: ENERGIE.stock,
+  return { v: 2, S: { ...S }, outil: outilEnMain, tuiles, tuyaux: TUYAUX.map((t) => t.pts.map((p) => [+p[0].toFixed(2), +p[1].toFixed(2)])),
+    ruches: EMPL_RUCHE.map((e) => !!e.ruche), balises: BALISES.map((b) => b.active),
+    pieces: [...GRILLE.values()].map((p) => [p.cle, p.cx, p.cz, p.dir, p.stock]),
     vehicule: { possede: V.possede, x: V.x, z: V.z, yaw: V.yaw, charge: V.charge, valeur: V.valeur },
-    contrats: CONTRATS.liste, joueur: { x: joueur.x, z: joueur.z, yaw: joueur.yaw }, ev: EV.prochain };
+    joueur: { x: joueur.x, z: joueur.z, yaw: joueur.yaw } };
 }
 function sauver() { if (joueur.enVehicule) return; try { localStorage.setItem(CLE_SAUVEGARDE, JSON.stringify(etatSauve())); } catch (e) { /* stockage refusé : on joue sans sauvegarde */ } }
 function charger(d) {
-  if (!d || d.v !== 1) return false;
-  Object.assign(S, d.S, { boost: 1, prixVente: 1 }); const deb = S.debloque; S.debloque = 0; debloquerJusqua(deb, false);
+  if (!d || d.v !== 2) return false;
+  Object.assign(S, d.S);
   for (let i = 0; i < NT && i < d.tuiles.length; i++) {
     const c = parseInt(d.tuiles[i], 16), vert = c & 1, sorte = (c >> 1) & 3, irr = (c >> 3) & 1;
     if (T.sorte[i] === 1 && sorte === 0) desherber(i);
@@ -1777,27 +1409,21 @@ function charger(d) {
     T.sorte[i] = sorte; T.irrigue[i] = irr;
     if (vert && !T.vert[i]) fleurirTuile(i, -1000); else if (!vert && T.vert[i]) fanerTuile(i); else ecrireTuile(i);
   }
-  for (const s of secteurs) { s.vert = 0; } for (let i = 0; i < NT; i++) secteurs[T.secteur[i]].vert += T.vert[i];
+  for (const s of secteurs) s.vert = 0; for (let i = 0; i < NT; i++) secteurs[T.secteur[i]].vert += T.vert[i];
   for (const pts of d.tuyaux) { const t = { pts: [pts[0]] }; for (let k = 1; k < pts.length; k++) { segment(pts[k - 1], pts[k]); t.pts.push(pts[k]); } TUYAUX.push(t); }
-  d.ruches.forEach((r, k) => { if (r) { installerRuche(EMPL_RUCHE[k], r.sauvage); EMPL_RUCHE[k].ruche.pots = r.pots; } });
-  d.balises.forEach((a, k) => { if (a) { const b = BALISES[k]; b.active = true; b.feu.material.emissive.set(CHARTE.seve); for (const [i] of slotsDore) if (T.secteur[i] === b.s && T.sorte[i] === 3) doreesRevelees.push(i); } });
-  for (const [cle, cx, cz, dir, stock] of d.pieces) poserPiece(cle, cx, cz, dir, true).stock = stock || 0;
-  ENERGIE.stock = d.energie || 0;
+  d.ruches.forEach((r, k) => { if (r) installerRuche(EMPL_RUCHE[k], false); });
+  d.balises.forEach((a, k) => { if (a) activerBalise(BALISES[k], false); });
+  for (const [cle, cx, cz, dir, stock] of d.pieces) if (PIECES[cle]) poserPiece(cle, cx, cz, dir, true).stock = stock || 0;
   Object.assign(V, d.vehicule);
-  CONTRATS.liste = d.contrats || []; if (CONTRATS.ouverts) remplirContrats();
   Object.assign(joueur, d.joueur); joueur.y = H(joueur.x, joueur.z);
-  if (d.ev) EV.prochain = d.ev;
   if (S.outils.includes(d.outil)) prendre(d.outil);
-  message('Partie reprise', 'gain');
   return true;
 }
-const NEUF = params.has('neuf');
-if (!NEUF) { try { charger(JSON.parse(localStorage.getItem(CLE_SAUVEGARDE) || 'null')); } catch (e) { message('Sauvegarde illisible : nouvelle partie', 'alerte'); } }
+if (!params.has('neuf')) { try { charger(JSON.parse(localStorage.getItem(CLE_SAUVEGARDE) || 'null')); } catch (e) { /* sauvegarde illisible : nouvelle partie */ } }
 let tSauve = 0;
 MAJ.push((dt) => { tSauve += dt; if (tSauve >= 30) { tSauve = 0; sauver(); } });
 addEventListener('pagehide', sauver);
 document.addEventListener('visibilitychange', () => { if (document.hidden) sauver(); });
-function debloquerTout() { S.temps = Math.max(S.temps, 48 * 60); debloquerJusqua(NOUVEAUTES.length - 1, false); }
 
 // =====================================================================
 // 99. Post-traitement, mise en page (paysage forcé sur téléphone), boucle de jeu
@@ -1824,7 +1450,7 @@ function majMonde(dt) {
   gt += dt;
   majJoueur(dt); majCamera(); majCorps(); majVue(dt);
   for (const f of MAJ) f(dt);
-  E.inter = false; E.outil = -1; E.construire = false; E.contrats = false; E.tourner = false;   // impulsions consommées
+  E.inter = false; E.presse = false; E.outil = -1; E.construire = false; E.tourner = false;   // impulsions consommées
   const st = 0.03, sx = Math.round(joueur.x / st) * st, sz = Math.round(joueur.z / st) * st;   // l'ombre suit le joueur
   sun.target.position.set(sx, joueur.y, sz); sun.position.set(sx + SOLEIL.x * 60, joueur.y + SOLEIL.y * 60, sz + SOLEIL.z * 60); sun.target.updateMatrixWorld();
   ciel.position.copy(camera.position);
@@ -1839,13 +1465,14 @@ function image(now) {
 }
 window.pollen = {
   figer: false, Q, T, NT, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, vue, corps, H,
-  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, DEBLOQUE, MESSAGES, versHex, idxDe,
-  GRILLE, poserPiece, PIECES_DEBLOQUEES, CAPSULES, ENERGIE, V, CONTRATS, encaisser, EV, lancerEvenement, JOUR, sauver, charger, etatSauve, debloquerTout, NOUVEAUTES, CONS, departs, EMPL_RUCHE, essaim, lancerEssaim, BALISES, TUYAUX, doreesRevelees, ACTIONS, installerRuche,
+  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, versHex, idxDe, COULEURS, CARRES, majFleurs, M_FLEUR, FLEUR_GEO,
+  GRILLE, poserPiece, CAPSULES, V, sauver, charger, etatSauve, CONS, departs, EMPL_RUCHE, BALISES, TUYAUX, doreesRevelees, ACTIONS, installerRuche,
   get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { x: joueur.x, z: joueur.z, y: joueur.y, yaw: joueur.yaw, pitch: joueur.pitch, vitesse: joueur.vitesse }; },
 };
 OBSTACLES.push({ x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 1.7 });
 majMonde(0);
+majFleurs(1000);   // tous les carrés de fleurs autour du point de départ, avant la première image
 requestAnimationFrame(image);
 
 </script>

@@ -67,7 +67,6 @@ function majVehicule(dt) {
         const v = polliniser(i, 'vehicule'); if (v > 0) { V.charge += KG_TUILE; V.valeur += v; n++; }
       }
       if (n) sons.pop();
-      if (V.charge >= CUVES && !V.plein) { V.plein = true; message('Cuves pleines : vide-les au collecteur', 'alerte'); }
     }
     // L'œil du conducteur, dans la cabine.
     joueur.x = V.x + fx * 0.85; joueur.z = V.z + fz * 0.85; joueur.y = H(V.x, V.z) + 0.75; joueur.vitesse = 0;
@@ -82,22 +81,18 @@ function majVehicule(dt) {
 MAJ.push(majVehicule);
 // Après le véhicule, la caméra se recale sur l'œil du conducteur (sans balancement de marche).
 MAJ.push(() => { if (joueur.enVehicule) majCamera(); });
-function monter() { joueur.enVehicule = true; V.plein = false; obstVehicule.r = 0; message('Z / S pour rouler, Q / D pour tourner, E pour descendre'); }
+function monter() { joueur.enVehicule = true; obstVehicule.r = 0; }
 function descendre() {
   const { rx, rz } = eclairVehicule(); joueur.enVehicule = false; V.v = 0; obstVehicule.r = 2.2;
   joueur.x = V.x - rx * 2.4; joueur.z = V.z - rz * 2.4; joueur.y = H(joueur.x, joueur.z);
 }
 const presDuCollecteur = () => Math.hypot(V.x - COLLECTEUR.position.x, V.z - COLLECTEUR.position.z) < 8;
-function viderCuves() { if (V.valeur <= 0) return false; const cr = Math.round(V.valeur * S.prixVente); S.credits += cr; S.ventes++; gainAffiche(cr); sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); message(`Cuves vidées : ${fmtKg(V.charge)} kg → ${fmtCr(cr)} cr`, 'gain'); V.charge = 0; V.valeur = 0; V.plein = false; return true; }
+function viderCuves() { if (V.valeur <= 0) return false; const cr = Math.round(V.valeur); S.credits += cr; S.ventes++; sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); V.charge = 0; V.valeur = 0; return true; }
 INTER_HORS.unshift(() => { if (!joueur.enVehicule) return false; if (presDuCollecteur() && viderCuves()) return true; descendre(); return true; });
-INTER.push({ get x() { return V.x; }, get z() { return V.z; }, y: 3.3, r: 3.6, nom: 'Pollinisatrice',
-  texte() { if (V.possede) return 'Monter dans la pollinisatrice'; return DEBLOQUE.has('pollinisatrice') ? `Acheter la pollinisatrice · ${fmtCr(PRIX_VEHICULE)} cr` : 'Pollinisatrice · bientôt'; },
-  actif() { return V.possede || (DEBLOQUE.has('pollinisatrice') && S.credits >= PRIX_VEHICULE); },
+INTER.push({ get x() { return V.x; }, get z() { return V.z; }, r: 3.6,   // à vendre au garage, tout de suite ; E pour monter
   agir() {
     if (V.possede) { monter(); return; }
-    if (!DEBLOQUE.has('pollinisatrice')) return;
-    if (S.credits < PRIX_VEHICULE) { sons.refus(); message(`Il manque ${fmtCr(PRIX_VEHICULE - S.credits)} cr`, 'alerte'); return; }
-    S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat(); message('La pollinisatrice est à toi : E pour monter', 'gain');
+    if (S.credits < PRIX_VEHICULE) { sons.refus(); return; }
+    S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat();
   } });
 PASTILLE.push(() => joueur.enVehicule ? { nom: 'Pollinisatrice', charge: V.charge, max: CUVES } : null);
-CONTEXTES.unshift(() => joueur.enVehicule ? (presDuCollecteur() && V.valeur > 0 ? `<kbd>E</kbd>Vider les cuves · ${fmtCr(V.valeur * S.prixVente)} cr` : `<kbd>E</kbd>Descendre · ${Math.abs(V.v * 3.6).toFixed(0)} km/h`) : '');

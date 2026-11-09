@@ -58,7 +58,6 @@ function poser(g, x, z) {   // pose un bâtiment face à la place centrale et le
   for (let k = 0; k < n; k++) { const lx = -W / 2 + W * (k + 0.5) / n, c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y); OBSTACLES.push({ x: x + lx * c, z: z - lx * s, r: Math.max(D / 2, W / n / 2) * 0.98 }); }
   return g;
 }
-function versMonde(g, lx, ly, lz) { return new THREE.Vector3(lx, ly, lz).applyMatrix4(g.matrixWorld); }
 
 // Le comptoir : vitrine, porte, vitrine. Devant, un auvent et une rangée de présentoirs, chacun portant un outil debout.
 const COMPTOIR = poser(batiment(['vitrine', 'porte', 'vitrine'], 3.2, 3.2, 'COMPTOIR'), -9, -4);
@@ -91,13 +90,12 @@ function presentoir(cle, prix, k, n) {
   objet.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
   PRESENTOIRS.push(p); return p;
 }
-function majPresentoir(p, etat) {   // 'acquis' | 'abordable' | 'cher' | 'verrou'
+function majPresentoir(p, etat) {   // 'acquis' | 'abordable' | 'cher'
   if (p.etat === etat) return; p.etat = etat;
-  p.objet.visible = etat !== 'verrou';
   p.objet.traverse((o) => { if (o.isMesh) o.material = etat === 'cher' ? M_GRIS : o.userData.matOrigine; });
   p.g.traverse((o) => { if (o.userData.voyant) o.material = etat === 'acquis' ? M.seve : etat === 'abordable' ? M.pollen : M.graphite; });
   const def = OUTILS_DEF[p.cle] || OBJETS_DEF[p.cle];
-  const txt = etat === 'verrou' ? [['BIENTÔT', 54, '#8a8d90']] : etat === 'acquis' ? [[def.court || def.nom, 40], ['ACQUIS', 34, '#2f8f52']] : [[def.court || def.nom, 40], [`${p.prix.toLocaleString('fr-FR')} cr`, 40, etat === 'cher' ? '#8a8d90' : '#b07d00']];
+  const txt = etat === 'acquis' ? [[def.court || def.nom, 40], ['ACQUIS', 34, '#2f8f52']] : [[def.court || def.nom, 40], [`${p.prix.toLocaleString('fr-FR')} cr`, 40, etat === 'cher' ? '#8a8d90' : '#b07d00']];
   if (p.plaque.material.map) p.plaque.material.map.dispose();
   p.plaque.material.map = texteTex(txt, 256, 112); p.plaque.material.needsUpdate = true;
 }

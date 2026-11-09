@@ -23,7 +23,7 @@ function majMonde(dt) {
   gt += dt;
   majJoueur(dt); majCamera(); majCorps(); majVue(dt);
   for (const f of MAJ) f(dt);
-  E.inter = false; E.outil = -1; E.construire = false; E.contrats = false; E.tourner = false;   // impulsions consommées
+  E.inter = false; E.presse = false; E.outil = -1; E.construire = false; E.tourner = false;   // impulsions consommées
   const st = 0.03, sx = Math.round(joueur.x / st) * st, sz = Math.round(joueur.z / st) * st;   // l'ombre suit le joueur
   sun.target.position.set(sx, joueur.y, sz); sun.position.set(sx + SOLEIL.x * 60, joueur.y + SOLEIL.y * 60, sz + SOLEIL.z * 60); sun.target.updateMatrixWorld();
   ciel.position.copy(camera.position);
@@ -38,11 +38,12 @@ function image(now) {
 }
 window.pollen = {
   figer: false, Q, T, NT, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, vue, corps, H,
-  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, DEBLOQUE, MESSAGES, versHex, idxDe,
-  GRILLE, poserPiece, PIECES_DEBLOQUEES, CAPSULES, ENERGIE, V, CONTRATS, encaisser, EV, lancerEvenement, JOUR, sauver, charger, etatSauve, debloquerTout, NOUVEAUTES, CONS, departs, EMPL_RUCHE, essaim, lancerEssaim, BALISES, TUYAUX, doreesRevelees, ACTIONS, installerRuche,
+  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, versHex, idxDe, COULEURS, CARRES, majFleurs, M_FLEUR, FLEUR_GEO,
+  GRILLE, poserPiece, CAPSULES, V, sauver, charger, etatSauve, CONS, departs, EMPL_RUCHE, BALISES, TUYAUX, doreesRevelees, ACTIONS, installerRuche,
   get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { x: joueur.x, z: joueur.z, y: joueur.y, yaw: joueur.yaw, pitch: joueur.pitch, vitesse: joueur.vitesse }; },
 };
 OBSTACLES.push({ x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 1.7 });
 majMonde(0);
+majFleurs(1000);   // tous les carrés de fleurs autour du point de départ, avant la première image
 requestAnimationFrame(image);

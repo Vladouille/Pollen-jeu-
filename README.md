@@ -1,26 +1,19 @@
 # POLLEN
 
-## v9 — la station agricole (`v9/index.html`), six étapes faites
+## v9 — la station agricole (`v9/index.html`)
 
-Un seul fichier, ordinateur et téléphone (paysage forcé). Code découpé dans `v9/src`, assemblé par
-`node v9/construire.mjs`. Direction graphique propre à POLLEN : matériel chanfreiné, socles à gradins avec bande
-lumineuse, quatre couleurs (blanc cassé, graphite, jaune pollen, vert sève).
+Un seul fichier, ordinateur et téléphone (paysage forcé). Code dans `v9/src`, assemblé par `node v9/construire.mjs`.
 
-- **Commandes** : ZQSD/WASD et souris (premier clic : verrouille le pointeur), clic maintenu pour agir, E pour utiliser,
-  1 à 7 ou molette pour l'outil, B construire, R tourner la pièce, Tab contrats. Téléphone : joystick à gauche, regard à
-  droite, boutons ● et E, raccourcis à toucher.
-- **Boucle** : viser une tuile sèche et maintenir, la tuile passe au vert et ses fleurs se redressent ; vider la charge au
-  collecteur ; acheter l'outil suivant au comptoir (présentoirs grisés si trop chers, l'outil passe en main).
-- **Activités** : arracher les chardons, irriguer les tuiles arides avec un tuyau déroulé depuis la pompe, ruches (miel,
-  pollinisation autour d'elles), essaims sauvages (ruche gratuite), balises de relevé (révèlent les fleurs dorées, 50 fois
-  le prix).
-- **Automatisation** : convoyeurs, extracteur (pollen → miel), maturateur (miel → miel de cru), panneaux solaires,
-  batterie, quai d'expédition ; la pollinisatrice (six roues, pollinise en roulant) ; trois contrats payés double à la
-  station ; un événement toutes les 10 à 15 min annoncé 30 s avant (orage, floraison, panne, acheteur ×3) ; nuit avec
-  lampe frontale ; une nouveauté toutes les 8 minutes ; sauvegarde dans le navigateur toutes les 30 s (`?neuf` pour
-  repartir de zéro).
-- `?mode=pc` ou `?mode=mobile` force l'appareil, `?debug` affiche triangles et appels de dessin.
-  Test : `npm run smoke:v9` (scénarios dans `tests/v9-activites.js` et `tests/v9-automatisation.js`).
+- **Fleurs** : coupes de cinq pétales arrondis, tige épaisse, deux feuilles, plantées en rangs réguliers (environ 68 par
+  tuile, InstancedMesh). Six couleurs franches ; une couleur par tuile, les rangées voisines alternent : le champ se lit
+  en bandes. Fanées : beige-gris, penchées. Au-delà de 22 m (16 m sur téléphone), le sol prend la couleur des fleurs.
+- **Aucune attente** : une pression transforme une tuile ; tout est en vente au comptoir dès le départ ; la ruche fait
+  fleurir son voisinage d'un coup ; l'extracteur et le maturateur transforment sur-le-champ. Seul l'argent manque.
+- **Interface** : cinq éléments seulement (boussole, pourcentage du secteur, outil et charge, ronds d'outils, argent).
+  Aucun texte qui dise quoi faire.
+- **Commandes** : ZQSD/WASD et souris, clic pour agir, E pour utiliser, 1 à 7 ou molette pour l'outil, B construire,
+  R tourner la pièce. Téléphone : joystick, regard, boutons ● et E ; toucher le rond de l'outil en main fait tourner la pièce.
+- `?mode=pc` ou `?mode=mobile`, `?debug` (triangles, appels), `?neuf` (sans la sauvegarde). Test : `npm run smoke:v9`.
 
 ## v8 — vrais modèles 3D et boucle complète (`v8/index.html`)
 

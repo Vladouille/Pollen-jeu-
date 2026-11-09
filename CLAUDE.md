@@ -15,8 +15,12 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   (esthétique et interface poste par poste) : refusé, comme la v6. Direction originale validée par le fondateur
   (« fais-le en plusieurs semaines ») : palette POLLEN blanc cassé #ECE8DF, graphite #2F3338, jaune pollen #F4B41A,
   vert sève lumineux #53D17A ; arêtes chanfreinées (RoundedBoxGeometry), socles à gradins, rainures de panneaux.
-  Six étapes faites (le fondateur a dit « fais tout sans m'attendre »). Code dans `v9/src`, assemblé par
-  `node v9/construire.mjs` ; ne pas modifier `v9/index.html` à la main. Test : `npm run smoke:v9`.
+  Six étapes faites, puis trois corrections du fondateur qui priment sur tout le reste : fleurs en tulipes épaisses,
+  en rangs réguliers, six couleurs (#E23B2E #F5C518 #8B4FC4 #E85C9A #F7F4EE #F08A24), une couleur par tuile en bandes ;
+  aucun déblocage par le temps ni délai (tout s'achète tout de suite, action < 3 s) ; interface à cinq éléments
+  (boussole, % du secteur en haut à droite, outil et charge, ronds d'outils, argent), pas de quête, de contrat, de texte
+  qui dise quoi faire, pollinisation d'une pression. Code dans `v9/src`, assemblé par `node v9/construire.mjs` ;
+  ne pas modifier `v9/index.html` à la main. Test : `npm run smoke:v9`.
 - **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, mise de côté par la v9. Plus rien de dessiné en code : les
   modèles CC0 sont chargés depuis `v8/models` et `v8/hdri` (noms dans `v8/LISEZMOI.md`), avec des formes de substitution
   si un fichier manque. Boucle complète : polliniser (panier), vendre au marché, acheter le pinceau à l'atelier.

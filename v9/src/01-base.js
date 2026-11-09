@@ -13,7 +13,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const params = new URLSearchParams(location.search);
 const MOBILE = params.has('mode') ? params.get('mode') === 'mobile'
   : (matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, fleurs: 3, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, fleurs: 7, vignette: true };
+const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, vignette: true };
 const DEBUG = params.has('debug');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -29,7 +29,7 @@ function bruit(x, y, p = 256) {   // bruit de valeur, périodique de période p 
 const fbm = (x, y, o = 4, p = 256) => { let a = 0.5, f = 1, s = 0, n = 0; for (let k = 0; k < o; k++) { s += a * bruit(x * f, y * f, Math.min(256, p * f)); n += a; a *= 0.5; f *= 2; } return s / n; };
 
 // =====================================================================
-// 2. La charte : quatre couleurs pour tout le matériel, deux pour le sol, trois pour les fleurs
+// 2. La charte : quatre couleurs pour tout le matériel, deux pour le sol (les six des fleurs sont avec le terrain)
 // =====================================================================
 const CHARTE = {
   blanc: 0xece8df,     // corps des machines, bâtiments, outils : la couleur dominante
@@ -39,7 +39,6 @@ const CHARTE = {
   sec: 0xbfb49a,       // sol des tuiles sèches
   prairie: 0x6fa03c,   // sol des tuiles pollinisées
 };
-const FLEURS = [{ nom: 'lavande', c: 0x8b6fc4 }, { nom: 'colza', c: 0xf2c53d }, { nom: 'trèfle', c: 0xe48bb0 }];
 
 // =====================================================================
 // 3. Rendu, lumière dure, ciel de jour, brume légère
@@ -86,9 +85,5 @@ function texture(w, h, fn, srgb = true, rep = 1) {   // texture générée sur c
 }
 function pixels(w, h, fn, srgb = true, rep = 1) {
   return texture(w, h, (g) => { const im = g.createImageData(w, h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = fn(x, y), i = (y * w + x) * 4; im.data[i] = c[0]; im.data[i + 1] = c[1]; im.data[i + 2] = c[2]; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); }, srgb, rep);
-}
-function normales(w, h, hf, k, rep = 1) {   // carte de normales tirée du même relief que la texture
-  const H = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) H[y * w + x] = hf(x, y);
-  return pixels(w, h, (x, y) => { const nx = (H[y * w + (x + w - 1) % w] - H[y * w + (x + 1) % w]) * k, ny = (H[((y + h - 1) % h) * w + x] - H[((y + 1) % h) * w + x]) * k, L = Math.hypot(nx, ny, 1); return [(nx / L * 0.5 + 0.5) * 255, (ny / L * 0.5 + 0.5) * 255, (1 / L * 0.5 + 0.5) * 255]; }, false, rep);
 }
 

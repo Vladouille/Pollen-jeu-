@@ -61,7 +61,7 @@ function fabriquerOutil(cle) {
 //    au pouce gauche, regard au pouce droit en même temps, boutons action et E, paysage forcé.
 // =====================================================================
 const jeu = document.getElementById('jeu');
-const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, inter: false, outil: -1, construire: false, contrats: false, tourner: false };
+const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, tourner: false };   // presse : une pression, même brève, entre deux images
 let tourne = false;   // téléphone tenu en portrait : la scène tourne d'un quart de tour
 const versJeu = (cx, cy) => tourne ? [cy, innerWidth - cx] : [cx, cy];
 const sons = { init() {} };   // remplacé par le module du son
@@ -73,20 +73,20 @@ if (!MOBILE) {
     E.action = souris || !!touches.Space;
   };
   addEventListener('keydown', (e) => {
-    if (['Space', 'Tab'].includes(e.code) || e.code.startsWith('Arrow')) e.preventDefault();
+    if (['Space'].includes(e.code) || e.code.startsWith('Arrow')) e.preventDefault();
     if (e.repeat) return;
     touches[e.code] = true; sons.init(); maj();
     if (e.code === 'KeyE' || e.code === 'KeyF') E.inter = true;
     if (/^Digit[1-7]$/.test(e.code)) E.outil = +e.code.slice(5) - 1;
+    if (e.code === 'Space') E.presse = true;
     if (e.code === 'KeyB') E.construire = true;
-    if (e.code === 'Tab') E.contrats = true;
     if (e.code === 'KeyR') E.tourner = true;
   });
   addEventListener('keyup', (e) => { touches[e.code] = false; maj(); });
   const echec = () => { refus = true; if (glisse) { souris = true; maj(); } };
   canvas.addEventListener('mousedown', (e) => {
     sons.init(); if (e.button !== 0) return;
-    if (verrou || refus) { souris = true; glisse = !verrou; maj(); return; }
+    if (verrou || refus) { souris = true; glisse = !verrou; E.presse = true; maj(); return; }
     glisse = true;   // premier clic : il verrouille le pointeur, il n'agit pas
     try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(echec); } catch (err) { echec(); }
   });
@@ -107,7 +107,7 @@ if (!MOBILE) {
   const R = 56, SENS = 0.0056; let stick = null, regard = null, agirId = null, agirPos = null, essai = false;
   const majStick = (x, y) => { const l = Math.hypot(x, y); if (l < 0.12) { E.mx = 0; E.mz = 0; return; } const m = Math.max(0.18, Math.pow((Math.min(l, 1) - 0.12) / 0.88, 1.5)); E.mx = x / l * m; E.mz = -y / l * m; };
   const premier = () => { sons.init(); if (essai) return; essai = true; try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (err) { /* refusé : la scène tourne */ } };
-  agir.addEventListener('touchstart', (e) => { premier(); const t = e.changedTouches[0]; agirId = t.identifier; agirPos = versJeu(t.clientX, t.clientY); E.action = true; agir.classList.add('appui'); e.preventDefault(); e.stopPropagation(); }, { passive: false });
+  agir.addEventListener('touchstart', (e) => { premier(); const t = e.changedTouches[0]; agirId = t.identifier; agirPos = versJeu(t.clientX, t.clientY); E.action = true; E.presse = true; agir.classList.add('appui'); e.preventDefault(); e.stopPropagation(); }, { passive: false });
   inter.addEventListener('touchstart', (e) => { premier(); E.inter = true; e.preventDefault(); e.stopPropagation(); }, { passive: false });
   addEventListener('touchstart', (e) => {
     premier();
@@ -207,10 +207,10 @@ function prendre(cle) {
   const P = POSE_OUTIL[cle]; ENMAIN[cle].scale.setScalar(P.s);
 }
 prendre('pinceau');
-let geste = 0, gesteType = 'brosser';
+let geste = 0, coup = 0, gesteType = 'brosser';   // coup : 1 à la pression, retombe en 0,3 s
 function majVue(dt) {
   const P = POSE_OUTIL[outilEnMain], a = clamp(joueur.vitesse / VIT, 0, 1.3), sb = Math.sin(joueur.pas), cb = Math.abs(Math.cos(joueur.pas));
-  geste = lerp(geste, E.action ? 1 : 0, 1 - Math.exp(-dt * 10));
+  coup = Math.max(0, coup - dt * 3.3); geste = lerp(geste, coup > 0 ? 1 : 0, 1 - Math.exp(-dt * 18));
   const t = gt * (gesteType === 'arracher' ? 16 : 8), balai = Math.sin(t) * 0.06 * geste, souffle = Math.sin(gt * 1.3) * 0.004;
   vue.visible = !joueur.enVehicule;
   vue.position.set(P.p[0] + sb * 0.016 * a - retardRegard * 0.3 + balai, P.p[1] - cb * 0.014 * a + souffle + retardRegardV * 0.25 + 0.03 * geste, P.p[2] - 0.05 * geste);
