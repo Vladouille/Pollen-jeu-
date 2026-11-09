@@ -142,12 +142,12 @@ function poserPiece(cle, cx, cz, dir, gratuit = false, niveau = 0) {
   GRILLE.set(cle2(cx, cz), p);
   if (!estTapis(p)) { const o = { x, z, r: 0.85, piece: p }; OBSTACLES.push(o); p.obstacle = o; p.ombre = ombreContact(g, 1.15); }
   if (def.durees) { INTER.push(p.inter = { x, z, r: 2.4, piece: p, agir() { ameliorer(p); } }); dessinerEcran(p); }
-  if (!gratuit) S.credits -= def.prix;
+  if (!gratuit) { S.credits -= def.prix; sauverBientot(); }
   return p;
 }
 function ameliorer(p) {   // E sur une machine : le niveau suivant, tout de suite
   const prix = prixAmelio(p); if (!prix || S.credits < prix) { sons.refus(); return; }
-  S.credits -= prix; p.niveau++; sons.achat(); dessinerEcran(p);
+  S.credits -= prix; p.niveau++; sons.achat(); dessinerEcran(p); sauverBientot();
 }
 function demonter(p) {
   scene.remove(p.g); if (p.ombre) scene.remove(p.ombre); GRILLE.delete(cle2(p.cx, p.cz));

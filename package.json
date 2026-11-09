@@ -13,6 +13,6 @@
     "smoke:v5": "node v5/construire.mjs && node tests/v5-smoke.mjs",
     "smoke:v7": "node tests/v7-smoke.mjs",
     "smoke:v8": "node tests/v8-smoke.mjs",
-    "smoke:v9": "node tests/v9-smoke.mjs"
+    "smoke:v9": "node v9/construire.mjs && node tests/v9-smoke.mjs && node tests/v9-sauvegarde.mjs"
   }
 }

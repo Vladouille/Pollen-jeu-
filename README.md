@@ -22,7 +22,12 @@ Un seul fichier, ordinateur et téléphone (paysage forcé). Code dans `v9/src`,
   chanfreins partout, poussière de pollen.
 - **Son** : chaque tuile enchaînée monte d'un demi-ton ; après deux secondes d'arrêt, on repart de la note de base.
 - **Interface** : cinq éléments (boussole, pourcentage du secteur, outil et charge, ronds d'outils, argent).
-- `?mode=pc` ou `?mode=mobile`, `?debug`, `?neuf`, `?ao` / `?ao=0`. Test : `npm run smoke:v9`.
+- **Sauvegarde locale** (localStorage, rien ne sort de la machine) : toutes les 30 s, juste après un achat, une vente,
+  une machine posée ou un secteur fini, et quand l'onglet passe en arrière-plan ou se ferme. Trois emplacements
+  (icône discrète sous le pourcentage) avec temps de jeu, argent et secteur ; suppression avec confirmation ;
+  copie de secours de la sauvegarde précédente ; anciens formats convertis ; sauvegarde illisible : copie de secours,
+  sinon partie neuve avec un message. Tuiles en octets (environ 6 Ko la partie). Exporter / Importer en fichier .json.
+- `?mode=pc` ou `?mode=mobile`, `?debug`, `?neuf`, `?ao` / `?ao=0`. Tests : `npm run smoke:v9` (avec `tests/v9-sauvegarde.mjs`).
 
 ## v8 — vrais modèles 3D et boucle complète (`v8/index.html`)
 

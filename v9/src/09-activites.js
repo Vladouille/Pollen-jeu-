@@ -105,7 +105,7 @@ function tuileProcheRuche(e) {
 ACHAT.ruche = (p) => { const e = EMPL_RUCHE.find((e) => !e.ruche); if (!e) { S.credits += p.prix; sons.refus(); return; } installerRuche(e); };
 for (const e of EMPL_RUCHE) INTER.push({ x: e.x, z: e.z, r: 2.6, cache: () => !e.ruche, agir() {   // E : améliorer la ruche
   const n = e.ruche.niveau; if (n >= 2 || S.credits < PRIX_AMELIO_RUCHE[n]) { sons.refus(); return; }
-  S.credits -= PRIX_AMELIO_RUCHE[n]; e.ruche.niveau++; sons.achat(); } });
+  S.credits -= PRIX_AMELIO_RUCHE[n]; e.ruche.niveau++; sons.achat(); sauverBientot(); } });
 const ruchesPosees = () => EMPL_RUCHE.filter((e) => e.ruche);
 ACTIONS.push({   // enfumer une ruche : on prend son miel et sa cire
   quand: (v) => outilEnMain === 'enfumoir' && !!objetVise(v, ruchesPosees()) && (objetVise(v, ruchesPosees()).ruche.miel + objetVise(v, ruchesPosees()).ruche.cire) > 0,

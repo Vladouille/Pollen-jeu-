@@ -10,7 +10,7 @@ const KG_TUILE = 0.5, SAC_MAX = 12;
 const RESSOURCES = { pollen: 'Pollen', nectar: 'Nectar', graines: 'Graines', miel: 'Miel', cire: 'Cire', mere: 'Azurelle mère' };
 const OBJETS_DEF = { ruche: { nom: 'Ruche', court: 'Ruche' } };   // ce qui se vend au comptoir et n'est pas un outil en main
 const sacVide = () => Object.fromEntries(Object.keys(RESSOURCES).map((k) => [k, { kg: 0, v: 0 }]));
-const S = { credits: 0, sac: sacVide(), outils: ['pinceau'], tuiles: 0, ventes: 0, silo: sacVide(), expedie: 0 };   // l'état du joueur (sauvegardé)
+const S = { credits: 0, sac: sacVide(), outils: ['pinceau'], tuiles: 0, ventes: 0, silo: sacVide(), expedie: 0, temps: 0 };   // temps de jeu total (s)   // l'état du joueur (sauvegardé)
 const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'rateau', 'collecteur', 'enfumoir', 'tuyau', 'marteau'];
 const outilDef = () => OUTILS_DEF[outilEnMain];
 const chargeMax = () => SAC_MAX;
@@ -168,7 +168,7 @@ let ECRAN_COLLECTEUR = null; COLLECTEUR.traverse((o) => { if (o.isMesh && o.mate
 function vendre(extra = 0) {   // le sac (et le colis porté, s'il y en a un) au prix de chaque ressource
   const cr = Math.round(valeurSac() + extra); if (cr <= 0) { sons.refus(); return; }
   S.credits += cr; S.ventes++; S.sac = sacVide();
-  ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sons.vente();
+  ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sons.vente(); sauverBientot();
 }
 INTER.push({ obj: COLLECTEUR, x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 3.4, agir: () => vendre() });
 
@@ -181,7 +181,7 @@ const ACHAT = { ruche: null };   // effet d'achat des objets, fourni par les act
 function acheter(p) {
   if (OUTILS_DEF[p.cle] && S.outils.includes(p.cle)) return;
   if (S.credits < p.prix) { sons.refus(); return; }
-  S.credits -= p.prix; sons.achat();
+  S.credits -= p.prix; sons.achat(); sauverBientot();
   if (OUTILS_DEF[p.cle]) { S.outils.push(p.cle); changerOutil(p.cle); }
   else if (ACHAT[p.cle]) ACHAT[p.cle](p);
 }

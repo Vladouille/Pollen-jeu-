@@ -58,6 +58,23 @@
   #slots button.actif { border-color: var(--pollen); background: rgba(47, 51, 56, .85); }
   #slots svg { width: 24px; height: 24px; fill: none; stroke: var(--encre); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   #slots button.actif svg { stroke: var(--pollen); }
+  /* Sauvegardes : une icône discrète en haut à droite, sous le pourcentage ; un panneau à trois emplacements. */
+  #sauvegardes { position: absolute; right: calc(var(--pad, 14px) + env(safe-area-inset-right, 0px)); top: calc(62px + env(safe-area-inset-top, 0px)); width: 30px; height: 30px; padding: 5px; border: 0; border-radius: 6px; background: rgba(32, 35, 39, .35); cursor: pointer; opacity: .7; }
+  #sauvegardes:hover, #sauvegardes:focus-visible { opacity: 1; outline: 2px solid var(--pollen); }
+  #sauvegardes svg { width: 100%; height: 100%; fill: none; stroke: var(--encre); stroke-width: 1.7; stroke-linejoin: round; }
+  #panneauSauve { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 86vw); padding: 14px 16px; z-index: 5; pointer-events: auto; }
+  #panneauSauve h2 { margin: 0 0 10px; font-size: 15px; }
+  #panneauSauve ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  #panneauSauve li { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: rgba(255, 253, 247, .07); }
+  #panneauSauve li.actif { outline: 2px solid var(--pollen); }
+  #panneauSauve li strong { font-size: 18px; color: var(--pollen); text-align: center; }
+  #panneauSauve .info { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; } #panneauSauve .vide { color: #c9c3b6; }
+  #panneauSauve .actions { display: flex; gap: 6px; align-items: center; } #panneauSauve b.actif { font-size: 12px; color: var(--seve); }
+  #panneauSauve button { font: 800 12px/1 inherit; padding: 7px 10px; border-radius: 5px; border: 0; background: var(--pollen); color: var(--graphite); cursor: pointer; }
+  #panneauSauve button.suppr { background: #6c7076; color: var(--blanc); }
+  #panneauSauve .bas { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; } #panneauSauve #fermerSauve { background: #6c7076; color: var(--blanc); }
+  #annonce { position: absolute; left: 50%; top: 60px; transform: translateX(-50%); width: min(520px, 86vw); padding: 10px 14px; font-size: 13px; z-index: 6; }
+  .mobile #sauvegardes { top: calc(58px + env(safe-area-inset-top, 0px)); }
   /* 5. Argent, en bas à droite. */
   #credits { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 9px; padding: 9px 15px 9px 11px; }
   .piece { width: 24px; height: 24px; background: var(--pollen); clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); position: relative; }
@@ -88,6 +105,14 @@
     <div id="slots"></div>
     <div id="credits" class="plaque"><span class="piece" aria-hidden="true"></span><strong id="cr">0</strong></div>
   </div>
+  <button id="sauvegardes" type="button" data-tactile aria-label="Sauvegardes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
+  <div id="panneauSauve" class="plaque" hidden data-tactile>
+    <h2>Sauvegardes</h2>
+    <ul></ul>
+    <div class="bas"><button type="button" id="exporter">Exporter</button><button type="button" id="importer">Importer</button><button type="button" id="fermerSauve">Fermer</button></div>
+    <input type="file" id="fichierSauve" accept=".json,application/json" hidden>
+  </div>
+  <div id="annonce" class="plaque" hidden></div>
   <pre id="debug" hidden></pre>
 </div>
 <div id="panne" hidden></div>

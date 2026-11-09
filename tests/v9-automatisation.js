@@ -47,7 +47,7 @@
   out.parVehicule = P.S.tuiles - t0;
   Object.assign(P.V, { x: P.COLLECTEUR.position.x + 5, z: P.COLLECTEUR.position.z + 4 }); P.step(0.016); const c2 = P.S.credits; P.E.inter = true; P.step(0.016); out.vide = P.S.credits > c2 && P.V.charge === 0 && J.enVehicule;
   P.E.inter = true; P.step(0.016); out.descendu = !J.enVehicule;
-  P.sauver(); const s = JSON.parse(localStorage.getItem('pollen-v9-sauvegarde')); out.pieces = P.GRILLE.size; out.colis = P.COLIS.length; out.sauve = s && s.v === 4 && s.pieces.length === out.pieces && s.vehicule.possede && s.ouverts === 6;
+  P.sauver(); const s = JSON.parse(localStorage.getItem('pollen-v9-emplacement-1')); out.pieces = P.GRILLE.size; out.colis = P.COLIS.length; out.sauve = s && s.v === 5 && s.pieces.length === out.pieces && s.vehicule.possede && s.ouverts === 6;
   out.credits = Math.round(P.S.credits); out.vertes = P.T.vert.reduce((a, v) => a + v, 0);
   P.figer = false; return out;
 })()

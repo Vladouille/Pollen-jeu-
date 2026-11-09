@@ -20,7 +20,9 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   ressources (pollen, nectar, graines, miel, cire, Azurelles mères), sac de 12 kg et colis ; actions avec durée et jauge,
   achats immédiats, machines à durées améliorables ; désordre et accidents réversibles ; rendu GTAO, ombres de contact,
   contre-jour, reflets, panneaux rainurés à liseré orange, chanfreins partout ; interface à cinq éléments, aucun texte
-  qui dise quoi faire. Code dans `v9/src`, assemblé par `node v9/construire.mjs` ; ne pas modifier `v9/index.html`
+  qui dise quoi faire. Sauvegarde locale format 5 (trois emplacements, copie de secours, conversion des formats 2 à 4,
+  tuiles en octets, export/import .json) : tout changement de format ajoute une conversion dans `CONVERSIONS`.
+  Code dans `v9/src`, assemblé par `node v9/construire.mjs` ; ne pas modifier `v9/index.html`
   à la main. Test : `npm run smoke:v9`.
 - **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, mise de côté par la v9. Plus rien de dessiné en code : les
   modèles CC0 sont chargés depuis `v8/models` et `v8/hdri` (noms dans `v8/LISEZMOI.md`), avec des formes de substitution

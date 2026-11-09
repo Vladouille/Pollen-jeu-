@@ -86,12 +86,12 @@ function descendre() {
   joueur.x = V.x - rx * 2.4; joueur.z = V.z - rz * 2.4; joueur.y = H(joueur.x, joueur.z);
 }
 const presDuCollecteur = () => Math.hypot(V.x - COLLECTEUR.position.x, V.z - COLLECTEUR.position.z) < 8;
-function viderCuves() { if (V.valeur <= 0) return false; const cr = Math.round(V.valeur); S.credits += cr; S.ventes++; sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); V.charge = 0; V.valeur = 0; return true; }
+function viderCuves() { if (V.valeur <= 0) return false; const cr = Math.round(V.valeur); S.credits += cr; S.ventes++; sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sauverBientot(); V.charge = 0; V.valeur = 0; return true; }
 INTER_HORS.unshift(() => { if (!joueur.enVehicule) return false; if (presDuCollecteur() && viderCuves()) return true; descendre(); return true; });
 INTER.push({ get x() { return V.x; }, get z() { return V.z; }, r: 3.6,   // à vendre au garage, tout de suite ; E pour monter
   agir() {
     if (V.possede) { monter(); return; }
     if (S.credits < PRIX_VEHICULE) { sons.refus(); return; }
-    S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat();
+    S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat(); sauverBientot();
   } });
 PASTILLE.push(() => joueur.enVehicule ? { nom: 'Pollinisatrice', charge: V.charge, max: CUVES } : null);
