@@ -162,11 +162,14 @@ panneauSauve.addEventListener('click', (e) => {
   if (b.id === 'fermerSauve') ouvrirSauve(false);
 });
 for (const ev of ['pointerdown', 'touchstart', 'mousedown']) { btnSauve.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }); panneauSauve.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }); }
-function exporter() {   // télécharge l'emplacement en cours en .json
+async function exporter() {   // télécharge l'emplacement en cours en .json
   sauver();
-  const texte = stock.lire(cleEmpl(EMPL)) || JSON.stringify(etatSauve());
+  const texte = stock.lire(cleEmpl(EMPL)) || JSON.stringify(etatSauve()), nom = `pollen-emplacement-${EMPL}-${new Date().toISOString().slice(0, 10)}.json`;
+  // Dans la visionneuse d'artefacts de claude.ai, un lien de téléchargement ne fait rien : on passe par sa capacité « downloads ».
+  const dl = window.claude && window.claude.use ? await window.claude.use('downloads').catch(() => null) : null;
+  if (dl) { try { await dl.save({ filename: nom, data: texte }); } catch (e) { if (e && e.code !== 'declined') montrerAnnonce(`Export impossible ici (${e.code || 'indisponible'}).`); } return; }
   const a = document.createElement('a'), url = URL.createObjectURL(new Blob([texte], { type: 'application/json' }));
-  a.href = url; a.download = `pollen-emplacement-${EMPL}-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); a.remove();
+  a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function importer(texte) {   // vérifie, garde l'ancien en secours, écrit dans l'emplacement en cours, recharge
