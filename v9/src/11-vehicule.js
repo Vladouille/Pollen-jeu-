@@ -1,11 +1,11 @@
 
 // =====================================================================
 // 15. La pollinisatrice : cabine blanche, deux cuves, tuyaux annelés, tête de brosse à l'avant,
-//     six roues. Elle pollinise une bande de 3 m en roulant et garde 150 kg dans ses cuves.
+//     six roues. Elle pollinise une bande de 3 m en roulant (0,25 s par tuile) et garde 150 kg dans ses cuves.
 //     Achetée au garage ; E pour monter et descendre ; E près du collecteur vide les cuves.
 // =====================================================================
-const PRIX_VEHICULE = 6000, CUVES = 150;
-const V = { possede: false, x: 0, z: 0, yaw: 0, v: 0, charge: 0, valeur: 0, t: 0 };
+const PRIX_VEHICULE = 6000, CUVES = 150, DUREE_VEHICULE = 0.25;
+const V = { possede: false, x: 0, z: 0, yaw: 0, v: 0, charge: 0, valeur: 0, contact: new Map() };
 const VEHICULE = new THREE.Group();
 {
   const g = VEHICULE, c = new THREE.Group(); g.add(c); g.userData.caisse = c;
@@ -57,17 +57,15 @@ function majVehicule(dt) {
     for (const o of OBSTACLES) { if (o === obstVehicule) continue; const dx = nx - o.x, dz = nz - o.z, d = Math.hypot(dx, dz), min = o.r + 2.0; if (d < min && d > 1e-5) { nx = o.x + dx / d * min; nz = o.z + dz / d * min; } }
     const d0 = Math.hypot(nx, nz); if (d0 > RAYON - 3) { nx *= (RAYON - 3) / d0; nz *= (RAYON - 3) / d0; V.v *= 0.5; }
     V.x = nx; V.z = nz;
-    // Pollinise la bande de 3 m sous la tête de brosse.
-    V.t += dt;
-    if (Math.abs(V.v) > 0.6 && V.t > 0.15) {
-      V.t = 0; let n = 0;
-      for (let k = -2; k <= 2; k++) {
-        if (V.charge >= CUVES) break;
-        const x = V.x + fx * 3.15 + rx * k * 0.75, z = V.z + fz * 3.15 + rz * k * 0.75, [q, r] = versHex(x, z), i = idxDe(q, r);
-        const v = polliniser(i, 'vehicule'); if (v > 0) { V.charge += KG_TUILE; V.valeur += v; n++; }
-      }
-      if (n) sons.pop();
+    // Pollinise la bande de 3 m sous la tête de brosse : chaque tuile doit rester 0,25 s sous la brosse.
+    const vues = new Set();
+    for (let k = -2; k <= 2; k++) {
+      const x = V.x + fx * 3.15 + rx * k * 0.75, z = V.z + fz * 3.15 + rz * k * 0.75, [q, r] = versHex(x, z), i = idxDe(q, r);
+      if (!pollinisable(i) || vues.has(i)) continue; vues.add(i);
+      const t = (V.contact.get(i) || 0) + dt; V.contact.set(i, t);
+      if (t >= DUREE_VEHICULE && V.charge < CUVES) { const v = polliniser(i, 'vehicule'); if (v > 0) { V.charge += KG_TUILE; V.valeur += v; sons.pop(); } }
     }
+    for (const i of V.contact.keys()) if (!vues.has(i)) V.contact.delete(i);   // sortie de sous la brosse : on recommence
     // L'œil du conducteur, dans la cabine.
     joueur.x = V.x + fx * 0.85; joueur.z = V.z + fz * 0.85; joueur.y = H(V.x, V.z) + 0.75; joueur.vitesse = 0;
   }

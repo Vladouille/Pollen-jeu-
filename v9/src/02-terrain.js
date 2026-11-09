@@ -16,10 +16,14 @@ function versHex(x, z) {
 }
 const OFF = 48, NTEX = 96, NSECT = 6;
 const secteurDe = (x, z) => Math.floor(((Math.atan2(z, x) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2) * NSECT);
-// Six couleurs franches. Chaque tuile a la sienne ; d'une rangée de tuiles à la suivante la couleur change,
-// si bien que, vu d'un peu haut, le champ se lit en bandes colorées.
-const COULEURS = [0xe23b2e, 0xf5c518, 0x8b4fc4, 0xe85c9a, 0xf7f4ee, 0xf08a24];
-const couleurDe = (q, r) => ((r % 6) + 6) % 6;
+// Six secteurs, chacun planté d'une seule espèce, donc d'une seule couleur, sur toute sa surface.
+// Chaque espèce rapporte plus que la précédente ; un secteur s'ouvre quand le précédent est pollinisé à 100 %.
+const ESPECES = [
+  { nom: 'Tulipe rouge', c: 0xe23b2e, prix: 3 }, { nom: 'Tulipe jaune', c: 0xf5c518, prix: 7 }, { nom: 'Jacinthe violette', c: 0x8b4fc4, prix: 15 },
+  { nom: 'Anémone rose', c: 0xe85c9a, prix: 32 }, { nom: 'Lys blanc', c: 0xf7f4ee, prix: 70 }, { nom: 'Souci orange', c: 0xf08a24, prix: 150 },
+];
+const COULEURS = ESPECES.map((e) => e.c);
+const OUVERTS = { value: 1 };   // nombre de secteurs ouverts (le secteur 1 au départ)
 const T = { q: [], r: [], x: [], z: [], vert: [], sorte: [], irrigue: [], t0: [], secteur: [], couleur: [] };
 const tuileIdx = new Int32Array(NTEX * NTEX).fill(-1);
 const idxDe = (q, r) => (q < -OFF || q >= OFF || r < -OFF || r >= OFF) ? -1 : tuileIdx[(r + OFF) * NTEX + (q + OFF)];
@@ -33,7 +37,7 @@ const idxDe = (q, r) => (q < -OFF || q >= OFF || r < -OFF || r >= OFF) ? -1 : tu
     tuileIdx[(r + OFF) * NTEX + (q + OFF)] = T.q.length;
     const vert = d < 18.5 ? 1 : 0;   // le jardin de la station est déjà en fleurs ; tout le reste est à rendre à la vie
     T.q.push(q); T.r.push(r); T.x.push(x); T.z.push(z); T.vert.push(vert); T.sorte.push(sorte); T.irrigue.push(0); T.t0.push(vert ? -1000 : 1e6); T.secteur.push(s);
-    T.couleur.push(couleurDe(q, r));
+    T.couleur.push(s);
   }
 }
 const NT = T.q.length;
@@ -49,7 +53,7 @@ function ecrireTuile(i) {
   if (t0Sol[k] !== T.t0[i]) { t0Sol[k] = T.t0[i]; t0Tex.needsUpdate = true; }
 }
 for (let i = 0; i < NT; i++) ecrireTuile(i);
-const SEL = { value: new THREE.Vector3(0, 0, 0) };   // z : intensité du liseré des tuiles visées
+const SEL = { value: new THREE.Vector3(0, 0, 0) };   // y : avancement de la jauge circulaire, z : intensité du liseré des tuiles visées
 selFlag = new Uint8Array(NT); let selListe = [];
 function selectionner(liste) {
   if (liste.length === selListe.length && liste.every((i, k) => i === selListe[k])) return;
@@ -64,17 +68,18 @@ const GLSL_HEX = `
     if (d.x > d.y && d.x > d.z) rc.x = -rc.y - rc.z; else if (d.y > d.z) rc.y = -rc.x - rc.z; else rc.z = -rc.x - rc.y; return vec2(rc.x, rc.z); }
   vec2 hexC(vec2 h) { return vec2(${(HS * SQ3).toFixed(7)} * (h.x + 0.5 * h.y), ${(HS * 1.5).toFixed(7)} * h.y); }
   float hexBord(vec2 d) { return max(abs(d.x), max(abs(0.5 * d.x + 0.8660254 * d.y), abs(-0.5 * d.x + 0.8660254 * d.y))); }
-  vec3 palette(float r) { int k = int(mod(r, 6.0) + 0.5); k = k > 5 ? 0 : k; return uPal[k]; }`;
+  vec3 palette(float r) { int k = int(mod(r, 6.0) + 0.5); k = k > 5 ? 0 : k; return uPal[k]; }
+  float secteurOf(vec2 c) { return floor(mod(atan(c.y, c.x) + 6.2831853, 6.2831853) / 6.2831853 * 6.0); }`;
 // Le sol : couleurs pleines, mat, sans texture de détail. Rainure entre les tuiles, liseré jaune sur la tuile visée.
 {
   const g = new THREE.PlaneGeometry(220, 220, MOBILE ? 110 : 180, MOBILE ? 110 : 180).rotateX(-Math.PI / 2);
   const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, H(p.getX(i), p.getZ(i))); g.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ roughness: 1 });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uEtat: { value: etatTex }, uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) }, uSel: SEL, uPal: UPAL });
+    Object.assign(sh.uniforms, { uEtat: { value: etatTex }, uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) }, uSel: SEL, uPal: UPAL, uOuverts: OUVERTS });
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMonde;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      varying vec3 vMonde; uniform sampler2D uEtat; uniform vec3 uSec, uVert, uSel; uniform vec3 uPal[6];` + GLSL_HEX)
+      varying vec3 vMonde; uniform sampler2D uEtat; uniform vec3 uSec, uVert, uSel; uniform vec3 uPal[6]; uniform float uOuverts;` + GLSL_HEX)
       .replace('#include <map_fragment>', `#include <map_fragment>
       vec2 hq = hexOf(vMonde.xz); vec4 st = texture2D(uEtat, (hq + ${OFF}.0 + 0.5) / ${NTEX}.0);
       float bord = hexBord(vMonde.xz - hexC(hq)), dist = length(vMonde.xz);
@@ -83,14 +88,19 @@ const GLSL_HEX = `
       vec3 sec = mix(uSec, uSec * vec3(0.84, 0.8, 0.72), aride);                       // aride : terre plus sombre
       sec = mix(sec, sec * 0.8, st.b * (1.0 - st.r));                                   // irriguée : terre humide
       float loin = smoothstep(${R_FLEURS - 6}.0, ${R_FLEURS - 1}.0, length(vMonde.xz - cameraPosition.xz));
-      vec3 fleuri = mix(uVert, palette(hq.y), loin * 0.85);                             // de loin, la couleur des fleurs
+      float sect = secteurOf(hexC(hq));
+      vec3 fleuri = mix(uVert, palette(sect), loin * 0.85);                             // de loin, la couleur du secteur
+      sec = sect < uOuverts ? sec : mix(sec, vec3(0.55, 0.56, 0.58), 0.45);            // secteur encore fermé : terre grise, en friche
       vec3 base = mix(sec, fleuri, st.r * dans);
       vec3 esplanade = vec3(0.86, 0.85, 0.82) * (1.0 - 0.07 * step(0.94, hexBord((vMonde.xz - hexC(hexOf(vMonde.xz * 0.5)) * 2.0) * 0.5)));   // dalles claires de la base
       diffuseColor.rgb *= dist < ${BASE}.0 ? esplanade : mix(uSec * 1.04, base, dans);
       diffuseColor.rgb *= 1.0 - dans * 0.22 * smoothstep(0.93, 0.985, bord);          // rainure entre les tuiles
       float sel = step(0.5, st.a) * step(st.a, 0.9) * uSel.z;`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-      totalEmissiveRadiance += sel * vec3(0.96, 0.7, 0.1) * (smoothstep(0.82, 0.93, bord) * 0.9 + 0.06);`);
+      vec2 dc = vMonde.xz - hexC(hq); float ang = fract(atan(dc.x, -dc.y) / 6.2831853 + 1.0);      // angle autour du centre, depuis le haut
+      float anneau = smoothstep(0.62, 0.66, bord) * (1.0 - smoothstep(0.78, 0.82, bord));          // la jauge circulaire
+      float rempli = step(ang, uSel.y);
+      totalEmissiveRadiance += sel * vec3(0.96, 0.7, 0.1) * (smoothstep(0.86, 0.95, bord) * 0.7 + anneau * (0.15 + rempli * 1.6));`);
   };
   const sol = new THREE.Mesh(g, mat); sol.receiveShadow = true; scene.add(sol);
 }
@@ -137,7 +147,7 @@ const M_FLEUR = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, 
 M_FLEUR.onBeforeCompile = (sh) => {
   Object.assign(sh.uniforms, { uTemps: UTEMPS, uT0: { value: t0Tex }, uPal: UPAL });
   sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
-    attribute float aPart; attribute vec3 aTuile; uniform float uTemps; uniform sampler2D uT0; uniform vec3 uPal[6]; varying vec3 vCouleur;
+    attribute float aPart; attribute vec4 aTuile; uniform float uTemps; uniform sampler2D uT0; uniform vec3 uPal[6]; varying vec3 vCouleur;
     vec3 palette(float r) { int k = int(mod(r, 6.0) + 0.5); k = k > 5 ? 0 : k; return uPal[k]; }`)
     .replace('#include <begin_vertex>', `#include <begin_vertex>
       float t0 = texture2D(uT0, (aTuile.xy + ${OFF}.0 + 0.5) / ${NTEX}.0).r;
@@ -145,7 +155,7 @@ M_FLEUR.onBeforeCompile = (sh) => {
       float a = (1.0 - e) * (0.7 + aTuile.z * 0.3);                                                  // fanée : penchée vers le sol
       float cy = cos(a), sy = sin(a); transformed = vec3(transformed.x, transformed.y * cy - transformed.z * sy, transformed.y * sy + transformed.z * cy);
       float d = length(instanceMatrix[3].xz - cameraPosition.xz); transformed *= 1.0 - smoothstep(${R_FLEURS - 5}.0, ${R_FLEURS}.0, d);   // disparaît en douceur au bord du rayon
-      vec3 vive = palette(aTuile.y), tige = vec3(0.24, 0.55, 0.18);
+      vec3 vive = palette(aTuile.w), tige = vec3(0.24, 0.55, 0.18);
       vec3 c = aPart > 1.5 ? vive * 0.55 + vec3(0.25, 0.2, 0.0) : aPart > 0.5 ? vive : tige;
       vec3 fane = aPart > 0.5 ? vec3(0.62, 0.58, 0.5) : vec3(0.5, 0.48, 0.38);
       vCouleur = mix(fane, c, t);`);
@@ -163,19 +173,19 @@ function construireCarre(a, b) {
       const x = i * PAS_X + dx, [q, r] = versHex(x, z), t = idxDe(q, r); if (t < 0) continue;
       const [cx, cz] = hexCentre(q, r), ex = x - cx, ez = z - cz;
       if (Math.max(Math.abs(ex), Math.abs(0.5 * ex + 0.866 * ez), Math.abs(-0.5 * ex + 0.866 * ez)) > 0.84) continue;   // un liseré nu entre les tuiles
-      pts.push(x, z, q, r, R());
+      pts.push(x, z, q, r, R(), T.couleur[t]);
     }
   }
-  const n = pts.length / 5; if (!n) return null;
-  const g = FLEUR_GEO.clone(), tuile = new Float32Array(n * 3);
+  const n = pts.length / 6; if (!n) return null;
+  const g = FLEUR_GEO.clone(), tuile = new Float32Array(n * 4);
   const m = new THREE.InstancedMesh(g, M_FLEUR, n);
   for (let k = 0; k < n; k++) {
-    const x = pts[k * 5], z = pts[k * 5 + 1], al = pts[k * 5 + 4];
+    const x = pts[k * 6], z = pts[k * 6 + 1], al = pts[k * 6 + 4];
     _q.setFromEuler(_e.set((al - 0.5) * 0.16, al * 6.283, (((al * 97) % 1) - 0.5) * 0.16));   // seule l'inclinaison varie
     m.setMatrixAt(k, _m.compose(_p.set(x, H(x, z), z), _q, _s.set(1, 1, 1)));
-    tuile[k * 3] = pts[k * 5 + 2]; tuile[k * 3 + 1] = pts[k * 5 + 3]; tuile[k * 3 + 2] = al;
+    tuile[k * 4] = pts[k * 6 + 2]; tuile[k * 4 + 1] = pts[k * 6 + 3]; tuile[k * 4 + 2] = al; tuile[k * 4 + 3] = pts[k * 6 + 5];
   }
-  g.setAttribute('aTuile', new THREE.InstancedBufferAttribute(tuile, 3));
+  g.setAttribute('aTuile', new THREE.InstancedBufferAttribute(tuile, 4));
   m.computeBoundingSphere(); m.receiveShadow = true; m.castShadow = false;   // l'ombre de 50 000 fleurs coûterait autant que les fleurs m.userData.carre = true;
   scene.add(m); return m;
 }

@@ -38,7 +38,7 @@ function image(now) {
 }
 window.pollen = {
   figer: false, Q, T, NT, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, vue, corps, H,
-  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, versHex, idxDe, COULEURS, CARRES, majFleurs, M_FLEUR, FLEUR_GEO,
+  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, versHex, idxDe, COULEURS, ESPECES, OUVERTS, PIECES, ameliorer, SEL, CARRES, majFleurs, M_FLEUR, FLEUR_GEO,
   GRILLE, poserPiece, CAPSULES, V, sauver, charger, etatSauve, CONS, departs, EMPL_RUCHE, BALISES, TUYAUX, doreesRevelees, ACTIONS, installerRuche,
   get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { x: joueur.x, z: joueur.z, y: joueur.y, yaw: joueur.yaw, pitch: joueur.pitch, vitesse: joueur.vitesse }; },

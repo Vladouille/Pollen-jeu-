@@ -1,13 +1,14 @@
 
 // =====================================================================
-// 11. La boucle : une pression sur une tuile sèche la transforme aussitôt (ses fleurs se redressent et
-//     prennent leur couleur) et met son pollen dans le réservoir. On vide le réservoir au collecteur,
-//     on achète au comptoir : tout est en vente tout de suite, seul l'argent manque. Aucune attente.
-//     Une tuile donne 0,5 kg de pollen ; 1 kg vaut 10 cr ; une fleur dorée vaut 50 fois plus.
+// 11. La boucle : on maintient l'action sur une tuile sèche ; une jauge circulaire se remplit sur la tuile
+//     (2,5 s au pinceau, 0,5 s au souffleur) ; relâcher avant la fin annule. Pleine, la tuile fleurit et son pollen
+//     va au réservoir. On vide le réservoir au collecteur. Les achats, eux, sont immédiats.
+//     Une tuile donne 0,5 kg de pollen et rapporte le prix de son espèce (3 à 150 cr) ; une fleur dorée, 50 fois plus.
+//     Un secteur s'ouvre quand le précédent est pollinisé à 100 %.
 // =====================================================================
-const KG_TUILE = 0.5, PRIX_KG = 10;
+const KG_TUILE = 0.5;
 const OBJETS_DEF = { ruche: { nom: 'Ruche', court: 'Ruche' } };   // ce qui se vend au comptoir et n'est pas un outil en main
-const S = { credits: 0, charge: 0, valeur: 0, outils: ['pinceau'], tuiles: 0, ventes: 0, silo: 0 };   // l'état du joueur (sauvegardé)
+const S = { credits: 0, charge: 0, valeur: 0, outils: ['pinceau'], tuiles: 0, ventes: 0, silo: 0, siloValeur: 0 };   // l'état du joueur (sauvegardé)
 const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'tuyau', 'marteau'];
 const outilDef = () => OUTILS_DEF[outilEnMain];
 const chargeMax = () => { let m = 0; for (const o of S.outils) m = Math.max(m, OUTILS_DEF[o].charge || 0); return m; };   // le réservoir suit le meilleur outil acquis
@@ -54,7 +55,8 @@ function viser() {
   return null;
 }
 // Une tuile est pollinisable si elle est sèche, sans chardons, et arrosée si elle est aride.
-const pollinisable = (i) => i >= 0 && !T.vert[i] && T.sorte[i] !== 1 && !(T.sorte[i] === 2 && !T.irrigue[i]);
+const ouvert = (i) => T.secteur[i] < OUVERTS.value;
+const pollinisable = (i) => i >= 0 && ouvert(i) && !T.vert[i] && T.sorte[i] !== 1 && !(T.sorte[i] === 2 && !T.irrigue[i]);
 function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'axe perpendiculaire au regard
   if (!v || v.i < 0) return [];
   const rx = Math.cos(joueur.yaw), rz = -Math.sin(joueur.yaw), out = [];
@@ -68,14 +70,17 @@ function polliniser(i, par = 'joueur') {   // rend une tuile à la vie, tout de 
   const doree = T.sorte[i] === 3;
   if (doree) cueillirDoree(i);
   fleurirTuile(i, gt); secteurs[T.secteur[i]].vert++; S.tuiles++;
+  const v = ESPECES[T.couleur[i]].prix * (doree ? 50 : 1);
   bouffee(T.x[i], H(T.x[i], T.z[i]), T.z[i], par === 'joueur' ? 16 : 8, doree ? 0xffe27a : CHARTE.pollen);
-  return KG_TUILE * PRIX_KG * (doree ? 50 : 1);
+  const s = T.secteur[i];   // secteur complet : le suivant s'ouvre
+  if (s === OUVERTS.value - 1 && secteurs[s].vert >= secteurs[s].total && OUVERTS.value < NSECT) { OUVERTS.value++; sons.vente(); setTimeout(() => sons.achat(), 400); }
+  return v;
 }
-// L'action de l'outil en main se déclenche à la pression (pas de maintien). Les étapes suivantes ajoutent
-// leurs actions (arracher, construire) : { quand(v), faire(v), geste }.
-let groupe = [], actionAvant = false;
-const ACTIONS = [];
-function majAction() {
+// L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil (ou de l'action :
+// arracher, construire). Relâcher, ou changer de cible, remet la jauge à zéro.
+let groupe = [], progres = 0, cibleAvant = '', actionAvant = false;
+const ACTIONS = [];   // { quand(v), faire(v), duree, geste, instant } ajoutées par les activités et la construction
+function majAction(dt) {
   visee = joueur.enVehicule ? null : viser();
   const def = outilDef();
   let cibleAction = null;
@@ -84,20 +89,51 @@ function majAction() {
   else if (def.largeur && visee && visee.dist < 4.6 && S.charge < chargeMax() - 1e-6) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
   else groupe = [];
   selectionner(groupe);
-  SEL.value.z = groupe.length ? 0.7 + Math.sin(gt * 5) * 0.15 : 0;
   gesteType = cibleAction && cibleAction.geste ? cibleAction.geste : 'brosser';
-  const presse = E.presse || (E.action && !actionAvant); actionAvant = E.action;
-  if (!presse) return;
-  coup = 1;   // le geste de l'outil à l'écran
-  if (cibleAction) { cibleAction.faire(visee); return; }
-  let n = 0;
-  for (const i of groupe) {
-    if (S.charge >= chargeMax() - 1e-6) break;
-    const v = polliniser(i); if (v > 0) { S.charge = Math.min(chargeMax(), S.charge + KG_TUILE); S.valeur += v; n++; }
+  const cle = groupe.join() + (cibleAction ? 'a' : '');
+  if (cle !== cibleAvant) { progres = 0; cibleAvant = cle; }   // nouvelle cible : on recommence
+  const duree = cibleAction ? cibleAction.duree : def.duree;
+  gesteActif = !!(groupe.length || cibleAction);
+  if (cibleAction && cibleAction.instant) {   // l'outil de construction agit à la pression
+    const presse = E.presse || (E.action && !actionAvant); actionAvant = E.action;
+    if (presse) cibleAction.faire(visee);
+    SEL.value.set(0, 0, 0); return;
   }
-  if (n) sons.pop();
+  actionAvant = E.action;
+  if (E.action && groupe.length) {
+    progres += dt;
+    if (progres >= duree) {
+      progres = 0; cibleAvant = '';
+      if (cibleAction) cibleAction.faire(visee);
+      else {
+        let n = 0;
+        for (const i of groupe) {
+          if (S.charge >= chargeMax() - 1e-6) break;
+          const v = polliniser(i); if (v > 0) { S.charge = Math.min(chargeMax(), S.charge + KG_TUILE); S.valeur += v; n++; }
+        }
+        if (n) sons.pop();
+      }
+    }
+  } else progres = 0;   // relâcher annule
+  SEL.value.set(0, groupe.length ? progres / duree : 0, groupe.length ? 0.75 + Math.sin(gt * 5) * 0.1 : 0);
 }
 MAJ.push(majAction);
+// La jauge circulaire : un anneau posé juste au-dessus des fleurs de chaque tuile visée, qui se remplit en jaune pollen.
+const JAUGE_MAT = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, uniforms: { uP: { value: 0 }, uC: { value: new THREE.Color(CHARTE.pollen) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `varying vec2 vUv; uniform float uP; uniform vec3 uC;
+    void main(){ vec2 d = vUv - 0.5; float r = length(d) * 2.0; if (r < 0.8 || r > 0.97) discard;
+      float a = fract(atan(d.x, d.y) / 6.2831853 + 1.0); bool plein = a < uP;
+      gl_FragColor = plein ? vec4(uC * 1.4, 1.0) : vec4(0.12, 0.13, 0.15, 0.45);
+      #include <colorspace_fragment>
+    }`,
+});
+const JAUGES = Array.from({ length: 5 }, () => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7).rotateX(-Math.PI / 2), JAUGE_MAT); m.renderOrder = 5; m.visible = false; scene.add(m); return m; });
+MAJ.push(() => {
+  JAUGE_MAT.uniforms.uP.value = SEL.value.y;
+  JAUGES.forEach((m, k) => { const i = groupe[k]; m.visible = i !== undefined && !joueur.enVehicule; if (m.visible) m.position.set(T.x[i], H(T.x[i], T.z[i]) + 0.5, T.z[i]); });
+});
 
 // --- Changer d'outil : chiffres 1 à 7, molette, ou les ronds à l'écran. ---
 function changerOutil(cle) { if (!S.outils.includes(cle) || cle === outilEnMain) return; prendre(cle); }

@@ -8,11 +8,11 @@ const M_POILS = new THREE.MeshStandardMaterial({ color: CHARTE.pollen, roughness
 function tube(r1, r2, l, mat, segs = 14) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, l, segs), mat); m.castShadow = true; return m; }
 // Chaque outil est construit le long de +Y : le manche part de l'origine, la tête est au bout.
 const OUTILS_DEF = {
-  pinceau: { nom: 'Pinceau à main', prix: 0, largeur: 1, duree: 2.4, charge: 6, effet: 'Une tuile à la fois, lentement' },
-  brosse: { nom: 'Brosse à pollen', prix: 300, largeur: 1, duree: 0.9, charge: 12, effet: 'Une tuile, trois fois plus vite, charge doublée' },
-  large: { nom: 'Brosse large', prix: 1200, largeur: 2, duree: 0.9, charge: 20, effet: 'Deux tuiles par passage' },
-  xl: { nom: 'Brosse extra-large', prix: 3200, largeur: 3, duree: 0.9, charge: 30, effet: 'Trois tuiles, roulette en bout de manche' },
-  souffleur: { nom: 'Souffleur à dos', prix: 8000, largeur: 5, duree: 0.7, charge: 50, effet: 'Cinq tuiles d’un souffle' },
+  pinceau: { nom: 'Pinceau à main', prix: 0, largeur: 1, duree: 2.5, charge: 6, effet: 'Une tuile à la fois, lentement' },
+  brosse: { nom: 'Brosse à pollen', prix: 300, largeur: 1, duree: 1.8, charge: 12, effet: 'Une tuile, trois fois plus vite, charge doublée' },
+  large: { nom: 'Brosse large', prix: 1200, largeur: 2, duree: 1.2, charge: 20, effet: 'Deux tuiles par passage' },
+  xl: { nom: 'Brosse extra-large', prix: 3200, largeur: 3, duree: 0.8, charge: 30, effet: 'Trois tuiles, roulette en bout de manche' },
+  souffleur: { nom: 'Souffleur à dos', prix: 8000, largeur: 5, duree: 0.5, charge: 50, effet: 'Cinq tuiles d’un souffle' },
   tuyau: { nom: 'Tuyau d’irrigation', prix: 150, outilSpecial: true, effet: 'Déroule un tuyau depuis la pompe pour arroser les tuiles arides' },
   marteau: { nom: 'Outil de construction', prix: 500, outilSpecial: true, effet: 'Pose convoyeurs, machines, panneaux solaires' },
 };
@@ -207,10 +207,10 @@ function prendre(cle) {
   const P = POSE_OUTIL[cle]; ENMAIN[cle].scale.setScalar(P.s);
 }
 prendre('pinceau');
-let geste = 0, coup = 0, gesteType = 'brosser';   // coup : 1 à la pression, retombe en 0,3 s
+let geste = 0, gesteType = 'brosser', gesteActif = false;
 function majVue(dt) {
   const P = POSE_OUTIL[outilEnMain], a = clamp(joueur.vitesse / VIT, 0, 1.3), sb = Math.sin(joueur.pas), cb = Math.abs(Math.cos(joueur.pas));
-  coup = Math.max(0, coup - dt * 3.3); geste = lerp(geste, coup > 0 ? 1 : 0, 1 - Math.exp(-dt * 18));
+  geste = lerp(geste, E.action && gesteActif ? 1 : 0, 1 - Math.exp(-dt * 10));   // l'outil frotte tant qu'on travaille
   const t = gt * (gesteType === 'arracher' ? 16 : 8), balai = Math.sin(t) * 0.06 * geste, souffle = Math.sin(gt * 1.3) * 0.004;
   vue.visible = !joueur.enVehicule;
   vue.position.set(P.p[0] + sb * 0.016 * a - retardRegard * 0.3 + balai, P.p[1] - cb * 0.014 * a + souffle + retardRegardV * 0.25 + 0.03 * geste, P.p[2] - 0.05 * geste);

@@ -1,12 +1,12 @@
 
 // =====================================================================
 // 12. L'interface : cinq choses, rien d'autre. Ruban de boussole en haut, pourcentage du secteur en haut
-//     à droite, outil et charge en bas à gauche, ronds des outils en bas au centre, argent en bas à droite.
+//     à droite (celui du secteur à finir, dans la couleur de son espèce), outil et charge en bas à gauche, ronds des outils en bas au centre, argent en bas à droite.
 //     Aucun texte qui dise quoi faire.
 // =====================================================================
 const $ = (id) => document.getElementById(id);
 if (MOBILE) jeu.classList.add('mobile');
-const hud = { bande: $('bande'), secP: $('secP'), nomOutil: $('nomOutil'), charge: $('charge'), slots: $('slots'), cr: $('cr') };
+const hud = { bande: $('bande'), secP: $('secP'), nomOutil: $('nomOutil'), charge: $('charge'), slots: $('slots'), cr: $('cr'), hex: document.querySelector('#secteur .hex') };
 const fmtKg = (v) => v.toFixed(1).replace('.', ',');
 const fmtCr = (v) => Math.round(v).toLocaleString('fr-FR');
 // Boussole : un ruban de ±90° autour du cap, graduations tous les 15°, lettres cardinales.
@@ -20,8 +20,9 @@ let tSlots = '', dernierHUD = -1;
 function majHUD() {
   const c = cap(), L = hud.bande.parentNode.clientWidth || 360, px = L / 180;
   for (const m of marques) { const r = angle(m.a - c); m.el.style.display = Math.abs(r) > 92 ? 'none' : ''; m.el.style.transform = `translateX(${r * px}px)`; }
-  const s = secteurs[secteurDe(joueur.x, joueur.z)];
+  const k = OUVERTS.value - 1, s = secteurs[k];   // le secteur à finir : c'est l'objectif du joueur
   hud.secP.textContent = `${Math.floor(s.total ? s.vert / s.total * 100 : 0)} %`;
+  if (hud.hex.dataset.k !== String(k)) { hud.hex.dataset.k = k; hud.hex.style.background = '#' + ESPECES[k].c.toString(16).padStart(6, '0'); }   // la couleur de son espèce
   let pa = { nom: outilDef().nom, charge: S.charge, max: chargeMax() }; for (const f of PASTILLE) { const r = f(); if (r) { pa = r; break; } }
   hud.nomOutil.textContent = pa.nom; hud.charge.textContent = `${fmtKg(pa.charge)} / ${pa.max} KG`;
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;

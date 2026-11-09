@@ -1,13 +1,14 @@
 
 // =====================================================================
-// 13. Les activités, toutes immédiates : arracher les chardons d'une pression, irriguer les tuiles arides
-//     avec un tuyau déroulé depuis la pompe, poser une ruche (elle met en fleurs tout son voisinage d'un coup),
-//     activer les balises de relevé (elles font briller les fleurs dorées de leur secteur, 50 fois le prix).
+// 13. Les activités : arracher les chardons (on maintient, plus vite avec une meilleure brosse), irriguer les
+//     tuiles arides avec un tuyau déroulé depuis la pompe, poser des ruches (elles pollinisent seules autour
+//     d'elles, plus vite à chaque amélioration), activer les balises (les fleurs dorées de leur secteur s'allument).
 // =====================================================================
 // --- Désherber : viser une tuile à chardons avec une brosse et presser : arrachés. ---
 const brosseEnMain = () => !!OUTILS_DEF[outilEnMain].largeur;
 ACTIONS.push({
-  quand: (v) => brosseEnMain() && v && v.i >= 0 && T.sorte[v.i] === 1 && v.dist < 4.6, geste: 'arracher',
+  quand: (v) => brosseEnMain() && v && v.i >= 0 && T.sorte[v.i] === 1 && ouvert(v.i) && v.dist < 4.6, geste: 'arracher',
+  get duree() { return outilDef().duree * 0.7; },
   faire(v) { desherber(v.i); sons.arrache(); bouffee(T.x[v.i], H(T.x[v.i], T.z[v.i]), T.z[v.i], 14, 0x8c8794); S.credits += 2; },
 });
 
@@ -44,11 +45,11 @@ MAJ.push(() => {
   const p = [joueur.x, joueur.z]; segment(d, p); t.pts.push(p); arroser(p[0], p[1]); arroser((p[0] + d[0]) / 2, (p[1] + d[1]) / 2);
 });
 
-// --- Les ruches : six emplacements autour de la station. Posée, une ruche met en fleurs d'un coup toutes les
-//     tuiles pollinisables à moins de 10 m, et leur pollen est payé aussitôt. Les abeilles restent autour. ---
-const RAYON_RUCHE = 10;
+// --- Les ruches : six emplacements autour de la station. Une ruche pollinise seule une tuile ouverte à moins de
+//     10 m toutes les 3 s (2 s, puis 1,2 s après amélioration : E sur la ruche) ; le pollen est payé aussitôt. ---
+const RAYON_RUCHE = 10, DUREES_RUCHE = [3, 2, 1.2], PRIX_AMELIO_RUCHE = [600, 1500];
 const EMPL_RUCHE = [0.35, 1.4, 2.45, 3.5, 4.55, 5.6].map((a) => { const x = Math.cos(a) * 24, z = Math.sin(a) * 24; return { x, z, ruche: null }; });
-function fabriquerRuche() {   // corps blanc en trois hausses, toit graphite à liseré jaune, planche d'envol
+function fabriquerRuche() {   // corps blanc en trois hausses, toit graphite à liseré jaune, planche d'envol, voyant
   const g = new THREE.Group(), base = socle(g, 0.7, 0.7);
   for (let k = 0; k < 3; k++) placer(g, boite(0.7, 0.3, 0.7, k === 1 ? M.panneau : M.blanc, 0.03), 0, base + 0.15 + k * 0.32, 0);
   for (let k = 0; k < 2; k++) placer(g, boite(0.74, 0.025, 0.74, M.graphite, 0.01), 0, base + 0.31 + k * 0.32, 0);
@@ -56,6 +57,7 @@ function fabriquerRuche() {   // corps blanc en trois hausses, toit graphite à 
   placer(g, boite(0.88, 0.03, 0.88, M.pollen, 0.012), 0, base + 0.96, 0);
   placer(g, boite(0.4, 0.03, 0.14, M.pollen, 0.01), 0, base + 0.05, 0.42);
   placer(g, boite(0.3, 0.04, 0.02, M.graphite, 0.01), 0, base + 0.09, 0.355);
+  g.userData.voyants = [0, 1, 2].map((k) => { const v = placer(g, boite(0.07, 0.07, 0.02, M.graphite, 0.01), -0.12 + k * 0.12, base + 0.82, 0.355); v.userData.garder = true; return v; });   // un voyant par niveau
   return fusionner(g);
 }
 const ABEILLES = 14, abeillesGeo = new THREE.BufferGeometry(), abeillesPos = new Float32Array(EMPL_RUCHE.length * ABEILLES * 3);
@@ -64,22 +66,34 @@ const abeilles = new THREE.Points(abeillesGeo, new THREE.PointsMaterial({ color:
 { const g = new THREE.Group();   // les emplacements : une dalle hexagonale graphite au liseré jaune
   for (const e of EMPL_RUCHE) { placer(g, new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.95, 0.08, 6), M.graphite), e.x, H(e.x, e.z) + 0.04, e.z); placer(g, new THREE.Mesh(new THREE.CylinderGeometry(0.97, 0.97, 0.02, 6, 1, true), M.pollen), e.x, H(e.x, e.z) + 0.07, e.z); }
   scene.add(fusionner(g)); }
-function installerRuche(e, pollinise = true) {
+function installerRuche(e, niveau = 0) {
   const g = fabriquerRuche(); g.position.set(e.x, H(e.x, e.z), e.z); g.rotation.y = Math.atan2(-e.x, -e.z); scene.add(g);
-  e.ruche = { g }; OBSTACLES.push({ x: e.x, z: e.z, r: 0.8 });
-  if (!pollinise) return 0;
-  let cr = 0; const [q0, r0] = versHex(e.x, e.z);
-  for (let dq = -7; dq <= 7; dq++) for (let dr = -7; dr <= 7; dr++) { const i = idxDe(q0 + dq, r0 + dr); if (i >= 0 && T.sorte[i] !== 3 && Math.hypot(T.x[i] - e.x, T.z[i] - e.z) < RAYON_RUCHE) cr += polliniser(i, 'ruche'); }
-  S.credits += Math.round(cr); return cr;
+  e.ruche = { g, niveau, t: 0 }; OBSTACLES.push({ x: e.x, z: e.z, r: 0.8 });
+  return e;
+}
+function tuileProcheRuche(e) {   // une tuile pollinisable autour de la ruche, au hasard
+  const [q0, r0] = versHex(e.x, e.z), c = [];
+  for (let dq = -7; dq <= 7; dq++) for (let dr = -7; dr <= 7; dr++) { const i = idxDe(q0 + dq, r0 + dr); if (pollinisable(i) && T.sorte[i] !== 3 && Math.hypot(T.x[i] - e.x, T.z[i] - e.z) < RAYON_RUCHE) c.push(i); }
+  return c.length ? c[Math.floor(Math.random() * c.length)] : -1;
 }
 { const p = PRESENTOIRS.find((p) => p.cle === 'ruche'), o = fabriquerRuche(); o.scale.setScalar(0.5); o.position.y = 0.96; o.userData.garder = true; p.g.remove(p.objet); p.g.add(o); p.objet = o; o.traverse((m) => { if (m.isMesh) m.userData.matOrigine = m.material; }); p.etat = ''; }   // une ruche miniature sur son présentoir
 ACHAT.ruche = (p) => { const e = EMPL_RUCHE.find((e) => !e.ruche); if (!e) { S.credits += p.prix; sons.refus(); return; } installerRuche(e); };
-MAJ.push(() => {
+for (const e of EMPL_RUCHE) INTER.push({ x: e.x, z: e.z, r: 2.6, cache: () => !e.ruche, agir() {   // E : améliorer la ruche
+  const n = e.ruche.niveau; if (n >= 2 || S.credits < PRIX_AMELIO_RUCHE[n]) { sons.refus(); return; }
+  S.credits -= PRIX_AMELIO_RUCHE[n]; e.ruche.niveau++; sons.achat(); } });
+MAJ.push((dt) => {
   let k = 0;
-  for (const e of EMPL_RUCHE) for (let b = 0; b < ABEILLES; b++, k++) {
-    if (!e.ruche) { abeillesPos[k * 3 + 1] = -100; continue; }
-    const a = gt * (1.2 + (b % 5) * 0.3) + b * 2.1, rr = 0.8 + (b % 4) * 0.5 + Math.sin(gt * 0.7 + b) * 0.3;
-    abeillesPos.set([e.x + Math.cos(a) * rr, H(e.x, e.z) + 0.7 + Math.sin(a * 1.7 + b) * 0.4 + (b % 3) * 0.25, e.z + Math.sin(a) * rr], k * 3);
+  for (const e of EMPL_RUCHE) {
+    const r = e.ruche;
+    for (let b = 0; b < ABEILLES; b++, k++) {
+      if (!r) { abeillesPos[k * 3 + 1] = -100; continue; }
+      const a = gt * (1.2 + (b % 5) * 0.3) * (1 + r.niveau * 0.4) + b * 2.1, rr = 0.8 + (b % 4) * 0.5 + Math.sin(gt * 0.7 + b) * 0.3;
+      abeillesPos.set([e.x + Math.cos(a) * rr, H(e.x, e.z) + 0.7 + Math.sin(a * 1.7 + b) * 0.4 + (b % 3) * 0.25, e.z + Math.sin(a) * rr], k * 3);
+    }
+    if (!r) continue;
+    r.t += dt;
+    if (r.t >= DUREES_RUCHE[r.niveau]) { r.t = 0; const i = tuileProcheRuche(e); if (i >= 0) S.credits += polliniser(i, 'ruche'); }
+    r.g.userData.voyants.forEach((v, n) => { v.material = n <= r.niveau ? M.seve : M.graphite; });
   }
   abeillesGeo.attributes.position.needsUpdate = true;
 });

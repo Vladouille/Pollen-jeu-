@@ -4,16 +4,20 @@
 
 Un seul fichier, ordinateur et téléphone (paysage forcé). Code dans `v9/src`, assemblé par `node v9/construire.mjs`.
 
-- **Fleurs** : coupes de cinq pétales arrondis, tige épaisse, deux feuilles, plantées en rangs réguliers (environ 68 par
-  tuile, InstancedMesh). Six couleurs franches ; une couleur par tuile, les rangées voisines alternent : le champ se lit
-  en bandes. Fanées : beige-gris, penchées. Au-delà de 22 m (16 m sur téléphone), le sol prend la couleur des fleurs.
-- **Aucune attente** : une pression transforme une tuile ; tout est en vente au comptoir dès le départ ; la ruche fait
-  fleurir son voisinage d'un coup ; l'extracteur et le maturateur transforment sur-le-champ. Seul l'argent manque.
-- **Interface** : cinq éléments seulement (boussole, pourcentage du secteur, outil et charge, ronds d'outils, argent).
-  Aucun texte qui dise quoi faire.
-- **Commandes** : ZQSD/WASD et souris, clic pour agir, E pour utiliser, 1 à 7 ou molette pour l'outil, B construire,
-  R tourner la pièce. Téléphone : joystick, regard, boutons ● et E ; toucher le rond de l'outil en main fait tourner la pièce.
-- `?mode=pc` ou `?mode=mobile`, `?debug` (triangles, appels), `?neuf` (sans la sauvegarde). Test : `npm run smoke:v9`.
+- **Secteurs** : six secteurs, une espèce chacun, une couleur unie : tulipe rouge (3 cr la tuile), tulipe jaune (7),
+  jacinthe violette (15), anémone rose (32), lys blanc (70), souci orange (150). Un secteur s'ouvre quand le précédent
+  est pollinisé à 100 % ; le pourcentage en haut à droite est l'objectif.
+- **Polliniser** : on maintient l'action ; une jauge circulaire se remplit au-dessus de la tuile ; relâcher annule.
+  2,5 s au pinceau, 1,8 s à la brosse, 1,2 s à la brosse large, 0,8 s à l'extra-large, 0,5 s au souffleur,
+  0,25 s sous la pollinisatrice.
+- **Achats immédiats** : tout est en vente dès le départ ; payé, l'objet est là dans la seconde.
+- **Machines à durée** : borne de pollinisation (pollinise seule), tamiseur, extracteur, presse, maturateur,
+  conditionneuse, convoyeurs (normal et rapide), quai d'expédition. Chaque machine tourne, anime son écran et fait
+  clignoter son voyant pendant son lot ; E dessus l'améliore (par exemple extracteur 4 s, puis 2,5 s, puis 1,5 s).
+  Les ruches pollinisent seules (3 s, 2 s, 1,2 s).
+- **Fleurs** : tulipes en coupe, en rangs réguliers, environ 68 par tuile en InstancedMesh.
+- **Interface** : cinq éléments (boussole, pourcentage du secteur à finir, outil et charge, ronds d'outils, argent).
+- `?mode=pc` ou `?mode=mobile`, `?debug`, `?neuf`. Test : `npm run smoke:v9`.
 
 ## v8 — vrais modèles 3D et boucle complète (`v8/index.html`)
 
