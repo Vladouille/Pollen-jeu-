@@ -22,6 +22,10 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   contre-jour, reflets, panneaux rainurés à liseré orange, chanfreins partout ; interface à cinq éléments, aucun texte
   qui dise quoi faire. Sauvegarde locale format 5 (trois emplacements, copie de secours, conversion des formats 2 à 4,
   tuiles en octets, export/import .json) : tout changement de format ajoute une conversion dans `CONVERSIONS`.
+  Brief v10 (design, bâtiments, planète) en cours, dans l'ordre : 1 anomalies (FAIT : collisions en boîtes, zones
+  d'approche, repère de stationnement, bâtiments fermés à terminal mural, palette cyan/orange) ; 2 planète sphérique de
+  500 m (arbitrage à donner au fondateur avant de commencer : elle remplace le terrain, les tuiles et la sauvegarde) ;
+  3 intérieurs ; 4 concessionnaire ; 5 automatisation (mode construction, supervision).
   Code dans `v9/src`, assemblé par `node v9/construire.mjs` ; ne pas modifier `v9/index.html`
   à la main. Test : `npm run smoke:v9`.
 - **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, mise de côté par la v9. Plus rien de dessiné en code : les

@@ -78,9 +78,9 @@ function charger(d) {
   (d.ruches || []).forEach((n, k) => { if (n >= 0 && EMPL_RUCHE[k]) installerRuche(EMPL_RUCHE[k], n); });
   (d.balises || []).forEach((a, k) => { if (a && BALISES[k]) activerBalise(BALISES[k], false); });
   for (const [cle, cx, cz, dir, niveau] of d.pieces || []) if (PIECES[cle]) poserPiece(cle, cx, cz, dir, true, niveau || 0);
-  if (d.vehicule) Object.assign(V, d.vehicule);
+  if (d.vehicule) Object.assign(V, d.vehicule); if (V.possede) ecrireEcran(TERMINAL_GARAGE.mat, 'ACQUIS');
   for (const c of d.colis || []) { const g = { contenu: c.contenu, x: c.x, z: c.z, vx: 0, vz: 0, g: fabriquerColis() }; g.g.position.set(c.x, H(c.x, c.z), c.z); scene.add(g.g); g.ombre = ombreContact(g.g, 0.45, true); COLIS.push(g); }
-  if (d.joueur) { Object.assign(joueur, { x: d.joueur.x, z: d.joueur.z, yaw: d.joueur.yaw }); for (const ob of OBSTACLES) { const dx = joueur.x - ob.x, dz = joueur.z - ob.z, l = Math.hypot(dx, dz); if (l < ob.r + 0.4) { joueur.x = ob.x + (dx / (l || 1)) * (ob.r + 0.5); joueur.z = ob.z + (dz / (l || 1)) * (ob.r + 0.5); } } joueur.y = H(joueur.x, joueur.z); }
+  if (d.joueur) { Object.assign(joueur, { x: d.joueur.x, z: d.joueur.z, yaw: d.joueur.yaw }); { const p = repousser(joueur.x, joueur.z, 0.4); joueur.x = p.x; joueur.z = p.z; } joueur.y = H(joueur.x, joueur.z); }
   if (S.outils.includes(d.outil)) prendre(d.outil);
   return d;
 }

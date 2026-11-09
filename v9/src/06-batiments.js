@@ -7,7 +7,7 @@
 const MODULE = 2;
 const M_VITRE = new THREE.MeshStandardMaterial({ color: 0x1d2a33, roughness: 0.08, metalness: 0.6, envMapIntensity: 1 });
 const M_GRIS = new THREE.MeshStandardMaterial({ color: 0x8a8d90, roughness: 0.8 });   // présentoir hors de prix : grisé
-function texteTex(lignes, w = 512, h = 128, fond = '#ece8df', encre = '#2f3338') {
+function texteTex(lignes, w = 512, h = 128, fond = '#edeae4', encre = '#2e343a') {
   return texture(w, h, (g) => {
     g.fillStyle = fond; g.fillRect(0, 0, w, h); g.textAlign = 'center'; g.textBaseline = 'middle';
     lignes.forEach(([t, taille, couleur], k) => { g.fillStyle = couleur || encre; let f = taille; do { g.font = `800 ${f}px system-ui, sans-serif`; f -= 2; } while (g.measureText(t).width > w * 0.9 && f > 10); g.fillText(t, w / 2, h * (k + 0.5) / lignes.length + 2); });
@@ -19,7 +19,6 @@ function moduleFacade(type, haut) {   // un module de 2 m de large, face vers +z
   if (type === 'porte') {
     placer(g, boite(1.3, 2.3, 0.1, M.graphite, 0.03), 0, 1.15, 0.03);
     placer(g, boite(1.1, 2.15, 0.06, M_VITRE, 0.02), 0, 1.1, 0.07);
-    placer(g, boite(0.04, 0.5, 0.06, M.pollen, 0.015), 0.42, 1.1, 0.12);                  // poignée jaune
     placer(g, boite(1.4, 0.05, 0.05, M.seve, 0.015), 0, 2.4, 0.07);                        // bande lumineuse au-dessus
   } else if (type === 'vitrine') {
     placer(g, boite(1.7, 1.5, 0.1, M.graphite, 0.03), 0, 1.45, 0.03);
@@ -51,12 +50,13 @@ function batiment(modules, prof, haut, enseigne) {
   g.userData.W = W; g.userData.D = prof; g.userData.base = base;
   return g;
 }
+// Le collecteur : sa boîte de collision, et sa zone d'approche marquée d'un liseré orange.
+{ const C = COLLECTEUR.position, o = boiteCollision(C.x, C.z, 1.55, 1.25, COLLECTEUR.rotation.y, { machine: true }); OBSTACLES.push(o); cadreSol(C.x, C.z, o.hw + ZONE_APPROCHE, o.hd + ZONE_APPROCHE, o.rot, M_ZONE); }
 const INTER = [];   // tout ce qu'on peut utiliser avec E : { x, z, y, r, texte() (null = rien à faire), agir() }
 function poser(g, x, z) {   // pose un bâtiment face à la place centrale et le rend infranchissable
   g.position.set(x, H(x, z), z); g.rotation.y = Math.atan2(-x, -z); scene.add(g);
   const ombre = ombreContact(g, 1); ombre.scale.set(g.userData.W / 2 + 0.8, 1, g.userData.D / 2 + 0.8); ombre.rotation.y = g.rotation.y;   // ombre de contact rectangulaire
-  const W = g.userData.W + 0.7, D = g.userData.D + 0.7, n = Math.max(1, Math.round(W / D));
-  for (let k = 0; k < n; k++) { const lx = -W / 2 + W * (k + 0.5) / n, c = Math.cos(g.rotation.y), s = Math.sin(g.rotation.y); OBSTACLES.push({ x: x + lx * c, z: z - lx * s, r: Math.max(D / 2, W / n / 2) * 0.98 }); }
+  OBSTACLES.push(boiteCollision(x, z, g.userData.W / 2 + 0.45, g.userData.D / 2 + 0.45, g.rotation.y));   // un peu plus grande que le socle
   return g;
 }
 
@@ -106,6 +106,19 @@ function majPresentoir(p, etat) {   // 'acquis' | 'abordable' | 'cher'
 const STATION = fusionner(poser(batiment(['grille', 'vitrine', 'porte', 'vitrine', 'grille'], 4, 4.2, 'STATION POLLEN'), 1, -12));
 // Le garage : deux volets roulants. La pollinisatrice y dort (étape 6).
 const GARAGE = fusionner(poser(batiment(['volet', 'volet', 'grille'], 4.4, 3.6, 'GARAGE'), 11, -6));
+// Les bâtiments ne s'ouvrent pas (leurs intérieurs viendront) : portes sans poignée, et l'interaction se fait dehors,
+// sur un terminal mural près de l'entrée (écran sombre, gros bouton rond orange).
+function terminalMural(g, lx, texte) {
+  const z = g.userData.D / 2, y = g.userData.base + 1.35, mat = ecran(texte);
+  placer(g, boite(0.8, 1.0, 0.14, M.graphite, 0.04), lx, y, z + 0.07);
+  placer(g, new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.34), mat), lx, y + 0.22, z + 0.145);
+  placer(g, bouton(), lx, y - 0.22, z + 0.14);
+  placer(g, boite(0.84, 0.04, 0.16, M.lisere, 0.015), lx, y + 0.53, z + 0.07);
+  g.updateMatrixWorld(true); const p = new THREE.Vector3(lx, 0, z + 1.1).applyMatrix4(g.matrixWorld);
+  return { mat, x: p.x, z: p.z };
+}
+const TERMINAL_STATION = terminalMural(STATION, 1.75, '0 %'), TERMINAL_GARAGE = terminalMural(GARAGE, 2.0, '6 000');
+for (const s of [-1, 1]) { const g = COMPTOIR; g.updateMatrixWorld(true); const p = new THREE.Vector3(s * 3.0, 0, 3.2).applyMatrix4(g.matrixWorld); OBSTACLES.push({ x: p.x, z: p.z, r: 0.12 }); }   // les poteaux de l'auvent
 // Le point d'eau : une pompe blanche sur socle, réservoir à hublot, robinet jaune (étape 5).
 const POMPE = (() => {
   const g = new THREE.Group(), base = socle(g, 1.2, 1.2);

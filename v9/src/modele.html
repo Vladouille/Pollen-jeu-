@@ -14,7 +14,7 @@
 -->
 <style>
   /* Charte POLLEN : blanc cassé, graphite, jaune pollen, vert sève ; une seule police sans empattement, grasse. */
-  :root { --blanc: #ece8df; --graphite: #2f3338; --pollen: #f4b41a; --seve: #53d17a; --encre: #fffdf7; --voile: rgba(28, 31, 35, .55); --fond: #cfe6f7; color-scheme: light; }
+  :root { --blanc: #edeae4; --graphite: #2e343a; --pollen: #f4b41a; --seve: #4fd6e3; --encre: #fffdf7; --voile: rgba(28, 31, 35, .55); --fond: #cfe6f7; color-scheme: light; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fond); overscroll-behavior: none; }
@@ -46,7 +46,7 @@
   #secteur .hex { width: 16px; height: 18px; background: #3b6fd4; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
   #secP { font-size: 20px; color: var(--encre); }
   #secteur.fin { animation: fin 0.6s ease-in-out 5; } #secteur.fin #secP { color: var(--seve); }   /* fin de secteur : le pourcentage pulse en vert */
-  @keyframes fin { 50% { transform: scale(1.18); box-shadow: 0 0 22px rgba(83, 209, 122, .7); } }
+  @keyframes fin { 50% { transform: scale(1.18); box-shadow: 0 0 22px rgba(79, 214, 227, .7); } }
   @media (prefers-reduced-motion: reduce) { #secteur.fin { animation: none; } }
   /* 3. Outil et charge, en bas à gauche. */
   #pastille { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); padding: 9px 15px; }

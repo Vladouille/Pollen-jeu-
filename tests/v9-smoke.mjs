@@ -68,8 +68,18 @@ try {
       check(tr.includes('rotate(90deg)'), 'mobile : tenu en portrait, la scène tourne en paysage');
     }
     const bord = await page.evaluate(() => { const P = window.pollen, J = P.joueur; Object.assign(J, { x: 60, z: 30, yaw: -2.0, vx: 0, vz: 0 }); P.E.mz = 1; P.step(0.05, 80); P.E.mz = 0; return Math.hypot(J.x, J.z); });
-    const obst = await page.evaluate(() => { const P = window.pollen, J = P.joueur, o = P.OBSTACLES.find((o) => o.x === P.COLLECTEUR.position.x && o.z === P.COLLECTEUR.position.z); Object.assign(J, { x: o.x + 5, z: o.z, yaw: Math.PI / 2, vx: 0, vz: 0 }); P.E.mz = 1; P.step(0.05, 60); P.E.mz = 0; return { d: Math.hypot(J.x - o.x, J.z - o.z), r: o.r }; });
-    check(bord <= 69.51 && obst.d >= obst.r + 0.34, `${cible} : bord du terrain (${bord.toFixed(1)} m) et collecteur infranchissable`);
+    // --- Collisions : boîtes orientées, rien ne se traverse ---
+    const col = await page.evaluate(() => {
+      const P = window.pollen, J = P.joueur, out = {};
+      const marcherVers = (x0, z0, x1, z1, pas = 160) => { Object.assign(J, { x: x0, z: z0, vx: 0, vz: 0 }); J.yaw = Math.atan2(-(x1 - x0), -(z1 - z0)); P.E.mz = 1; P.step(0.05, pas); P.E.mz = 0; P.step(0.05, 4); };
+      const C = P.COLLECTEUR.position, oc = P.OBSTACLES.find((o) => o.x === C.x && o.z === C.z);
+      marcherVers(C.x + 6, C.z + 1, C.x, C.z); out.collecteur = P.ecartObstacle(oc, J.x, J.z).d;
+      out.batiments = [P.COMPTOIR, P.STATION, P.GARAGE].map((g) => { const o = P.OBSTACLES.find((q) => q.x === g.position.x && q.z === g.position.z); const l = Math.hypot(g.position.x, g.position.z); marcherVers(g.position.x * (1 - 9 / l), g.position.z * (1 - 9 / l), g.position.x, g.position.z); return P.ecartObstacle(o, J.x, J.z).d; });
+      const ov = P.OBSTACLES.find((o) => o.hd === 3.1); marcherVers(P.V.x + 6, P.V.z + 5, P.V.x, P.V.z); out.vehicule = P.ecartObstacle(ov, J.x, J.z).d;
+      out.boites = P.OBSTACLES.filter((o) => o.hw !== undefined).length;
+      return out;
+    });
+    check(bord <= 69.51 && col.collecteur >= 0.34 && col.batiments.every((d) => d >= 0.34) && col.vehicule >= 0.34, `${cible} : bord du terrain ; on ne traverse ni le collecteur, ni les bâtiments (portes fermées), ni son véhicule (${col.boites} boîtes de collision)`);
     // --- L'Azurelle : une fleur, une couleur ; six variétés ; rangs réguliers, 60 à 90 par tuile ---
     const f = await page.evaluate(() => {
       const P = window.pollen, parTuile = new Map(), xs = new Map(); let mauvaise = 0, n = 0;
@@ -89,10 +99,12 @@ try {
       const P = window.pollen; let ombres = 0, cylBruts = 0, blancsNus = 0, dust = 0;
       P.scene.traverse((o) => { if (o.isMesh && o.material && o.material.map && o.material.transparent && o.geometry.type === 'PlaneGeometry' && o.renderOrder === 1) ombres++; if (o.isPoints && o.material.blending === 2) dust++; });
       for (const grp of [P.COLLECTEUR, P.COMPTOIR, P.STATION, P.GARAGE, P.POMPE, ...P.PRESENTOIRS.map((p) => p.g)]) grp.traverse((o) => { if (o.isMesh && o.geometry.type === 'CylinderGeometry') cylBruts++; });
-      return { ao: P.ao && P.ao.enabled !== false, aoActif: !!P.composer.passes.includes(P.ao), ombres, reflet: !!P.M.graphite.envMap, contre: P.contreJour.intensity > 0 && !P.contreJour.castShadow, cylBruts, dust, panneau: P.M.panneau.map.image.width === 512 };
+      let poignees = 0; for (const grp of [P.COMPTOIR, P.STATION, P.GARAGE]) grp.traverse((o) => { if (o.isMesh && o.geometry.type === 'RoundedBoxGeometry' && o.geometry.parameters.width === 0.04) poignees++; });
+      return { poignees, terminaux: !!P.TERMINAL_STATION.mat && !!P.TERMINAL_GARAGE.mat, ao: P.ao && P.ao.enabled !== false, aoActif: !!P.composer.passes.includes(P.ao), ombres, reflet: !!P.M.graphite.envMap, contre: P.contreJour.intensity > 0 && !P.contreJour.castShadow, cylBruts, dust, panneau: P.M.panneau.map.image.width === 512 };
     });
     check(cible === 'mobile' ? !g.aoActif : g.aoActif, `${cible} : occlusion ambiante GTAO ${g.aoActif ? 'active' : 'coupée sur téléphone (?ao pour l\'activer)'}`);
     check(g.ombres >= 15 && g.reflet && g.contre && g.cylBruts === 0 && g.dust >= 1 && g.panneau, `${cible} : ${g.ombres} ombres de contact, reflets du ciel, contre-jour, aucun cylindre sans chanfrein, poussière de pollen`);
+    check(g.poignees === 0 && g.terminaux, `${cible} : portes fermées sans poignée, terminal mural à la station et au garage`);
     // --- L'interface : cinq éléments ---
     const ui = await page.evaluate(() => { const visibles = [...document.querySelectorAll('#hud > *')].filter((e) => { const r = e.getBoundingClientRect(); return !e.hidden && r.width > 0; }).map((e) => e.id);
       return { visibles, charge: document.getElementById('charge').textContent }; });
@@ -155,8 +167,13 @@ try {
       check(o.colisTapis, 'pc : un colis déposé au bout d\'un tapis part en capsules');
       check(o.panne && o.repare, 'pc : une machine tombe en panne, on la répare en la visant');
       check(o.sale && o.lent && o.propre && o.rapide, 'pc : panneau solaire encrassé (machine plus lente), brossé (machine plus rapide)');
+      check(o.tapisBloque >= 0.3, 'pc : un convoyeur ne se traverse pas à pied');
       check(o.borne > 0, `pc : la borne pollinise seule et expédie (+${o.borne} cr)`);
-      check(o.possede && o.parVehicule > 10 && o.vide && o.descendu, `pc : pollinisatrice, ${o.parVehicule} tuiles en roulant, cuves vidées`);
+      check(o.possede && o.parVehicule > 10, `pc : pollinisatrice achetée au terminal du garage, ${o.parVehicule} tuiles en roulant`);
+      check(o.arret >= 0 && o.arret < 0.3 && o.vApres === 0 && o.secousse > 0, `pc : le véhicule s'arrête net au contact du collecteur (secousse), il ne le traverse pas`);
+      check(o.vZone > 1 && o.vZone <= 2.21 && o.rapideLoin > 5, `pc : zone d'approche : ${o.vZone.toFixed(1)} m/s près d'une machine, ${o.rapideLoin.toFixed(1)} m/s au large`);
+      check(!o.malGare && o.pasVide && o.gare && o.vert && o.vide && o.descendu && o.dehors, 'pc : mal garé, E fait descendre ; sur le repère (qui passe au vert), E vide les cuves ; le joueur descend à côté');
+      check(o.fantomeRouge && o.refusSurMachine, 'pc : fantôme rouge et pose refusée sur un emplacement occupé');
       check(o.sauve, 'pc : sauvegarde écrite');
       await page.reload(); await page.waitForFunction(() => window.pollen, null, { timeout: 120000 }); await page.waitForTimeout(1500);
       const re = await page.evaluate(() => { const P = window.pollen; return { credits: Math.round(P.S.credits), pieces: P.GRILLE.size, vehicule: P.V.possede, vertes: P.T.vert.reduce((s, v) => s + v, 0), ouverts: P.OUVERTS.value, colis: P.COLIS.length }; });

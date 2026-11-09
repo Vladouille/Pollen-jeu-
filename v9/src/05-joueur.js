@@ -156,7 +156,32 @@ if (!MOBILE) {
 //    mais un corps invisible projette son ombre au sol devant lui.
 // =====================================================================
 const OEIL = 1.7, VIT = 4.2;
-const OBSTACLES = [];   // { x, z, r } : machines et bâtiments
+// Les collisions. Un obstacle est un cercle { x, z, r } ou une boîte orientée { x, z, hw, hd, rot, r } (r = rayon englobant),
+// légèrement plus grande que le modèle visible. Rien ne se traverse : ni les murs, ni les machines, ni le véhicule.
+const OBSTACLES = [];
+function boiteCollision(x, z, hw, hd, rot, extra = {}) { return { x, z, hw, hd, rot, r: Math.hypot(hw, hd), ...extra }; }
+function ecartObstacle(o, px, pz) {   // distance du point au bord de l'obstacle (0 dedans) et, pour une boîte, ses coordonnées locales
+  if (o.hw === undefined) return { d: Math.max(0, Math.hypot(px - o.x, pz - o.z) - o.r) };
+  const c = Math.cos(o.rot), s = Math.sin(o.rot), dx = px - o.x, dz = pz - o.z, lx = dx * c - dz * s, lz = dx * s + dz * c;
+  const nx = clamp(lx, -o.hw, o.hw), nz = clamp(lz, -o.hd, o.hd);
+  return { d: Math.hypot(lx - nx, lz - nz), lx, lz, nx, nz, c, s };
+}
+function repousser(px, pz, rayon, sauf) {   // sort un disque de tous les obstacles ; dit s'il en a touché un
+  let touche = false;
+  for (const o of OBSTACLES) {
+    if (o === sauf || o.inactif) continue;
+    if (Math.hypot(px - o.x, pz - o.z) > o.r + rayon) continue;
+    if (o.hw === undefined) { const dx = px - o.x, dz = pz - o.z, d = Math.hypot(dx, dz), min = o.r + rayon; if (d < min && d > 1e-5) { px = o.x + dx / d * min; pz = o.z + dz / d * min; touche = true; } continue; }
+    const e = ecartObstacle(o, px, pz); if (e.d >= rayon) continue;
+    let lx = e.lx, lz = e.lz;
+    if (e.d > 1e-6) { lx = e.nx + (e.lx - e.nx) / e.d * rayon; lz = e.nz + (e.lz - e.nz) / e.d * rayon; }
+    else if (o.hw - Math.abs(lx) < o.hd - Math.abs(lz)) lx = (lx < 0 ? -1 : 1) * (o.hw + rayon); else lz = (lz < 0 ? -1 : 1) * (o.hd + rayon);   // dedans : par le côté le plus proche
+    px = o.x + lx * e.c + lz * e.s; pz = o.z - lx * e.s + lz * e.c; touche = true;
+  }
+  return { x: px, z: pz, touche };
+}
+const penetre = (px, pz, rayon, sauf) => OBSTACLES.some((o) => o !== sauf && !o.inactif && ecartObstacle(o, px, pz).d < rayon);
+let secousse = 0;   // petite secousse de caméra (choc du véhicule)
 const joueur = { x: 6, z: 10, y: 0, yaw: 0.35, pitch: -0.18, vx: 0, vz: 0, pas: 0, vitesse: 0, lent: 1, enVehicule: false };
 joueur.y = H(joueur.x, joueur.z);
 let retardRegard = 0, retardRegardV = 0;
@@ -170,7 +195,7 @@ function majJoueur(dt) {
   const k = 1 - Math.exp(-dt * 10), v = VIT * joueur.lent;
   joueur.vx = lerp(joueur.vx, (fx * mz + rx * mx) * v, k); joueur.vz = lerp(joueur.vz, (fz * mz + rz * mx) * v, k);
   let nx = joueur.x + joueur.vx * dt, nz = joueur.z + joueur.vz * dt;
-  for (const o of OBSTACLES) { const dx = nx - o.x, dz = nz - o.z, d = Math.hypot(dx, dz), min = o.r + 0.35; if (d < min && d > 1e-5) { nx = o.x + dx / d * min; nz = o.z + dz / d * min; } }
+  for (let k = 0; k < 2; k++) { const r = repousser(nx, nz, 0.35); nx = r.x; nz = r.z; if (!r.touche) break; }   // deux passes : les coins entre deux obstacles
   const d0 = Math.hypot(nx, nz); if (d0 > RAYON - 0.5) { nx *= (RAYON - 0.5) / d0; nz *= (RAYON - 0.5) / d0; }   // on ne sort pas du terrain
   joueur.x = nx; joueur.z = nz;
   joueur.y = lerp(joueur.y, H(joueur.x, joueur.z), 1 - Math.exp(-dt * 16));   // on suit le relief
@@ -180,6 +205,7 @@ function majJoueur(dt) {
 function majCamera() {
   const a = clamp(joueur.vitesse / VIT, 0, 1.3), sb = Math.sin(joueur.pas);
   camera.position.set(joueur.x + Math.cos(joueur.yaw) * sb * 0.02 * a, joueur.y + OEIL + Math.abs(sb) * 0.045 * a - 0.02 * a, joueur.z - Math.sin(joueur.yaw) * sb * 0.02 * a);
+  if (secousse > 0.001) { camera.position.x += (Math.random() - 0.5) * secousse * 0.12; camera.position.y += (Math.random() - 0.5) * secousse * 0.12; secousse *= 0.86; }
   camera.rotation.set(joueur.pitch, joueur.yaw, sb * 0.004 * a, 'YXZ');
   camera.updateMatrixWorld();
 }

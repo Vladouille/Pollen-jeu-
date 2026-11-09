@@ -7,7 +7,7 @@
 const ORANGE = 0xf08a24;
 function texPanneaux(colonnes, rangs, liseres) {
   return texture(512, 512, (g, w, h) => {
-    g.fillStyle = '#ece8df'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#edeae4'; g.fillRect(0, 0, w, h);
     const im = g.getImageData(0, 0, w, h); for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() - 0.5) * 6; im.data[i] += v; im.data[i + 1] += v; im.data[i + 2] += v; } g.putImageData(im, 0, 0);
     g.strokeStyle = 'rgba(47,51,56,.55)'; g.lineWidth = 3;
     for (let c = 0; c <= colonnes; c++) { g.beginPath(); g.moveTo(c * w / colonnes, 0); g.lineTo(c * w / colonnes, h); g.stroke(); }
@@ -59,6 +59,19 @@ function ombreContact(obj, r, suivre = false) {
   scene.add(m); OMBRES.push(m); return m;
 }
 const OMBRES = [];
+// Rien ne flotte : un objet posé prend la hauteur du point le plus bas sous son emprise (il s'enfonce un peu côté amont).
+function assise(x, z, r) { let m = H(x, z); for (let k = 0; k < 8; k++) m = Math.min(m, H(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r)); return m; }
+// Marquage au sol : un cadre fin qui épouse le relief (zone d'approche des machines, place de stationnement).
+function cadreSol(x, z, hw, hd, rot, mat, ep = 0.09) {
+  const pos = [], c = Math.cos(rot), s = Math.sin(rot), P = (lx, lz) => { const wx = x + lx * c + lz * s, wz = z - lx * s + lz * c; return [wx, H(wx, wz) + 0.035, wz]; };
+  const bande = (ax, az, bx, bz, nx, nz) => { const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 0.5)); for (let k = 0; k < n; k++) { const t0 = k / n, t1 = (k + 1) / n, x0 = ax + (bx - ax) * t0, z0 = az + (bz - az) * t0, x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1; const a = P(x0, z0), b = P(x1, z1), d = P(x1 + nx * ep, z1 + nz * ep), e = P(x0 + nx * ep, z0 + nz * ep); pos.push(...a, ...b, ...d, ...a, ...d, ...e, ...a, ...d, ...b, ...a, ...e, ...d); } };
+  bande(-hw, -hd, hw, -hd, 0, 1); bande(hw, hd, -hw, hd, 0, -1); bande(-hw, hd, -hw, -hd, 1, 0); bande(hw, -hd, hw, hd, -1, 0);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const nor = new Float32Array(pos.length); for (let k = 1; k < nor.length; k += 3) nor[k] = 1; g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));   // vers le haut (l'occlusion ambiante en a besoin)
+  const m = new THREE.Mesh(g, mat); m.renderOrder = 2; scene.add(m); return m;
+}
+const M_ZONE = new THREE.MeshBasicMaterial({ color: ORANGE, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+const ZONE_APPROCHE = 2;   // mètres autour de chaque machine : le véhicule y ralentit
 MAJ.push(() => { for (const m of OMBRES) { const o = m.userData.suit; if (o) { m.position.set(o.position.x, H(o.position.x, o.position.z) + 0.02, o.position.z); if (m.userData.tourne) m.rotation.y = o.rotation.y; } } });
 function placer(parent, o, x, y, z, ry = 0) { o.position.set(x, y, z); o.rotation.y = ry; parent.add(o); return o; }
 // Socle étagé : trois gradins plus larges que le corps, bande vert sève lumineuse au premier gradin.
@@ -90,10 +103,10 @@ function ecran(texte) {   // verre sombre, chiffre en jaune pollen
   const t = texture(256, 128, (g, w, h) => { g.fillStyle = '#121518'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(244,180,26,.25)'; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#f4b41a'; g.font = '800 64px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(texte, w / 2, h / 2 + 4); });
   return new THREE.MeshStandardMaterial({ color: 0x0d0f11, roughness: 0.1, metalness: 0.2, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 1.3 });
 }
-function bouton() {   // gros bouton rond jaune pollen en relief, sur une bague graphite
+function bouton() {   // gros bouton rond orange en relief, sur une bague graphite
   const g = new THREE.Group();
   placer(g, new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [0.16, 0], [0.165, 0.02], [0.165, 0.05], [0.15, 0.06], [0, 0.06]].map(([r, y]) => new THREE.Vector2(r, y)), 32).rotateX(Math.PI / 2), M.graphite), 0, 0, 0);
-  placer(g, new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [0.125, 0], [0.13, 0.03], [0.115, 0.075], [0.07, 0.1], [0, 0.105]].map(([r, y]) => new THREE.Vector2(r, y)), 32).rotateX(Math.PI / 2), M.pollen), 0, 0, 0.05);
+  placer(g, new THREE.Mesh(new THREE.LatheGeometry([[0, 0], [0.125, 0], [0.13, 0.03], [0.115, 0.075], [0.07, 0.1], [0, 0.105]].map(([r, y]) => new THREE.Vector2(r, y)), 32).rotateX(Math.PI / 2), M.lisere), 0, 0, 0.05);
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return g;
 }

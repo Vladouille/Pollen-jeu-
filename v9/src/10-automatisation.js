@@ -132,15 +132,19 @@ function libre(cx, cz) {
   if (GRILLE.has(cle2(cx, cz))) return false;
   const x = centre(cx), z = centre(cz), d = Math.hypot(x, z);
   if (d > RAYON - 2) return false;
-  for (const o of OBSTACLES) if (!o.piece && Math.hypot(o.x - x, o.z - z) < o.r + 0.9) return false;
+  for (const o of OBSTACLES) if (!o.piece && !o.inactif && ecartObstacle(o, x, z).d < 1.05) return false;   // ni sur un bâtiment, ni sur une ruche, ni sur le véhicule
+  if (Math.hypot(joueur.x - x, joueur.z - z) < 1.2) return false;   // ni sur soi-même
   return true;
 }
 function poserPiece(cle, cx, cz, dir, gratuit = false, niveau = 0) {
   const g = modelePiece(cle), x = centre(cx), z = centre(cz), def = PIECES[cle];
-  g.position.set(x, H(x, z), z); g.rotation.y = -dir * Math.PI / 2; scene.add(g);
+  g.position.set(x, assise(x, z, 1.0), z); g.rotation.y = -dir * Math.PI / 2; scene.add(g);
   const p = { cle, cx, cz, dir, g, entrees: [], sortie: null, t: 0, duree: 0, niveau, anim: 0, travaille: false, ecran: g.userData.ecran, tEcran: 0, panne: false, sale: 0, x, z };
   GRILLE.set(cle2(cx, cz), p);
-  if (!estTapis(p)) { const o = { x, z, r: 0.85, piece: p }; OBSTACLES.push(o); p.obstacle = o; p.ombre = ombreContact(g, 1.15); }
+  // Boîte de collision un peu plus grande que le modèle ; les machines ont leur zone d'approche au liseré orange.
+  if (estTapis(p)) p.obstacle = boiteCollision(x, z, 0.62, 1.0, g.rotation.y, { piece: p });
+  else { p.obstacle = boiteCollision(x, z, 1.05, 1.05, 0, { piece: p, machine: !!def.durees }); p.ombre = ombreContact(g, 1.15); if (def.durees) p.zone = cadreSol(x, z, 1.05 + ZONE_APPROCHE, 1.05 + ZONE_APPROCHE, 0, M_ZONE); }
+  OBSTACLES.push(p.obstacle);
   if (def.durees) { INTER.push(p.inter = { x, z, r: 2.4, piece: p, agir() { ameliorer(p); } }); dessinerEcran(p); }
   if (!gratuit) { S.credits -= def.prix; sauverBientot(); }
   return p;
@@ -150,7 +154,7 @@ function ameliorer(p) {   // E sur une machine : le niveau suivant, tout de suit
   S.credits -= prix; p.niveau++; sons.achat(); dessinerEcran(p); sauverBientot();
 }
 function demonter(p) {
-  scene.remove(p.g); if (p.ombre) scene.remove(p.ombre); GRILLE.delete(cle2(p.cx, p.cz));
+  scene.remove(p.g); if (p.ombre) scene.remove(p.ombre); if (p.zone) { scene.remove(p.zone); p.zone.geometry.dispose(); } GRILLE.delete(cle2(p.cx, p.cz));
   if (p.obstacle) OBSTACLES.splice(OBSTACLES.indexOf(p.obstacle), 1);
   if (p.inter) INTER.splice(INTER.indexOf(p.inter), 1);
   for (let k = CAPSULES.length - 1; k >= 0; k--) if (CAPSULES[k].p === p) CAPSULES.splice(k, 1);

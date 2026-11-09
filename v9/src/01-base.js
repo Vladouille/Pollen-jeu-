@@ -33,10 +33,10 @@ const fbm = (x, y, o = 4, p = 256) => { let a = 0.5, f = 1, s = 0, n = 0; for (l
 // 2. La charte : quatre couleurs pour tout le matériel, deux pour le sol (les six des fleurs sont avec le terrain)
 // =====================================================================
 const CHARTE = {
-  blanc: 0xece8df,     // corps des machines, bâtiments, outils : la couleur dominante
-  graphite: 0x2f3338,  // socles, bandeaux, cadres d'écran, poignées
+  blanc: 0xedeae4,     // corps des machines, bâtiments, outils : la couleur dominante
+  graphite: 0x2e343a,  // socles, bandeaux, cadres d'écran, poignées
   pollen: 0xf4b41a,    // liserés, boutons, chiffres : l'accent, à doser
-  seve: 0x53d17a,      // bandes lumineuses des socles, voyants
+  seve: 0x4fd6e3,      // cyan : bandes lumineuses des socles, voyants
   sec: 0xbfb49a,       // sol des tuiles sèches
   prairie: 0x6fa03c,   // sol des tuiles pollinisées
 };

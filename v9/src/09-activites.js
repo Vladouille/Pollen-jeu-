@@ -37,7 +37,7 @@ function objetVise(v, liste, r = 1.6) { if (!v) return null; let best = null, bd
 // --- Irriguer : tuyau en main, E à la pompe le branche ; on marche et il se déroule derrière soi (45 m au plus),
 //     arrosant les tuiles arides qu'il longe. E ailleurs le coupe ; il reste posé. ---
 const SEG_MAX = 600, LONG_TUYAU = 45;
-const segTuyau = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8, 1, true).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.6 }), SEG_MAX);
+const segTuyau = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.6 }), SEG_MAX);
 segTuyau.count = 0; segTuyau.receiveShadow = true; segTuyau.frustumCulled = false; scene.add(segTuyau);
 const bagues = new THREE.InstancedMesh(new THREE.TorusGeometry(0.065, 0.018, 6, 12).rotateY(Math.PI / 2), M.pollen, SEG_MAX); bagues.count = 0; bagues.frustumCulled = false; scene.add(bagues);
 const TUYAUX = [];   // { pts: [[x, z]...] } : les tuyaux posés (sauvegardés)
@@ -92,7 +92,7 @@ const abeilles = new THREE.Points(abeillesGeo, new THREE.PointsMaterial({ color:
   for (const e of EMPL_RUCHE) { placer(g, cylindre(0.9, 0.95, 0.08, M.graphite, 6), e.x, H(e.x, e.z) + 0.04, e.z); placer(g, cylindre(0.97, 0.97, 0.02, M.pollen, 6), e.x, H(e.x, e.z) + 0.07, e.z); }
   scene.add(fusionner(g)); }
 function installerRuche(e, niveau = 0) {
-  const g = fabriquerRuche(); g.position.set(e.x, H(e.x, e.z), e.z); g.rotation.y = Math.atan2(-e.x, -e.z); scene.add(g); ombreContact(g, 0.9);
+  const g = fabriquerRuche(); g.position.set(e.x, assise(e.x, e.z, 0.7), e.z); g.rotation.y = Math.atan2(-e.x, -e.z); scene.add(g); ombreContact(g, 0.9);
   e.ruche = { g, niveau, t: 0, miel: 0, cire: 0, tMiel: 0, tCire: 0, partie: false }; OBSTACLES.push({ x: e.x, z: e.z, r: 0.8 });
   return e;
 }
@@ -163,7 +163,7 @@ for (let s = 0; s < NSECT; s++) {
   for (let k = 0; k < 3; k++) placer(g, tube(0.085, 0.085, 0.06, M.graphite), 0, base + 0.6 + k * 1, 0);
   const feu = placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 10), new THREE.MeshStandardMaterial({ color: 0x000000, emissive: CHARTE.pollen, emissiveIntensity: 2.5 })), 0, base + 3.35, 0);
   placer(g, boite(0.5, 0.35, 0.06, M.graphite, 0.02), 0, base + 1.2, 0.1);
-  fusionner(g); g.position.set(x, H(x, z), z); g.rotation.y = Math.atan2(-x, -z); scene.add(g); ombreContact(g, 0.8); OBSTACLES.push({ x, z, r: 0.6 });
+  fusionner(g); g.position.set(x, assise(x, z, 0.65), z); g.rotation.y = Math.atan2(-x, -z); scene.add(g); ombreContact(g, 0.8); OBSTACLES.push({ x, z, r: 0.6 });
   BALISES.push({ x, z, s, g, feu, active: false });
 }
 function activerBalise(b, payer = true) { b.active = true; b.feu.material.emissive.set(CHARTE.seve); if (payer) { S.credits += 100; sons.vente(); } }
@@ -201,7 +201,7 @@ MAJ.push((dt) => {
     c.vx *= Math.exp(-dt * 0.8); c.vz *= Math.exp(-dt * 0.8);
     if (Math.hypot(c.vx, c.vz) < 0.05 && pente <= 0.035) { c.vx = c.vz = 0; continue; }
     c.x += c.vx * dt; c.z += c.vz * dt;
-    for (const o of OBSTACLES) { const dx = c.x - o.x, dz = c.z - o.z, d = Math.hypot(dx, dz); if (d < o.r + 0.3 && d > 1e-4) { c.x = o.x + dx / d * (o.r + 0.3); c.z = o.z + dz / d * (o.r + 0.3); c.vx *= -0.4; c.vz *= -0.4; } }
+    { const r = repousser(c.x, c.z, 0.3); if (r.touche) { c.x = r.x; c.z = r.z; c.vx *= -0.4; c.vz *= -0.4; } }
     const d0 = Math.hypot(c.x, c.z); if (d0 > RAYON - 1) { c.x *= (RAYON - 1) / d0; c.z *= (RAYON - 1) / d0; c.vx = c.vz = 0; }
     c.g.position.set(c.x, H(c.x, c.z), c.z); c.g.rotation.x += c.vz * dt * 2; c.g.rotation.z -= c.vx * dt * 2;
   }

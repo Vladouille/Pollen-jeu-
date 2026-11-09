@@ -45,19 +45,34 @@ const VEHICULE = new THREE.Group();
   V.x = gx - gx / l * 6.5; V.z = gz - gz / l * 6.5; V.yaw = Math.atan2(gx, gz);   // garée devant le garage, nez vers la place
   scene.add(g);
 }
-const obstVehicule = { x: V.x, z: V.z, r: 2.2 }; OBSTACLES.push(obstVehicule);
+// Le véhicule est un obstacle pour le joueur (une boîte), et il ne traverse rien : trois disques le long de sa caisse
+// sont testés contre tous les obstacles ; au contact il s'arrête net, avec une secousse et un son sourd.
+const obstVehicule = boiteCollision(V.x, V.z, 1.7, 3.1, V.yaw); OBSTACLES.push(obstVehicule);
+const SONDES = [[2.6, 1.6], [0.3, 1.35], [-1.8, 1.35]];   // [avancée le long de la caisse, rayon]
+const sondes = (x, z, yaw) => SONDES.map(([a, r]) => [x - Math.sin(yaw) * a, z - Math.cos(yaw) * a, r]);
+const cogne = (x, z, yaw) => sondes(x, z, yaw).some(([px, pz, r]) => penetre(px, pz, r, obstVehicule));
+const enZone = (x, z, yaw) => sondes(x, z, yaw).some(([px, pz, r]) => OBSTACLES.some((o) => o.machine && ecartObstacle(o, px, pz).d < r + ZONE_APPROCHE));
+// La place de stationnement : derrière le collecteur, à côté de lui. Bien garé, le repère passe au vert et E vide les cuves.
+const PARKING = (() => { const C = COLLECTEUR, r = C.rotation.y, L = 1.25 + ZONE_APPROCHE + 1.9; return { x: C.position.x - Math.sin(r) * L, z: C.position.z - Math.cos(r) * L, yaw: r - Math.PI / 2 }; })();
+const M_PARK = new THREE.MeshBasicMaterial({ color: ORANGE, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+cadreSol(PARKING.x, PARKING.z, 1.9, 3.7, PARKING.yaw, M_PARK, 0.14); cadreSol(PARKING.x, PARKING.z, 1.2, 0.5, PARKING.yaw, M_PARK, 0.1);
+const bienGare = () => { const da = Math.abs(((V.yaw - PARKING.yaw) % Math.PI + Math.PI * 1.5) % Math.PI - Math.PI / 2); return Math.hypot(V.x - PARKING.x, V.z - PARKING.z) < 1.3 && da < 0.35; };
+sons.choc = function () { this.note(70, 0, 0.25, 'sine', 0.5); this.note(110, 0, 0.12, 'square', 0.12); };
 { const o = ombreContact(VEHICULE, 1); o.scale.set(1.6, 1, 3.2); o.userData.suit = VEHICULE; o.userData.tourne = true; }
 const eclairVehicule = () => { const f = [-Math.sin(V.yaw), -Math.cos(V.yaw)]; return { fx: f[0], fz: f[1], rx: Math.cos(V.yaw), rz: -Math.sin(V.yaw) }; };
 function majVehicule(dt) {
   const { fx, fz, rx, rz } = eclairVehicule();
   if (joueur.enVehicule) {
-    const cible = E.mz * (E.mz > 0 ? 7 : 3);
-    V.v = lerp(V.v, cible, 1 - Math.exp(-dt * (Math.abs(cible) > Math.abs(V.v) ? 1.2 : 2.5)));
-    const dyaw = -E.mx * 0.8 * clamp(V.v / 4, -1, 1) * dt; V.yaw += dyaw; joueur.yaw += dyaw;   // le regard suit le virage
+    const vmax = enZone(V.x, V.z, V.yaw) ? 2.2 : 7;   // dans une zone d'approche, il ralentit de lui-même
+    const cible = E.mz * (E.mz > 0 ? vmax : Math.min(3, vmax));
+    V.v = lerp(V.v, cible, 1 - Math.exp(-dt * (Math.abs(cible) > Math.abs(V.v) ? 1.2 : 2.5))); V.v = clamp(V.v, -vmax, vmax);
+    const dyaw = -E.mx * 0.8 * clamp(V.v / 4, -1, 1) * dt;
     let nx = V.x + fx * V.v * dt, nz = V.z + fz * V.v * dt;
-    for (const o of OBSTACLES) { if (o === obstVehicule) continue; const dx = nx - o.x, dz = nz - o.z, d = Math.hypot(dx, dz), min = o.r + 2.0; if (d < min && d > 1e-5) { nx = o.x + dx / d * min; nz = o.z + dz / d * min; } }
     const d0 = Math.hypot(nx, nz); if (d0 > RAYON - 3) { nx *= (RAYON - 3) / d0; nz *= (RAYON - 3) / d0; V.v *= 0.5; }
-    V.x = nx; V.z = nz;
+    if (cogne(nx, nz, V.yaw + dyaw) && !cogne(V.x, V.z, V.yaw)) {   // contact : arrêt net (s'il était déjà pris dedans, on le laisse se dégager)
+      if (Math.abs(V.v) > 0.6) { secousse = Math.min(1, Math.abs(V.v) / 4); sons.choc(); }
+      V.v = 0;
+    } else { V.x = nx; V.z = nz; V.yaw += dyaw; joueur.yaw += dyaw; }   // le regard suit le virage
     // Pollinise la bande de 3 m sous la tête de brosse : chaque tuile doit rester 0,25 s sous la brosse.
     const vues = new Set();
     for (let k = -2; k <= 2; k++) {
@@ -74,24 +89,26 @@ function majVehicule(dt) {
   const av = H(V.x + fx * 2, V.z + fz * 2), ar = H(V.x - fx * 2, V.z - fz * 2); VEHICULE.userData.caisse.rotation.x = Math.atan2(av - ar, 4) * -1;
   for (const r of VEHICULE.userData.roues) r.rotation.x -= V.v * dt / 0.45;
   VEHICULE.userData.rouleau.rotation.x -= dt * (Math.abs(V.v) > 0.6 ? 14 : 0);
-  obstVehicule.x = V.x; obstVehicule.z = V.z;
+  obstVehicule.x = V.x - Math.sin(V.yaw) * 0.4; obstVehicule.z = V.z - Math.cos(V.yaw) * 0.4; obstVehicule.rot = V.yaw; obstVehicule.inactif = joueur.enVehicule;
+  M_PARK.color.set(bienGare() ? 0x3fd35a : ORANGE);
   if (V.affiche !== V.charge) { V.affiche = V.charge; ecrireEcran(VEHICULE.userData.ecran, `${Math.round(V.charge)} / ${CUVES} kg`); }   // l'écran du tableau de bord
 }
 MAJ.push(majVehicule);
 // Après le véhicule, la caméra se recale sur l'œil du conducteur (sans balancement de marche).
 MAJ.push(() => { if (joueur.enVehicule) majCamera(); });
-function monter() { joueur.enVehicule = true; obstVehicule.r = 0; }
+function monter() { joueur.enVehicule = true; }
 function descendre() {
-  const { rx, rz } = eclairVehicule(); joueur.enVehicule = false; V.v = 0; obstVehicule.r = 2.2;
-  joueur.x = V.x - rx * 2.4; joueur.z = V.z - rz * 2.4; joueur.y = H(joueur.x, joueur.z);
+  const { rx, rz } = eclairVehicule(); joueur.enVehicule = false; V.v = 0; obstVehicule.inactif = false;
+  let x = V.x - rx * 2.5, z = V.z - rz * 2.5; if (penetre(x, z, 0.35, obstVehicule)) { x = V.x + rx * 2.5; z = V.z + rz * 2.5; }   // à gauche, sinon à droite
+  const p = repousser(x, z, 0.36); joueur.x = p.x; joueur.z = p.z; joueur.y = H(joueur.x, joueur.z);
 }
-const presDuCollecteur = () => Math.hypot(V.x - COLLECTEUR.position.x, V.z - COLLECTEUR.position.z) < 8;
 function viderCuves() { if (V.valeur <= 0) return false; const cr = Math.round(V.valeur); S.credits += cr; S.ventes++; sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sauverBientot(); V.charge = 0; V.valeur = 0; return true; }
-INTER_HORS.unshift(() => { if (!joueur.enVehicule) return false; if (presDuCollecteur() && viderCuves()) return true; descendre(); return true; });
+INTER_HORS.unshift(() => { if (!joueur.enVehicule) return false; if (bienGare() && viderCuves()) return true; descendre(); return true; });   // E : garé sur le repère, on vide les cuves ; sinon on descend
 INTER.push({ get x() { return V.x; }, get z() { return V.z; }, r: 3.6,   // à vendre au garage, tout de suite ; E pour monter
-  agir() {
-    if (V.possede) { monter(); return; }
-    if (S.credits < PRIX_VEHICULE) { sons.refus(); return; }
-    S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat(); sauverBientot();
-  } });
+  agir() { if (V.possede) monter(); else acheterVehicule(); } });
+function acheterVehicule() { if (V.possede) return; if (S.credits < PRIX_VEHICULE) { sons.refus(); return; } S.credits -= PRIX_VEHICULE; V.possede = true; sons.achat(); sauverBientot(); ecrireEcran(TERMINAL_GARAGE.mat, 'ACQUIS'); }
+INTER.push({ x: TERMINAL_GARAGE.x, z: TERMINAL_GARAGE.z, r: 1.8, agir: acheterVehicule });   // le terminal mural du garage
+// Le terminal de la station affiche l'avancement du secteur à finir.
+let tTerm = 0, pctTerm = -1;
+MAJ.push((dt) => { tTerm += dt; if (tTerm < 1) return; tTerm = 0; const s = secteurs[OUVERTS.value - 1], p = Math.floor(s.vert / s.total * 100); if (p !== pctTerm) { pctTerm = p; ecrireEcran(TERMINAL_STATION.mat, `${p} %`); } });
 PASTILLE.push(() => joueur.enVehicule ? { nom: 'Pollinisatrice', charge: V.charge, max: CUVES } : null);

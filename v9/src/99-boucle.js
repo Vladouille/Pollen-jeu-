@@ -49,12 +49,12 @@ function image(now) {
 }
 window.pollen = {
   figer: false, Q, T, NT, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, vue, corps, H,
-  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, versHex, idxDe, VARIETES, OUVERTS, PIECES, ameliorer, SEL, kgSac, valeurSac, ajouter, sacVide, COLIS, emballer, get porte() { return porte; }, ESSAIM, echapperEssaim, PANNES, VAGUE, FIN_SECTEUR, MATS_FLEUR, FLEUR_GEOS, contreJour, ao, M, composer, sons, PANNES, porteColis: () => porte, CARRES, majFleurs, M_FLEUR, FLEUR_GEO,
+  get outil() { return outilEnMain; }, prendre, S, INTER, PRESENTOIRS, COMPTOIR, STATION, GARAGE, POMPE, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, versHex, idxDe, VARIETES, OUVERTS, PIECES, ameliorer, SEL, kgSac, valeurSac, ajouter, sacVide, COLIS, emballer, get porte() { return porte; }, ESSAIM, echapperEssaim, PANNES, VAGUE, FIN_SECTEUR, MATS_FLEUR, FLEUR_GEOS, contreJour, ao, secousseMax: () => secousse, parkingVert: () => M_PARK.color.getHex() === 0x3fd35a, ecartObstacle, repousser, penetre, PARKING, bienGare, TERMINAL_GARAGE, TERMINAL_STATION, libre, M, composer, sons, PANNES, porteColis: () => porte, CARRES, majFleurs, M_FLEUR, FLEUR_GEO,
   GRILLE, poserPiece, CAPSULES, V, sauver, charger, etatSauve, CONS, departs, EMPL_RUCHE, BALISES, TUYAUX, ACTIONS, installerRuche,
   get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { x: joueur.x, z: joueur.z, y: joueur.y, yaw: joueur.yaw, pitch: joueur.pitch, vitesse: joueur.vitesse }; },
 };
-OBSTACLES.push({ x: COLLECTEUR.position.x, z: COLLECTEUR.position.z, r: 1.7 });
+
 refleter(); majMonde(0);
 majFleurs(1000);   // tous les carrés de fleurs autour du point de départ, avant la première image
 requestAnimationFrame(image);

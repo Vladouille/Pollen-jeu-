@@ -22,6 +22,12 @@ Un seul fichier, ordinateur et téléphone (paysage forcé). Code dans `v9/src`,
   chanfreins partout, poussière de pollen.
 - **Son** : chaque tuile enchaînée monte d'un demi-ton ; après deux secondes d'arrêt, on repart de la note de base.
 - **Interface** : cinq éléments (boussole, pourcentage du secteur, outil et charge, ronds d'outils, argent).
+- **Collisions (brief v10, étape 1)** : boîtes orientées un peu plus grandes que les modèles ; ni le joueur ni le
+  véhicule ne traversent bâtiments, machines, convoyeurs ou véhicule. Le véhicule s'arrête net au contact (secousse, son
+  sourd), ralentit dans la zone d'approche de 2 m marquée d'un liseré orange autour de chaque machine, et se décharge
+  garé sur le repère derrière le collecteur (vert quand il est bien placé). Bâtiments fermés : portes sans poignée,
+  terminal mural dehors (station : avancement du secteur ; garage : achat). Palette v10 : blanc #EDEAE4, charbon
+  #2E343A, orange #F08A24, cyan #4FD6E3.
 - **Sauvegarde locale** (localStorage, rien ne sort de la machine) : toutes les 30 s, juste après un achat, une vente,
   une machine posée ou un secteur fini, et quand l'onglet passe en arrière-plan ou se ferme. Trois emplacements
   (icône discrète sous le pourcentage) avec temps de jeu, argent et secteur ; suppression avec confirmation ;
