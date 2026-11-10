@@ -1,3 +1,8 @@
+## Version courante : v10 (`v10/index.html`)
+
+Retour à la v10 à la demande du fondateur : parcelles de 2 m, planète de 500 m, six secteurs, intérieurs,
+concessionnaire, mode construction. Les v11 à v13 restent dans le dépôt, mises de côté. Test : `npm run smoke:v10`.
+
 # POLLEN
 
 ## v13 — le jeu complet, sur des parcelles de 2 m (`v13/index.html`)

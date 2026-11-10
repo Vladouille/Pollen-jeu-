@@ -10,7 +10,11 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v13 (« des parcelles plus petites, remets ce que tu avais fait avant ») : `v13/index.html`**, version courante.
+- **Version courante : v10** (`v10/index.html`). Le fondateur : « le jeu ne marche pas, garde juste la version avant la
+  modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
+  La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;
+  v11, v12 et v13 restent dans le dépôt, mises de côté.
+- **v13 (« des parcelles plus petites, remets ce que tu avais fait avant ») : `v13/index.html`**, mise de côté (ne marchait pas chez le fondateur).
   La v11 entière sur des parcelles de 2 m (treillis 256, une seule grille pour fleurs et machines), douze secteurs en
   disques en spirale autour de la base, friche entre eux, prix 5 → 230 cr. Sauvegarde format 8, clés `pollen-v13-…`.
   Code dans `v13/src`, `node v13/construire.mjs`. Test : `npm run smoke:v13`.
@@ -25,7 +29,7 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   douze sommets de l'icosaèdre, prix par secteur 8 → 480 cr. Huit couleurs en tout (le jaune ne sert qu'au cœur de la
   fleur et au pollen). Huit outils et quatorze machines aux chiffres du brief, lots de 10 kg, énergie en kW et kWh.
   Sauvegarde format 7, clés `pollen-v11-…`. Code dans `v11/src`, `node v11/construire.mjs`. Test : `npm run smoke:v11`.
-- **v10 (brief « design, bâtiments, planète ») : `v10/index.html`**, mise de côté par la v11. Les cinq étapes du brief sont
+- **v10 (brief « design, bâtiments, planète ») : `v10/index.html`**, redevenue la version courante. Les cinq étapes du brief sont
   faites (le fondateur : « fais toutes les étapes sans me demander ») : 1 anomalies ; 2 planète sphérique de 500 m
   (tuiles d'un icosaèdre subdivisé 256 fois, gravité vers le centre, relief par bruit, mer, calottes, nuages, étoiles,
   soleil qui tourne en 16 min, secteurs en disques cernés d'un liseré, carte-globe avec voyage rapide) ; 3 quatre
