@@ -10,7 +10,16 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **Version courante : v10** (`v10/index.html`). Le fondateur : « le jeu ne marche pas, garde juste la version avant la
+- **Version courante : v14** (`v14/index.html`) = la v10 avec les demandes du fondateur : « garde tout, rapproche les
+  bâtiments, une planète recouverte de fleurs à polliniser en entier sans espace vide, des animations, un meilleur
+  design des outils et des camions ». Il demandait aussi de s'inspirer de Moon Sweepers « quitte à faire les mêmes » :
+  refusé (designs propres à POLLEN, comme toujours). Plus de mer : 654 850 parcelles de 2 m, 1 189 secteurs en bandes
+  (24 × ~110 m, repère B0/BT/BN) ouverts par distance à la base ; parcelles en tableaux typés (T.P, T.sect…, T.pos et
+  T.dir restent lisibles par Proxy) ; textures de secteur et de progression ; sauvegarde format 8 (parcelles codées
+  par plages), clés `pollen-v14-…`. Bâtiments rapprochés, esplanade de 28 m. Outils : touffes de poils qui s'écrasent,
+  réservoir vitré qui se remplit, hélice du souffleur, sortie élastique, trois gestes de validation. Véhicules :
+  gyrophare, feux arrière, braquage, roulis, tangage, suspension, poussière. Test : `npm run smoke:v14`.
+- **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;
   v11, v12 et v13 restent dans le dépôt, mises de côté.

@@ -1,3 +1,10 @@
+## Version courante : v14 (`v14/index.html`)
+
+La v10, avec : une planète entièrement couverte de fleurs, sans mer ni vide (654 850 parcelles de 2 m en 1 189 secteurs
+en bandes, ouverts du plus proche au plus lointain de la base) ; les bâtiments rapprochés ; des outils et des véhicules
+redessinés et animés (poils qui s'écrasent, réservoir qui se remplit, hélice, gestes variés ; gyrophare, braquage,
+roulis, suspension, poussière). Test : `npm run smoke:v14`.
+
 ## Version courante : v10 (`v10/index.html`)
 
 Retour à la v10 à la demande du fondateur : parcelles de 2 m, planète de 500 m, six secteurs, intérieurs,
