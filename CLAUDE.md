@@ -10,7 +10,11 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v12 (document « les briques ») : `v12/index.html`**, version courante. Huit briques courtes que le fondateur
+- **v13 (« des parcelles plus petites, remets ce que tu avais fait avant ») : `v13/index.html`**, version courante.
+  La v11 entière sur des parcelles de 2 m (treillis 256, une seule grille pour fleurs et machines), douze secteurs en
+  disques en spirale autour de la base, friche entre eux, prix 5 → 230 cr. Sauvegarde format 8, clés `pollen-v13-…`.
+  Code dans `v13/src`, `node v13/construire.mjs`. Test : `npm run smoke:v13`.
+- **v12 (document « les briques ») : `v12/index.html`**, en pause (brique 1 faite) : le fondateur est revenu au jeu complet (v13). Huit briques courtes que le fondateur
   envoie une par une ; ne faire QUE la brique reçue, puis attendre la suivante. Brique 1 (le socle) faite : planète
   pavée, gravité, caméra lissée, ombre, ciel, soleil, sol à grain. Prochaine : brique 2 (les fleurs).
   Code dans `v12/src`, `node v12/construire.mjs`. Test : `npm run smoke:v12`.

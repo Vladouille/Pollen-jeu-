@@ -1,5 +1,18 @@
 # POLLEN
 
+## v13 — le jeu complet, sur des parcelles de 2 m (`v13/index.html`)
+
+Version courante, à la demande du fondateur : « fais le jeu avec des parcelles plus petites, remets ce que tu avais fait
+avant ». C'est la v11 entière (huit outils, quatorze machines en kg/s et kW, interface à cinq éléments et étiquettes,
+paliers, construction, véhicules, carte, sauvegarde), sur des parcelles hexagonales de 2 m au lieu de 8 m.
+Code dans `v13/src`, `node v13/construire.mjs`. Test : `npm run smoke:v13` (30 vérifications, toutes passent).
+
+- 30 259 parcelles, douze secteurs en disques (38 à 78 m de rayon) disposés en spirale à 130–925 m de la base,
+  cernés d'un liseré ; la friche entre eux. Prix de 5 à 230 cr la parcelle.
+- Fleurs en touffes de quatre, une quinzaine de touffes par parcelle, dessinées jusqu'à 28 m (22 m sur téléphone).
+- Machines et parcelles partagent la même grille de 2 m.
+- Sauvegarde au format 8 ; une partie de la v11 n'apporte que l'argent, les outils et le temps.
+
 ## v12 — les briques, une par une (`v12/index.html`)
 
 Nouveau départ, sur la méthode du document « les briques » : huit prompts courts, envoyés un par un, la suivante
