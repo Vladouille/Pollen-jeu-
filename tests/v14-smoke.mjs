@@ -48,7 +48,7 @@ try {
   check(pl.colle < 0.01 && pl.angle > 0.1 && pl.camHaut < 0.01, `on marche sur la sphère : pieds au sol, verticale tournée de ${(pl.angle * 57.3).toFixed(1)}° après la marche, caméra redressée`);
   check(pl.allers === 300 && pl.penta === 5 && pl.hexa === 6, `tuiles : repérage cohérent (${pl.allers}/300), hexagones à 6 voisines, pentagone à ${pl.penta}`);
   check(pl.auBord === 1 && pl.secteurVide === 0 && pl.antipode > 5, `toute la planète est couverte de parcelles, sans vide ni mer ; on marche aussi aux antipodes (${pl.antipode.toFixed(1)} m)`);
-  check(pl.nsect > 1000 && pl.ouverts === 1 && pl.nt > 600000, `${pl.nsect} secteurs en bandes, ${pl.nt} parcelles, un seul ouvert au départ`);
+  check(pl.ouverts === pl.nsect && pl.nt > 600000, `plus de secteurs à débloquer : les ${pl.nt} parcelles de la planète sont ouvertes dès le départ`);
   const jn = await page.evaluate(() => {
     const P = pollen; U.aller(P.local(3, 14));
     const regler = (cible) => { for (let a = 0; a < 6.3; a += 0.02) { P.JOUR.angle = a; P.placerSoleil(); if (Math.abs(P.joueur.haut.dot(P.SOLEIL) - cible) < 0.03) break; } P.step(0.016, 2); return { ici: P.JOUR.ici, sun: P.sun.intensity, lampe: P.lampe.intensity, hemi: P.hemi.intensity }; };
@@ -158,12 +158,12 @@ try {
     const P = pollen, out = {}; U.aller(P.local(8, 20)); P.E.carte = true; P.step(0.05, 2);
     out.ouverte = P.CARTE.ouverte; out.dist = P.camera.position.length(); out.uCarte = P.SOL_U.uCarte.value; out.halo = P.HALO.visible; out.points = P.CARTE.points.length; out.machines = P.CARTE.machines.geometry.attributes.position.count;
     const d0 = P.CARTE.dir.clone(); P.E.dYaw = 0.5; P.step(0.05, 1); out.tourne = d0.angleTo(P.CARTE.dir);
-    P.OUVERTS.value = 2; P.CARTE.fermer(); P.E.carte = true; P.step(0.05, 2); out.points2 = P.CARTE.points.length; const cible = P.CARTE.points[1]; P.CARTE.dir.copy(cible.p).normalize(); P.step(0.05, 1); out.vise = P.CARTE.vise === cible; P.E.presse = true; P.step(0.05, 2);
-    out.arrive = P.joueur.p.distanceTo(cible.p); out.fermee = !P.CARTE.ouverte && P.SOL_U.uCarte.value === 0 && !P.HALO.visible; P.OUVERTS.value = 1; U.aller(P.local(8, 20));
+    U.aller(P.local(-6, 60)); P.CARTE.fermer(); P.E.carte = true; P.step(0.05, 2); out.points2 = P.CARTE.points.length; const cible = P.CARTE.points[0]; P.CARTE.dir.copy(cible.p).normalize(); P.step(0.05, 1); out.vise = P.CARTE.vise === cible; P.E.presse = true; P.step(0.05, 2);
+    out.arrive = P.joueur.p.distanceTo(cible.p); out.fermee = !P.CARTE.ouverte && P.SOL_U.uCarte.value === 0 && !P.HALO.visible; U.aller(P.local(8, 20));
     return out;
   });
   check(ca.ouverte && ca.dist > 1200 && ca.uCarte === 1 && ca.halo && ca.points >= 1 && ca.machines >= 5, `carte : le globe entier vu de ${Math.round(ca.dist)} m, halo d'atmosphère, ${ca.machines} machines repérées`);
-  check(ca.tourne > 0.2 && ca.points2 === ca.points + 1 && ca.vise && ca.arrive < 2 && ca.fermee, 'le globe tourne au doigt ; un point de voyage amené au centre puis action : on y est');
+  check(ca.tourne > 0.2 && ca.points2 === ca.points && ca.vise && ca.arrive < 2 && ca.fermee, 'le globe tourne au doigt ; un point de voyage amené au centre puis action : on y est');
   // --- 7. La sauvegarde (format 6) ---
   const sv = await page.evaluate(() => { const P = pollen; P.S.credits = 4321; const e = P.etatSauve(); const ok = P.sauver(); return { v: e.v, ok, pieces: e.pieces.length, tuiles: P.S.tuiles, octets: JSON.stringify(e).length, outils: P.S.outils.length, amelio: P.S.amelio.sac }; });
   await page.goto(`http://localhost:${srv.address().port}/?mode=pc`, { timeout: 180000 }); await page.waitForFunction(() => window.pollen, null, { timeout: 180000 }); await page.waitForTimeout(1500);
@@ -178,7 +178,7 @@ try {
   const ctxM = await browser.newContext({ viewport: { width: 740, height: 360 }, hasTouch: true, isMobile: true });
   const m = await ouvrir(ctxM, '?mode=mobile&neuf');
   const mo = await m.page.evaluate(() => { const P = pollen; P.S.outils.push('marteau'); return { nom: P.Q.nom, agir: !document.getElementById('agir').hidden, slots: document.querySelectorAll('#slots button').length }; });
-  await m.page.tap("#construire"); await m.page.waitForTimeout(1200);
+  await m.page.tap("#construire"); await m.page.waitForFunction(() => pollen.CONS.actif, null, { timeout: 20000 }).catch(() => {});
   const mo2 = await m.page.evaluate(() => ({ actif: pollen.CONS.actif, barre: !document.getElementById('barreCons').hidden }));
   await m.page.tap('#barreCons [data-cat="3"]'); await m.page.waitForTimeout(300);
   const mo3 = await m.page.evaluate(() => ({ cat: pollen.CONS.cat, piece: pollen.CONS.piece }));

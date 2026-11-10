@@ -12,8 +12,8 @@
 // =====================================================================
 // --- Les succès : huit médaillons sur le mur de la station. ---
 const SUCCES = [
-  ['Première vente', () => S.ventes >= 1], ['100 tuiles', () => S.tuiles >= 100], ['1 000 tuiles', () => S.tuiles >= 1000], ['Premier secteur', () => OUVERTS.value >= 2],
-  ['Trois secteurs', () => OUVERTS.value >= 4], ['Au volant', () => ORDRE_VEHICULES.some((c) => FLOTTE[c].possede)], ['Dix machines', () => (S.pieces || 0) >= 10], ['La planète', () => secteurs.every((s) => s.vert >= s.total)],
+  ['Première vente', () => S.ventes >= 1], ['100 tuiles', () => S.tuiles >= 100], ['1 000 tuiles', () => S.tuiles >= 1000], ['10 000 parcelles', () => S.tuiles >= 10000],
+  ['1 % de la planète', () => PLANETE_PROG.vert >= NT / 100], ['Au volant', () => ORDRE_VEHICULES.some((c) => FLOTTE[c].possede)], ['Dix machines', () => (S.pieces || 0) >= 10], ['La planète', () => secteurs.every((s) => s.vert >= s.total)],
 ];
 let tSucces = 0;
 function majSucces(silence) { SUCCES.forEach(([, f], k) => { if (!S.succes[k] && f()) { S.succes[k] = 1; if (!silence) { sons.vente(); sauverBientot(); } } MEDAILLONS[k].material = S.succes[k] ? M.pollen : M_GRIS; }); }
@@ -28,15 +28,18 @@ function dormir() {
 let tEcrans = 0, sigEcrans = '';
 MAJ.push((dt) => {
   tEcrans += dt; if (tEcrans < 1 || !DEDANS.salle) return; tEcrans = 0;
-  const cur = OUVERTS.value - 1, debut = Math.max(0, cur - 2), vus = secteurs.slice(debut, debut + 6), pct = vus.map((s) => Math.floor(s.vert / s.total * 100)), sig = pct.join() + OUVERTS.value; if (sig === sigEcrans) return; sigEcrans = sig;
-  const pv = VARIETES.map((v, n) => { let a = 0, b = 0; SECTEURS.forEach((S, k) => { if (S.variete === n && k < OUVERTS.value) { a += secteurs[k].vert; b += secteurs[k].total; } }); return b ? Math.floor(a / b * 100) : -1; });   // par variété
-  { const e = ECRAN_SECTEUR, g = e.g; fond(e); g.textAlign = 'left'; g.fillStyle = '#edeae4'; g.font = '800 30px system-ui'; g.fillText('SECTEURS', 24, 34); g.fillStyle = '#f08a24'; g.fillRect(24, 56, 720, 4);
-    pct.forEach((p, n) => { const k = debut + n, y = 92 + n * 38, ouvert = k < OUVERTS.value; g.font = '800 22px system-ui'; g.fillStyle = ouvert ? '#edeae4' : '#6c7076'; g.fillText(`${k + 1}  ${VARIETES[SECTEURS[k].variete].nom}`, 24, y); g.fillStyle = '#3a3f45'; g.fillRect(360, y - 9, 300, 18); g.fillStyle = p >= 100 ? '#4fd6e3' : '#3b6fd4'; g.fillRect(360, y - 9, 3 * p, 18); g.fillStyle = ouvert ? '#f4b41a' : '#6c7076'; g.fillText(ouvert ? `${p} %` : 'fermé', 676, y); });
+  const pp = PLANETE_PROG.vert / NT * 100, sig = PLANETE_PROG.vert + '';   // la station affiche l'avancement de toute la planète
+  if (sig === sigEcrans) return; sigEcrans = sig;
+  const pv = VARIETES.map((v, n) => { let a = 0, b = 0; SECTEURS.forEach((S, k) => { if (S.variete === n) { a += secteurs[k].vert; b += secteurs[k].total; } }); return b ? Math.floor(a / b * 100) : -1; });   // par variété
+  { const e = ECRAN_SECTEUR, g = e.g; fond(e); g.textAlign = 'left'; g.fillStyle = '#edeae4'; g.font = '800 30px system-ui'; g.fillText('LA PLANÈTE', 24, 34); g.fillStyle = '#f08a24'; g.fillRect(24, 56, 720, 4);
+    g.font = '800 64px system-ui'; g.fillStyle = '#e8458b'; g.fillText(`${pp.toFixed(2).replace('.', ',')} %`, 24, 130);
+    g.fillStyle = '#3a3f45'; g.fillRect(24, 180, 720, 26); g.fillStyle = '#e8458b'; g.fillRect(24, 180, Math.max(2, 7.2 * pp), 26);
+    g.font = '800 24px system-ui'; g.fillStyle = '#c9c3b6'; g.fillText(`${PLANETE_PROG.vert.toLocaleString('fr-FR')} parcelles sur ${NT.toLocaleString('fr-FR')}`, 24, 250);
     e.maj(); }
   { const e = ECRAN_VARIETES, g = e.g; fond(e); g.textAlign = 'left'; g.fillStyle = '#edeae4'; g.font = '800 34px system-ui'; g.fillText('VARIÉTÉS D’AZURELLE', 30, 40); g.fillStyle = '#f08a24'; g.fillRect(30, 64, 964, 4);
-    VARIETES.forEach((v, k) => { const x = 30 + (k % 3) * 330, y = 110 + Math.floor(k / 3) * 200, ouvert = pv[k] >= 0;
+    VARIETES.forEach((v, k) => { const x = 30 + (k % 3) * 330, y = 110 + Math.floor(k / 3) * 200, ouvert = true;
       g.fillStyle = ouvert ? '#1b2330' : '#1a1c1f'; g.fillRect(x, y, 304, 176); g.strokeStyle = ouvert ? '#4fd6e3' : '#3a3f45'; g.lineWidth = 3; g.strokeRect(x, y, 304, 176);
-      for (let n = 0; n < v.petales; n++) { const a = n / v.petales * 6.283; g.fillStyle = ouvert ? '#3b6fd4' : '#4a4e55'; g.beginPath(); g.ellipse(x + 56 + Math.cos(a) * 20, y + 62 + Math.sin(a) * 20, 14, 8, a, 0, 6.3); g.fill(); } g.fillStyle = ouvert ? '#f5c518' : '#6c7076'; g.beginPath(); g.arc(x + 56, y + 62, 9, 0, 6.3); g.fill();
+      for (let n = 0; n < v.petales; n++) { const a = n / v.petales * 6.283; g.fillStyle = ouvert ? '#e8458b' : '#4a4e55'; g.beginPath(); g.ellipse(x + 56 + Math.cos(a) * 20, y + 62 + Math.sin(a) * 20, 14, 8, a, 0, 6.3); g.fill(); } g.fillStyle = ouvert ? '#f5c518' : '#6c7076'; g.beginPath(); g.arc(x + 56, y + 62, 9, 0, 6.3); g.fill();
       g.font = '800 21px system-ui'; g.fillStyle = ouvert ? '#edeae4' : '#6c7076'; g.fillText(v.nom, x + 14, y + 128); g.font = '800 30px system-ui'; g.fillStyle = ouvert ? '#f4b41a' : '#6c7076'; g.fillText(`${v.prix} cr`, x + 110, y + 50);
       g.font = '800 18px system-ui'; g.fillStyle = ouvert ? '#4fd6e3' : '#e0452f'; g.fillText(ouvert ? `DÉBLOQUÉE · ${pv[k]} %` : 'VERROUILLÉE', x + 110, y + 86); g.fillStyle = '#c9c3b6'; g.fillText(`${v.petales} pétales · secteur ${k + 1}`, x + 14, y + 156); });
     e.maj(); }
@@ -101,7 +104,7 @@ function convertir(d) {
 function charger(d) {
   d = convertir(d);
   const sac = sacVide(), silo = sacVide(); for (const k in sac) { if (d.S.sac && d.S.sac[k]) Object.assign(sac[k], d.S.sac[k]); if (d.S.silo && d.S.silo[k]) Object.assign(silo[k], d.S.silo[k]); }
-  Object.assign(S, d.S, { sac, silo, temps: d.temps || 0, amelio: { ...S.amelio, ...(d.S.amelio || {}) }, succes: d.S.succes || {}, recolte: d.S.recolte || 0 }); OUVERTS.value = clamp(d.ouverts || 1, 1, NSECT);
+  PLANETE_PROG.vert = 0; Object.assign(S, d.S, { sac, silo, temps: d.temps || 0, amelio: { ...S.amelio, ...(d.S.amelio || {}) }, succes: d.S.succes || {}, recolte: d.S.recolte || 0 }); OUVERTS.value = clamp(d.ouverts || 1, 1, NSECT);
   if (!S.outils.includes('pinceau')) S.outils.unshift('pinceau');
   if (typeof d.jour === 'number') { JOUR.angle = d.jour; placerSoleil(); }
   const o = octetsDesTuiles(d.tuiles);
@@ -112,7 +115,7 @@ function charger(d) {
     T.sorte[i] = sorte; T.irrigue[i] = irr; T.nectar[i] = (c >> 5) & 1;
     if (vert && !T.vert[i]) fleurirTuile(i, -1000); else if (!vert && T.vert[i]) fanerTuile(i); else ecrireTuile(i);
   }
-  for (const s of secteurs) s.vert = 0; for (let i = 0; i < NT; i++) secteurs[T.sect[i]].vert += T.vert[i]; majProgres();
+  for (const s of secteurs) s.vert = 0; PLANETE_PROG.vert = 0; for (let i = 0; i < NT; i++) { secteurs[T.sect[i]].vert += T.vert[i]; PLANETE_PROG.vert += T.vert[i]; } majProgres(); OUVERTS.value = NSECT;
   for (const pts of d.tuyaux || []) { const t = { pts: [dev3(pts[0])] }; for (let k = 1; k < pts.length; k++) { const q = dev3(pts[k]); segment(t.pts[k - 1], q); t.pts.push(q); } TUYAUX.push(t); }
   (d.balises || []).forEach((a, k) => { if (a && BALISES[k]) activerBalise(BALISES[k], false); });
   for (const [cle, id, avant, niveau, paye, charge, st, ent] of d.pieces || []) if (PIECES[cle] && !GRILLE.has(id)) { const q = poserPiece(cle, id, avant, true, niveau || 0); q.paye = paye || PIECES[cle].prix; q.charge = charge || 0; q.stock = capsDepuis(st); q.entrees = capsDepuis(ent); }

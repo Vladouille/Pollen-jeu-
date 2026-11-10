@@ -42,7 +42,7 @@
   #bande i.c { bottom: 8px; }
   /* 2. Pourcentage du secteur, en haut à droite. */
   #secteur { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 10px; }
-  #secteur .hex { width: 16px; height: 18px; background: #3b6fd4; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  #secteur .hex { width: 16px; height: 18px; background: #e8458b; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
   #secP { font-size: 20px; color: var(--encre); }
   #secteur.fin { animation: fin 0.6s ease-in-out 5; } #secteur.fin #secP { color: var(--seve); }   /* fin de secteur : le pourcentage pulse en vert */
   @keyframes fin { 50% { transform: scale(1.18); box-shadow: 0 0 22px rgba(79, 214, 227, .7); } }
@@ -324,7 +324,7 @@ function poserSur(obj, p, face) {   // pose un objet debout en p, sa face avant 
 const qHaut = (dir, out = new THREE.Quaternion()) => out.setFromUnitVectors(POLE, dir);
 
 // --- Les zones : la base et les six secteurs. Chaque secteur est un disque, sa variété d'Azurelle vaut plus que la précédente. ---
-const AZUR = { petale: 0x3b6fd4, coeur: 0xf5c518, tige: 0x4a7a3c };
+const AZUR = { petale: 0xe8458b, coeur: 0xf5c518, tige: 0x4a7a3c };   // rose framboise : la teinte qui tranche le mieux sur le beige fané et le vert du sol
 const VARIETES = [   // pétales, hauteur de tige (m), rayon des pointes, profondeur de la coupe, prix de la tuile
   { nom: 'Azurelle commune', petales: 5, h: 0.25, rr: 0.07, pf: 0.12, prix: 3 },
   { nom: 'Azurelle des champs', petales: 6, h: 0.35, rr: 0.075, pf: 0.13, prix: 7 },
@@ -351,7 +351,8 @@ function cleSecteur(d) {   // (bande, tronçon) → clé
   const n = nSeg(b); return (b + BMAX) * SEGMAX + Math.min(n - 1, Math.floor(lon / (2 * Math.PI) * n));
 }
 const centreSecteur = (cle) => { const b = Math.floor(cle / SEGMAX) - BMAX, sg = cle % SEGMAX, lon = (sg + 0.5) / nSeg(b) * 2 * Math.PI, lat = b * LARG_B / RP; return new V3().copy(B0).multiplyScalar(Math.cos(lon)).addScaledVector(BT, Math.sin(lon)).multiplyScalar(Math.cos(lat)).addScaledVector(BN, Math.sin(lat)).normalize(); };
-const OUVERTS = { value: 1 };   // nombre de secteurs ouverts
+const PLANETE_PROG = { vert: 0 };   // parcelles en fleurs sur toute la planète
+const OUVERTS = { value: 1 };   // plus de secteurs à ouvrir : toute la planète est ouverte (fixé plus bas)
 const lisse = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function relief(d) {   // hauteur du sol au-dessus du rayon de référence, en mètres
   const x = d.x, y = d.y, z = d.z, s = (fbm3(x * 1.7 + 3.1, y * 1.7 + 1.3, z * 1.7 + 7.7, 4) - 0.47) * 2.2;
@@ -399,7 +400,7 @@ const SECTEURS = [];
   const compte = new Map(); for (const c of cles) compte.set(c, (compte.get(c) || 0) + 1);
   const ordre = [...compte.keys()].map((c) => [c, centreSecteur(c)]).sort((a, b) => a[1].distanceTo(B0) - b[1].distanceTo(B0));
   const rang = new Map(); ordre.forEach(([c, dir], k) => { rang.set(c, k); SECTEURS.push({ cle: c, c: dir, r: 50, variete: k < 1 ? 0 : k < 3 ? 1 : k < 8 ? 2 : k < 20 ? 3 : k < 60 ? 4 : 5 }); });
-  NSECT = SECTEURS.length;
+  NSECT = SECTEURS.length; OUVERTS.value = NSECT;   // tout est ouvert dès le départ
   T.id = Int32Array.from(ids); T.P = Float32Array.from(P); T.sect = new Uint16Array(NT); T.vert = new Uint8Array(NT); T.sorte = new Uint8Array(NT);
   T.irrigue = new Uint8Array(NT); T.nectar = new Uint8Array(NT); T.t0 = new Float32Array(NT).fill(1e6);
   for (let k = 0; k < NT; k++) {
@@ -477,10 +478,10 @@ M_SOL.onBeforeCompile = (sh) => {
     if (uCons > 0.5) solc *= vec3(0.82, 0.92, 1.12);                                                             // mode construction : le monde bleuit
     diffuseColor.rgb = solc;
     gSel = 0.0; for (int s = 0; s < 5; s++) if (float(tf) == uSel[s].x && tij == uSel[s].yz) gSel = uSelI * smoothstep(0.86, 0.95, bord);
-    gLis = smoothstep(uCarte > 0.5 ? 4.0 : 0.16, uCarte > 0.5 ? 1.0 : 0.05, lisD);
+    gLis = 0.0;   // plus de secteurs : plus de liseré
     gGrille = grille ? smoothstep(0.93, 0.985, bord) * (1.0 - dcam / 34.0) : 0.0;`)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-    totalEmissiveRadiance += gSel * vec3(0.96, 0.7, 0.1) * 0.7 + vec3(0.31, 0.84, 0.89) * (gLis * 0.9 + gGrille * 0.55);`);
+    totalEmissiveRadiance += gSel * vec3(0.96, 0.7, 0.1) * 0.7 + vec3(0.31, 0.84, 0.89) * gGrille * 0.55;`);
 };
 // --- Le maillage du sol : vingt faces (chacune écartée par la caméra quand elle est hors champ), couleurs par sommet :
 //     océans sableux sous l'eau, continents verts et beiges, roche en altitude, calottes blanches aux pôles. ---
@@ -626,7 +627,7 @@ const slotsChardon = new Map();
 { let n = 0; for (let k = 0; k < NT; k++) if (T.sorte[k] === 1) { const R = mulberry(k * 17 + 3), l = [], { est, nord } = repere(T.pos[k]); for (let c = 0; c < 2; c++) { const a = R() * 6.28, d = R() * 0.6, sc = 0.9 + R() * 0.5; surSol(_p.copy(T.pos[k]).addScaledVector(est, Math.cos(a) * d).addScaledVector(nord, Math.sin(a) * d), 0, _p); chardons.setMatrixAt(n, _m.compose(_p, qHaut(T.dir[k], _q).multiply(_q2.setFromEuler(_e.set(0, R() * 6, 0))), _s.set(sc, sc, sc))); l.push(n++); } slotsChardon.set(k, l); } chardons.count = n; chardons.frustumCulled = false; scene.add(chardons); }
 function desherber(k) { for (const j of slotsChardon.get(k) || []) chardons.setMatrixAt(j, _m.makeScale(0, 0, 0)); chardons.instanceMatrix.needsUpdate = true; changerSorte(k, 0); }
 const mereGeo = fleurGeo({ petales: 8, h: 0.75, rr: 0.26, pf: 0.16 });
-const meres = new THREE.InstancedMesh(mereGeo, new THREE.MeshStandardMaterial({ color: 0x6f9cf0, emissive: 0x5b8cff, emissiveIntensity: 1.2, roughness: 0.4, side: THREE.DoubleSide }), 200);
+const meres = new THREE.InstancedMesh(mereGeo, new THREE.MeshStandardMaterial({ color: 0xf07bb0, emissive: 0xff5fa8, emissiveIntensity: 1.2, roughness: 0.4, side: THREE.DoubleSide }), 200);
 const rayons = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.22, 14, 8, 1, true).translate(0, 7, 0), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: UTEMPS },
   vertexShader: 'varying float vY; void main(){ vY = position.y / 14.0; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }',
   fragmentShader: 'varying float vY; uniform float uT; void main(){ gl_FragColor = vec4(vec3(0.25, 0.45, 1.0) * pow(1.0 - vY, 2.0) * (0.28 + 0.08 * sin(uT * 2.0)), 1.0); }' }), 200);
@@ -1357,15 +1358,15 @@ function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'ax
   return out;
 }
 const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
-for (let k = 0; k < NT; k++) { secteurs[T.sect[k]].total++; secteurs[T.sect[k]].vert += T.vert[k]; }
+for (let k = 0; k < NT; k++) { secteurs[T.sect[k]].total++; secteurs[T.sect[k]].vert += T.vert[k]; PLANETE_PROG.vert += T.vert[k]; }
 const majProgres = (s) => { if (s === undefined) { for (let k = 0; k < NSECT; k++) PROG[k] = secteurs[k].vert / secteurs[k].total; } else PROG[s] = secteurs[s].vert / secteurs[s].total; PROG_TEX.needsUpdate = true; };
-const FIN_SECTEUR = [];   // ce qui se joue quand un secteur atteint 100 %
+const FIN_SECTEUR = [];   // la fête : toutes les 500 parcelles rendues à la vie
 function polliniser(k, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur de son pollen
   if (!pollinisable(k)) return 0;
   fleurirTuile(k, gt); secteurs[T.sect[k]].vert++; S.tuiles++; majProgres(T.sect[k]);
   bouffee(T.pos[k], par === 'joueur' ? 16 : 8, CHARTE.pollen);
   const s = T.sect[k];
-  if (s === OUVERTS.value - 1 && secteurs[s].vert >= secteurs[s].total) { if (OUVERTS.value < NSECT) OUVERTS.value++; for (const f of FIN_SECTEUR) f(s); }
+  PLANETE_PROG.vert++; if (PLANETE_PROG.vert % 500 === 0) for (const f of FIN_SECTEUR) f(s);
   return prixTuile(k);
 }
 // L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil. Relâcher, ou changer de cible,
@@ -1521,8 +1522,8 @@ let tSlots = '', dernierHUD = -1;
 function majHUD() {
   const c = cap(), L = hud.bande.parentNode.clientWidth || 360, px = L / 180;
   for (const m of marques) { const r = angle(m.a - c); m.el.style.display = Math.abs(r) > 92 ? 'none' : ''; m.el.style.transform = `translateX(${r * px}px)`; }
-  const k = OUVERTS.value - 1, s = secteurs[k];   // le secteur à finir : c'est l'objectif du joueur
-  hud.secP.textContent = `${Math.floor(s.total ? s.vert / s.total * 100 : 0)} %`;
+  const s = { vert: PLANETE_PROG.vert, total: NT };   // l'objectif : toute la planète
+  hud.secP.textContent = `${(s.vert / s.total * 100).toFixed(2).replace('.', ',')} %`;   // la planète entière, au centième
   let pa = { nom: porte ? 'Colis' : outilDef().nom, charge: porte ? kgSac(porte.contenu) : kgSac(), max: chargeMax() }; for (const f of PASTILLE) { const r = f(); if (r) { pa = r; break; } }
   hud.nomOutil.textContent = pa.nom; hud.charge.textContent = pa.texte || `${fmtKg(pa.charge)} / ${pa.max} KG`;
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;
@@ -1587,7 +1588,7 @@ MAJ.push(() => { if (gt - dernierHUD > 1 / 30 || (window.pollen && window.pollen
 // --- La carte : le globe. ---
 const rondTex = (couleur, plein) => texture(64, 64, (g) => { g.clearRect(0, 0, 64, 64); g.strokeStyle = couleur; g.fillStyle = couleur; g.lineWidth = 7; g.beginPath(); g.arc(32, 32, 24, 0, 7); g.stroke(); if (plein) { g.beginPath(); g.arc(32, 32, 11, 0, 7); g.fill(); } });
 const M_VOYAGE = new THREE.SpriteMaterial({ map: rondTex('#4fd6e3', true), depthTest: false, transparent: true }), M_VOYAGE_VISE = new THREE.SpriteMaterial({ map: rondTex('#f08a24', true), depthTest: false, transparent: true }), M_ICI = new THREE.SpriteMaterial({ map: rondTex('#f4b41a', false), depthTest: false, transparent: true });
-const VOYAGES = [() => [{ p: local(3, 9), nom: 'Station' }, ...SECTEURS.slice(Math.max(1, OUVERTS.value - 8), OUVERTS.value).map((Sc) => ({ p: surSol(Sc.c), nom: 'Secteur' }))]];   // les huit derniers secteurs ouverts   // les modules ajoutent leurs points (dépôts de terrain)
+const VOYAGES = [() => [{ p: local(3, 9), nom: 'Station' }, ]];   // les huit derniers secteurs ouverts   // les modules ajoutent leurs points (dépôts de terrain)
 const REPERES_CARTE = [];   // fonctions qui donnent les positions des machines posées
 const CARTE = {
   ouverte: false, dir: new V3(0, 0, 1), haut: new V3(0, 1, 0), points: [], vise: null, groupe: new THREE.Group(), ici: new THREE.Sprite(M_ICI),
@@ -1638,7 +1639,7 @@ ACTIONS.push({   // arracher les chardons
 });
 ACTIONS.push({   // cueillir une Azurelle mère
   quand: (v) => brosseEnMain() && pres(v) && T.sorte[v.k] === 3 && place() >= 1, duree: 3, geste: 'arracher',
-  faire(v) { ajouter('mere', 1, 120 * (T.sect[v.k] + 1)); cueillirMere(v.k); sons.vente(); bouffee(au(v.k, 0.4), 30, 0x8fb4ff); },
+  faire(v) { ajouter('mere', 1, 120 * (T.sect[v.k] + 1)); cueillirMere(v.k); sons.vente(); bouffee(au(v.k, 0.4), 30, 0xff8fc0); },
 });
 ACTIONS.push({   // ramasser les graines d'une tuile fanée
   quand: (v) => outilEnMain === 'rateau' && pres(v) && ouvert(v.k) && !T.vert[v.k] && T.sorte[v.k] === 0 && place() >= 0.5, duree: 1.2, geste: 'arracher',
@@ -1868,7 +1869,7 @@ const PORTEE_RESEAU = 10;
 const accepte = (def, type) => !!def.entree && def.entree.includes(type);
 const AMELIO = [1.5, 4];   // prix du niveau 2 et du niveau 3, en multiples du prix de la machine
 const prixAmelio = (p) => p.niveau < 2 ? Math.round(PIECES[p.cle].prix * AMELIO[p.niveau]) : 0;
-const COULEUR_CAPSULE = { pollen: CHARTE.pollen, nectar: 0x9fd0ff, miel: 0xd98a14, graines: 0x8a6a3a, cire: 0xf3e3a0, mere: 0x6f9cf0, extrait: 0x5a8fe0, cru: 0x9a5a12, bougie: 0xfff6dc, pot: 0xf7f4ee };
+const COULEUR_CAPSULE = { pollen: CHARTE.pollen, nectar: 0x9fd0ff, miel: 0xd98a14, graines: 0x8a6a3a, cire: 0xf3e3a0, mere: 0xf07bb0, extrait: 0x5a8fe0, cru: 0x9a5a12, bougie: 0xfff6dc, pot: 0xf7f4ee };
 const NOMS_PRODUITS = { ...RESSOURCES, extrait: 'Extrait', cru: 'Miel cru', bougie: 'Bougies', pot: 'Pots' };
 const estTapis = (p) => !!p && !!PIECES[p.cle].tapis;
 const GRILLE = new Map();   // id de tuile → pièce
@@ -2564,8 +2565,8 @@ MAJ.push((dt) => {
 // =====================================================================
 // --- Les succès : huit médaillons sur le mur de la station. ---
 const SUCCES = [
-  ['Première vente', () => S.ventes >= 1], ['100 tuiles', () => S.tuiles >= 100], ['1 000 tuiles', () => S.tuiles >= 1000], ['Premier secteur', () => OUVERTS.value >= 2],
-  ['Trois secteurs', () => OUVERTS.value >= 4], ['Au volant', () => ORDRE_VEHICULES.some((c) => FLOTTE[c].possede)], ['Dix machines', () => (S.pieces || 0) >= 10], ['La planète', () => secteurs.every((s) => s.vert >= s.total)],
+  ['Première vente', () => S.ventes >= 1], ['100 tuiles', () => S.tuiles >= 100], ['1 000 tuiles', () => S.tuiles >= 1000], ['10 000 parcelles', () => S.tuiles >= 10000],
+  ['1 % de la planète', () => PLANETE_PROG.vert >= NT / 100], ['Au volant', () => ORDRE_VEHICULES.some((c) => FLOTTE[c].possede)], ['Dix machines', () => (S.pieces || 0) >= 10], ['La planète', () => secteurs.every((s) => s.vert >= s.total)],
 ];
 let tSucces = 0;
 function majSucces(silence) { SUCCES.forEach(([, f], k) => { if (!S.succes[k] && f()) { S.succes[k] = 1; if (!silence) { sons.vente(); sauverBientot(); } } MEDAILLONS[k].material = S.succes[k] ? M.pollen : M_GRIS; }); }
@@ -2580,15 +2581,18 @@ function dormir() {
 let tEcrans = 0, sigEcrans = '';
 MAJ.push((dt) => {
   tEcrans += dt; if (tEcrans < 1 || !DEDANS.salle) return; tEcrans = 0;
-  const cur = OUVERTS.value - 1, debut = Math.max(0, cur - 2), vus = secteurs.slice(debut, debut + 6), pct = vus.map((s) => Math.floor(s.vert / s.total * 100)), sig = pct.join() + OUVERTS.value; if (sig === sigEcrans) return; sigEcrans = sig;
-  const pv = VARIETES.map((v, n) => { let a = 0, b = 0; SECTEURS.forEach((S, k) => { if (S.variete === n && k < OUVERTS.value) { a += secteurs[k].vert; b += secteurs[k].total; } }); return b ? Math.floor(a / b * 100) : -1; });   // par variété
-  { const e = ECRAN_SECTEUR, g = e.g; fond(e); g.textAlign = 'left'; g.fillStyle = '#edeae4'; g.font = '800 30px system-ui'; g.fillText('SECTEURS', 24, 34); g.fillStyle = '#f08a24'; g.fillRect(24, 56, 720, 4);
-    pct.forEach((p, n) => { const k = debut + n, y = 92 + n * 38, ouvert = k < OUVERTS.value; g.font = '800 22px system-ui'; g.fillStyle = ouvert ? '#edeae4' : '#6c7076'; g.fillText(`${k + 1}  ${VARIETES[SECTEURS[k].variete].nom}`, 24, y); g.fillStyle = '#3a3f45'; g.fillRect(360, y - 9, 300, 18); g.fillStyle = p >= 100 ? '#4fd6e3' : '#3b6fd4'; g.fillRect(360, y - 9, 3 * p, 18); g.fillStyle = ouvert ? '#f4b41a' : '#6c7076'; g.fillText(ouvert ? `${p} %` : 'fermé', 676, y); });
+  const pp = PLANETE_PROG.vert / NT * 100, sig = PLANETE_PROG.vert + '';   // la station affiche l'avancement de toute la planète
+  if (sig === sigEcrans) return; sigEcrans = sig;
+  const pv = VARIETES.map((v, n) => { let a = 0, b = 0; SECTEURS.forEach((S, k) => { if (S.variete === n) { a += secteurs[k].vert; b += secteurs[k].total; } }); return b ? Math.floor(a / b * 100) : -1; });   // par variété
+  { const e = ECRAN_SECTEUR, g = e.g; fond(e); g.textAlign = 'left'; g.fillStyle = '#edeae4'; g.font = '800 30px system-ui'; g.fillText('LA PLANÈTE', 24, 34); g.fillStyle = '#f08a24'; g.fillRect(24, 56, 720, 4);
+    g.font = '800 64px system-ui'; g.fillStyle = '#e8458b'; g.fillText(`${pp.toFixed(2).replace('.', ',')} %`, 24, 130);
+    g.fillStyle = '#3a3f45'; g.fillRect(24, 180, 720, 26); g.fillStyle = '#e8458b'; g.fillRect(24, 180, Math.max(2, 7.2 * pp), 26);
+    g.font = '800 24px system-ui'; g.fillStyle = '#c9c3b6'; g.fillText(`${PLANETE_PROG.vert.toLocaleString('fr-FR')} parcelles sur ${NT.toLocaleString('fr-FR')}`, 24, 250);
     e.maj(); }
   { const e = ECRAN_VARIETES, g = e.g; fond(e); g.textAlign = 'left'; g.fillStyle = '#edeae4'; g.font = '800 34px system-ui'; g.fillText('VARIÉTÉS D’AZURELLE', 30, 40); g.fillStyle = '#f08a24'; g.fillRect(30, 64, 964, 4);
-    VARIETES.forEach((v, k) => { const x = 30 + (k % 3) * 330, y = 110 + Math.floor(k / 3) * 200, ouvert = pv[k] >= 0;
+    VARIETES.forEach((v, k) => { const x = 30 + (k % 3) * 330, y = 110 + Math.floor(k / 3) * 200, ouvert = true;
       g.fillStyle = ouvert ? '#1b2330' : '#1a1c1f'; g.fillRect(x, y, 304, 176); g.strokeStyle = ouvert ? '#4fd6e3' : '#3a3f45'; g.lineWidth = 3; g.strokeRect(x, y, 304, 176);
-      for (let n = 0; n < v.petales; n++) { const a = n / v.petales * 6.283; g.fillStyle = ouvert ? '#3b6fd4' : '#4a4e55'; g.beginPath(); g.ellipse(x + 56 + Math.cos(a) * 20, y + 62 + Math.sin(a) * 20, 14, 8, a, 0, 6.3); g.fill(); } g.fillStyle = ouvert ? '#f5c518' : '#6c7076'; g.beginPath(); g.arc(x + 56, y + 62, 9, 0, 6.3); g.fill();
+      for (let n = 0; n < v.petales; n++) { const a = n / v.petales * 6.283; g.fillStyle = ouvert ? '#e8458b' : '#4a4e55'; g.beginPath(); g.ellipse(x + 56 + Math.cos(a) * 20, y + 62 + Math.sin(a) * 20, 14, 8, a, 0, 6.3); g.fill(); } g.fillStyle = ouvert ? '#f5c518' : '#6c7076'; g.beginPath(); g.arc(x + 56, y + 62, 9, 0, 6.3); g.fill();
       g.font = '800 21px system-ui'; g.fillStyle = ouvert ? '#edeae4' : '#6c7076'; g.fillText(v.nom, x + 14, y + 128); g.font = '800 30px system-ui'; g.fillStyle = ouvert ? '#f4b41a' : '#6c7076'; g.fillText(`${v.prix} cr`, x + 110, y + 50);
       g.font = '800 18px system-ui'; g.fillStyle = ouvert ? '#4fd6e3' : '#e0452f'; g.fillText(ouvert ? `DÉBLOQUÉE · ${pv[k]} %` : 'VERROUILLÉE', x + 110, y + 86); g.fillStyle = '#c9c3b6'; g.fillText(`${v.petales} pétales · secteur ${k + 1}`, x + 14, y + 156); });
     e.maj(); }
@@ -2653,7 +2657,7 @@ function convertir(d) {
 function charger(d) {
   d = convertir(d);
   const sac = sacVide(), silo = sacVide(); for (const k in sac) { if (d.S.sac && d.S.sac[k]) Object.assign(sac[k], d.S.sac[k]); if (d.S.silo && d.S.silo[k]) Object.assign(silo[k], d.S.silo[k]); }
-  Object.assign(S, d.S, { sac, silo, temps: d.temps || 0, amelio: { ...S.amelio, ...(d.S.amelio || {}) }, succes: d.S.succes || {}, recolte: d.S.recolte || 0 }); OUVERTS.value = clamp(d.ouverts || 1, 1, NSECT);
+  PLANETE_PROG.vert = 0; Object.assign(S, d.S, { sac, silo, temps: d.temps || 0, amelio: { ...S.amelio, ...(d.S.amelio || {}) }, succes: d.S.succes || {}, recolte: d.S.recolte || 0 }); OUVERTS.value = clamp(d.ouverts || 1, 1, NSECT);
   if (!S.outils.includes('pinceau')) S.outils.unshift('pinceau');
   if (typeof d.jour === 'number') { JOUR.angle = d.jour; placerSoleil(); }
   const o = octetsDesTuiles(d.tuiles);
@@ -2664,7 +2668,7 @@ function charger(d) {
     T.sorte[i] = sorte; T.irrigue[i] = irr; T.nectar[i] = (c >> 5) & 1;
     if (vert && !T.vert[i]) fleurirTuile(i, -1000); else if (!vert && T.vert[i]) fanerTuile(i); else ecrireTuile(i);
   }
-  for (const s of secteurs) s.vert = 0; for (let i = 0; i < NT; i++) secteurs[T.sect[i]].vert += T.vert[i]; majProgres();
+  for (const s of secteurs) s.vert = 0; PLANETE_PROG.vert = 0; for (let i = 0; i < NT; i++) { secteurs[T.sect[i]].vert += T.vert[i]; PLANETE_PROG.vert += T.vert[i]; } majProgres(); OUVERTS.value = NSECT;
   for (const pts of d.tuyaux || []) { const t = { pts: [dev3(pts[0])] }; for (let k = 1; k < pts.length; k++) { const q = dev3(pts[k]); segment(t.pts[k - 1], q); t.pts.push(q); } TUYAUX.push(t); }
   (d.balises || []).forEach((a, k) => { if (a && BALISES[k]) activerBalise(BALISES[k], false); });
   for (const [cle, id, avant, niveau, paye, charge, st, ent] of d.pieces || []) if (PIECES[cle] && !GRILLE.has(id)) { const q = poserPiece(cle, id, avant, true, niveau || 0); q.paye = paye || PIECES[cle].prix; q.charge = charge || 0; q.stock = capsDepuis(st); q.entrees = capsDepuis(ent); }

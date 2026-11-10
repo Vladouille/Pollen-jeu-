@@ -20,7 +20,7 @@ ACTIONS.push({   // arracher les chardons
 });
 ACTIONS.push({   // cueillir une Azurelle mère
   quand: (v) => brosseEnMain() && pres(v) && T.sorte[v.k] === 3 && place() >= 1, duree: 3, geste: 'arracher',
-  faire(v) { ajouter('mere', 1, 120 * (T.sect[v.k] + 1)); cueillirMere(v.k); sons.vente(); bouffee(au(v.k, 0.4), 30, 0x8fb4ff); },
+  faire(v) { ajouter('mere', 1, 120 * (T.sect[v.k] + 1)); cueillirMere(v.k); sons.vente(); bouffee(au(v.k, 0.4), 30, 0xff8fc0); },
 });
 ACTIONS.push({   // ramasser les graines d'une tuile fanée
   quand: (v) => outilEnMain === 'rateau' && pres(v) && ouvert(v.k) && !T.vert[v.k] && T.sorte[v.k] === 0 && place() >= 0.5, duree: 1.2, geste: 'arracher',

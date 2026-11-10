@@ -63,7 +63,7 @@ function poserSur(obj, p, face) {   // pose un objet debout en p, sa face avant 
 const qHaut = (dir, out = new THREE.Quaternion()) => out.setFromUnitVectors(POLE, dir);
 
 // --- Les zones : la base et les six secteurs. Chaque secteur est un disque, sa variété d'Azurelle vaut plus que la précédente. ---
-const AZUR = { petale: 0x3b6fd4, coeur: 0xf5c518, tige: 0x4a7a3c };
+const AZUR = { petale: 0xe8458b, coeur: 0xf5c518, tige: 0x4a7a3c };   // rose framboise : la teinte qui tranche le mieux sur le beige fané et le vert du sol
 const VARIETES = [   // pétales, hauteur de tige (m), rayon des pointes, profondeur de la coupe, prix de la tuile
   { nom: 'Azurelle commune', petales: 5, h: 0.25, rr: 0.07, pf: 0.12, prix: 3 },
   { nom: 'Azurelle des champs', petales: 6, h: 0.35, rr: 0.075, pf: 0.13, prix: 7 },
@@ -90,7 +90,8 @@ function cleSecteur(d) {   // (bande, tronçon) → clé
   const n = nSeg(b); return (b + BMAX) * SEGMAX + Math.min(n - 1, Math.floor(lon / (2 * Math.PI) * n));
 }
 const centreSecteur = (cle) => { const b = Math.floor(cle / SEGMAX) - BMAX, sg = cle % SEGMAX, lon = (sg + 0.5) / nSeg(b) * 2 * Math.PI, lat = b * LARG_B / RP; return new V3().copy(B0).multiplyScalar(Math.cos(lon)).addScaledVector(BT, Math.sin(lon)).multiplyScalar(Math.cos(lat)).addScaledVector(BN, Math.sin(lat)).normalize(); };
-const OUVERTS = { value: 1 };   // nombre de secteurs ouverts
+const PLANETE_PROG = { vert: 0 };   // parcelles en fleurs sur toute la planète
+const OUVERTS = { value: 1 };   // plus de secteurs à ouvrir : toute la planète est ouverte (fixé plus bas)
 const lisse = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function relief(d) {   // hauteur du sol au-dessus du rayon de référence, en mètres
   const x = d.x, y = d.y, z = d.z, s = (fbm3(x * 1.7 + 3.1, y * 1.7 + 1.3, z * 1.7 + 7.7, 4) - 0.47) * 2.2;
@@ -138,7 +139,7 @@ const SECTEURS = [];
   const compte = new Map(); for (const c of cles) compte.set(c, (compte.get(c) || 0) + 1);
   const ordre = [...compte.keys()].map((c) => [c, centreSecteur(c)]).sort((a, b) => a[1].distanceTo(B0) - b[1].distanceTo(B0));
   const rang = new Map(); ordre.forEach(([c, dir], k) => { rang.set(c, k); SECTEURS.push({ cle: c, c: dir, r: 50, variete: k < 1 ? 0 : k < 3 ? 1 : k < 8 ? 2 : k < 20 ? 3 : k < 60 ? 4 : 5 }); });
-  NSECT = SECTEURS.length;
+  NSECT = SECTEURS.length; OUVERTS.value = NSECT;   // tout est ouvert dès le départ
   T.id = Int32Array.from(ids); T.P = Float32Array.from(P); T.sect = new Uint16Array(NT); T.vert = new Uint8Array(NT); T.sorte = new Uint8Array(NT);
   T.irrigue = new Uint8Array(NT); T.nectar = new Uint8Array(NT); T.t0 = new Float32Array(NT).fill(1e6);
   for (let k = 0; k < NT; k++) {
@@ -216,10 +217,10 @@ M_SOL.onBeforeCompile = (sh) => {
     if (uCons > 0.5) solc *= vec3(0.82, 0.92, 1.12);                                                             // mode construction : le monde bleuit
     diffuseColor.rgb = solc;
     gSel = 0.0; for (int s = 0; s < 5; s++) if (float(tf) == uSel[s].x && tij == uSel[s].yz) gSel = uSelI * smoothstep(0.86, 0.95, bord);
-    gLis = smoothstep(uCarte > 0.5 ? 4.0 : 0.16, uCarte > 0.5 ? 1.0 : 0.05, lisD);
+    gLis = 0.0;   // plus de secteurs : plus de liseré
     gGrille = grille ? smoothstep(0.93, 0.985, bord) * (1.0 - dcam / 34.0) : 0.0;`)
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-    totalEmissiveRadiance += gSel * vec3(0.96, 0.7, 0.1) * 0.7 + vec3(0.31, 0.84, 0.89) * (gLis * 0.9 + gGrille * 0.55);`);
+    totalEmissiveRadiance += gSel * vec3(0.96, 0.7, 0.1) * 0.7 + vec3(0.31, 0.84, 0.89) * gGrille * 0.55;`);
 };
 // --- Le maillage du sol : vingt faces (chacune écartée par la caméra quand elle est hors champ), couleurs par sommet :
 //     océans sableux sous l'eau, continents verts et beiges, roche en altitude, calottes blanches aux pôles. ---
@@ -365,7 +366,7 @@ const slotsChardon = new Map();
 { let n = 0; for (let k = 0; k < NT; k++) if (T.sorte[k] === 1) { const R = mulberry(k * 17 + 3), l = [], { est, nord } = repere(T.pos[k]); for (let c = 0; c < 2; c++) { const a = R() * 6.28, d = R() * 0.6, sc = 0.9 + R() * 0.5; surSol(_p.copy(T.pos[k]).addScaledVector(est, Math.cos(a) * d).addScaledVector(nord, Math.sin(a) * d), 0, _p); chardons.setMatrixAt(n, _m.compose(_p, qHaut(T.dir[k], _q).multiply(_q2.setFromEuler(_e.set(0, R() * 6, 0))), _s.set(sc, sc, sc))); l.push(n++); } slotsChardon.set(k, l); } chardons.count = n; chardons.frustumCulled = false; scene.add(chardons); }
 function desherber(k) { for (const j of slotsChardon.get(k) || []) chardons.setMatrixAt(j, _m.makeScale(0, 0, 0)); chardons.instanceMatrix.needsUpdate = true; changerSorte(k, 0); }
 const mereGeo = fleurGeo({ petales: 8, h: 0.75, rr: 0.26, pf: 0.16 });
-const meres = new THREE.InstancedMesh(mereGeo, new THREE.MeshStandardMaterial({ color: 0x6f9cf0, emissive: 0x5b8cff, emissiveIntensity: 1.2, roughness: 0.4, side: THREE.DoubleSide }), 200);
+const meres = new THREE.InstancedMesh(mereGeo, new THREE.MeshStandardMaterial({ color: 0xf07bb0, emissive: 0xff5fa8, emissiveIntensity: 1.2, roughness: 0.4, side: THREE.DoubleSide }), 200);
 const rayons = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.22, 14, 8, 1, true).translate(0, 7, 0), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: UTEMPS },
   vertexShader: 'varying float vY; void main(){ vY = position.y / 14.0; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }',
   fragmentShader: 'varying float vY; uniform float uT; void main(){ gl_FragColor = vec4(vec3(0.25, 0.45, 1.0) * pow(1.0 - vY, 2.0) * (0.28 + 0.08 * sin(uT * 2.0)), 1.0); }' }), 200);

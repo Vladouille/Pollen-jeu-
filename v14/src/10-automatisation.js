@@ -44,7 +44,7 @@ const PORTEE_RESEAU = 10;
 const accepte = (def, type) => !!def.entree && def.entree.includes(type);
 const AMELIO = [1.5, 4];   // prix du niveau 2 et du niveau 3, en multiples du prix de la machine
 const prixAmelio = (p) => p.niveau < 2 ? Math.round(PIECES[p.cle].prix * AMELIO[p.niveau]) : 0;
-const COULEUR_CAPSULE = { pollen: CHARTE.pollen, nectar: 0x9fd0ff, miel: 0xd98a14, graines: 0x8a6a3a, cire: 0xf3e3a0, mere: 0x6f9cf0, extrait: 0x5a8fe0, cru: 0x9a5a12, bougie: 0xfff6dc, pot: 0xf7f4ee };
+const COULEUR_CAPSULE = { pollen: CHARTE.pollen, nectar: 0x9fd0ff, miel: 0xd98a14, graines: 0x8a6a3a, cire: 0xf3e3a0, mere: 0xf07bb0, extrait: 0x5a8fe0, cru: 0x9a5a12, bougie: 0xfff6dc, pot: 0xf7f4ee };
 const NOMS_PRODUITS = { ...RESSOURCES, extrait: 'Extrait', cru: 'Miel cru', bougie: 'Bougies', pot: 'Pots' };
 const estTapis = (p) => !!p && !!PIECES[p.cle].tapis;
 const GRILLE = new Map();   // id de tuile → pièce

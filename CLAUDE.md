@@ -19,6 +19,11 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   par plages), clés `pollen-v14-…`. Bâtiments rapprochés, esplanade de 28 m. Outils : touffes de poils qui s'écrasent,
   réservoir vitré qui se remplit, hélice du souffleur, sortie élastique, trois gestes de validation. Véhicules :
   gyrophare, feux arrière, braquage, roulis, tangage, suspension, poussière. Test : `npm run smoke:v14`.
+  Puis : « enlève les secteurs ; pour les fleurs, la couleur la plus adaptée au jeu » → plus de secteurs à débloquer
+  (OUVERTS = NSECT, pas de liseré ni de zone grisée ; les bandes restent seulement des zones internes pour la variété,
+  le prix et la ruche mère) ; le pourcentage affiché est celui de la planète au centième ; une fête toutes les 500
+  parcelles. Fleurs en rose framboise #E8458B (cœur jaune #F5C518) : contraste maximal sur le beige fané et le vert,
+  distinct de l'orange et du cyan des machines et du halo bleu. Le nom « Azurelle » est gardé (à rediscuter).
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

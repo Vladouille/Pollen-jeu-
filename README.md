@@ -4,6 +4,8 @@ La v10, avec : une planète entièrement couverte de fleurs, sans mer ni vide (6
 en bandes, ouverts du plus proche au plus lointain de la base) ; les bâtiments rapprochés ; des outils et des véhicules
 redessinés et animés (poils qui s'écrasent, réservoir qui se remplit, hélice, gestes variés ; gyrophare, braquage,
 roulis, suspension, poussière). Test : `npm run smoke:v14`.
+Plus de secteurs à débloquer : toute la planète est ouverte, le pourcentage est celui de la planète entière. Les fleurs
+sont rose framboise.
 
 ## Version courante : v10 (`v10/index.html`)
 

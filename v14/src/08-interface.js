@@ -21,8 +21,8 @@ let tSlots = '', dernierHUD = -1;
 function majHUD() {
   const c = cap(), L = hud.bande.parentNode.clientWidth || 360, px = L / 180;
   for (const m of marques) { const r = angle(m.a - c); m.el.style.display = Math.abs(r) > 92 ? 'none' : ''; m.el.style.transform = `translateX(${r * px}px)`; }
-  const k = OUVERTS.value - 1, s = secteurs[k];   // le secteur à finir : c'est l'objectif du joueur
-  hud.secP.textContent = `${Math.floor(s.total ? s.vert / s.total * 100 : 0)} %`;
+  const s = { vert: PLANETE_PROG.vert, total: NT };   // l'objectif : toute la planète
+  hud.secP.textContent = `${(s.vert / s.total * 100).toFixed(2).replace('.', ',')} %`;   // la planète entière, au centième
   let pa = { nom: porte ? 'Colis' : outilDef().nom, charge: porte ? kgSac(porte.contenu) : kgSac(), max: chargeMax() }; for (const f of PASTILLE) { const r = f(); if (r) { pa = r; break; } }
   hud.nomOutil.textContent = pa.nom; hud.charge.textContent = pa.texte || `${fmtKg(pa.charge)} / ${pa.max} KG`;
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;
@@ -87,7 +87,7 @@ MAJ.push(() => { if (gt - dernierHUD > 1 / 30 || (window.pollen && window.pollen
 // --- La carte : le globe. ---
 const rondTex = (couleur, plein) => texture(64, 64, (g) => { g.clearRect(0, 0, 64, 64); g.strokeStyle = couleur; g.fillStyle = couleur; g.lineWidth = 7; g.beginPath(); g.arc(32, 32, 24, 0, 7); g.stroke(); if (plein) { g.beginPath(); g.arc(32, 32, 11, 0, 7); g.fill(); } });
 const M_VOYAGE = new THREE.SpriteMaterial({ map: rondTex('#4fd6e3', true), depthTest: false, transparent: true }), M_VOYAGE_VISE = new THREE.SpriteMaterial({ map: rondTex('#f08a24', true), depthTest: false, transparent: true }), M_ICI = new THREE.SpriteMaterial({ map: rondTex('#f4b41a', false), depthTest: false, transparent: true });
-const VOYAGES = [() => [{ p: local(3, 9), nom: 'Station' }, ...SECTEURS.slice(Math.max(1, OUVERTS.value - 8), OUVERTS.value).map((Sc) => ({ p: surSol(Sc.c), nom: 'Secteur' }))]];   // les huit derniers secteurs ouverts   // les modules ajoutent leurs points (dépôts de terrain)
+const VOYAGES = [() => [{ p: local(3, 9), nom: 'Station' }, ]];   // les huit derniers secteurs ouverts   // les modules ajoutent leurs points (dépôts de terrain)
 const REPERES_CARTE = [];   // fonctions qui donnent les positions des machines posées
 const CARTE = {
   ouverte: false, dir: new V3(0, 0, 1), haut: new V3(0, 1, 0), points: [], vise: null, groupe: new THREE.Group(), ici: new THREE.Sprite(M_ICI),
