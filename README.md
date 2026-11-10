@@ -1,5 +1,33 @@
 # POLLEN
 
+## v10 — la planète (`v10/index.html`)
+
+Version courante. Un seul fichier, ordinateur et téléphone. Code dans `v10/src`, assemblé par `node v10/construire.mjs`.
+Lancer : ouvrir `v10/index.html` dans un navigateur (il charge Three.js depuis jsDelivr). Test : `npm run smoke:v10`.
+
+- **La planète** : une sphère de 500 m de rayon (3,1 km de tour). La gravité tire vers le centre, la caméra se redresse
+  à chaque image. Tuiles d'un icosaèdre subdivisé (hexagones et douze pentagones). Relief par bruit sur le rayon : mer,
+  continents, collines, montagnes, calottes blanches. Nuages qui dérivent, ciel étoilé la nuit, soleil qui tourne en
+  16 minutes. Six secteurs en disques cernés d'un liseré lumineux ; aucun bord de carte.
+- **La carte** (touche M ou bouton) : le globe, qu'on fait tourner. Secteurs colorés selon leur avancement, machines en
+  orange, points de voyage rapide en cyan : on amène un point au centre et on appuie sur action.
+- **Quatre bâtiments où l'on entre** : station (écran des secteurs, tableau de supervision, huit médaillons, lit pour
+  passer la nuit), comptoir (dix outils sur l'établi, borne de vente, cageots), atelier (cinq améliorations),
+  laboratoire (tableau des six variétés).
+- **Le concessionnaire** : chariot pousseur 900, quad de service 4 000, pollinisatrice 18 000, remorque-citerne 35 000,
+  transporteur lourd 90 000. Quatre améliorations à trois niveaux, visibles sur le véhicule : moteur, châssis, pneus,
+  phares. À l'achat la porte sectionnelle s'ouvre, le véhicule sort se garer, on est au volant.
+- **Le mode construction** (touche B, il faut l'outil de construction du comptoir) : cinq catégories, 29 pièces.
+  Chiffres 1 à 5 : catégorie ; E : pièce suivante ; molette ou R : tourner ; G : verrouiller la direction ; clic : poser,
+  ou démonter une pièce posée (remboursée entièrement). Fantôme vert ou rouge, avec la raison du refus.
+  Électricité : panneaux, batteries et poteaux à moins de 10 m forment un réseau ; sans courant une machine tourne au quart.
+- **Sauvegarde** locale, format 6, trois emplacements, export et import `.json`. Une partie de la v9 n'apporte que
+  l'argent, les outils et le temps de jeu.
+- `?mode=pc` ou `?mode=mobile`, `?debug`, `?neuf`, `?ao` / `?ao=0`.
+
+Ce qui reste simplifié : le convoyeur courbe et le fusionneur ne diffèrent du droit que par le modèle et la vitesse ;
+le transporteur lourd contourne les obstacles simplement ; les lignes électriques ne sont pas dessinées.
+
 ## v9 — la station agricole (`v9/index.html`)
 
 Un seul fichier, ordinateur et téléphone (paysage forcé). Code dans `v9/src`, assemblé par `node v9/construire.mjs`.

@@ -10,7 +10,20 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v9 (brief « station agricole ») : `v9/index.html`**, version courante, en six étapes livrées une à une (décor et
+- **v10 (brief « design, bâtiments, planète ») : `v10/index.html`**, version courante. Les cinq étapes du brief sont
+  faites (le fondateur : « fais toutes les étapes sans me demander ») : 1 anomalies ; 2 planète sphérique de 500 m
+  (tuiles d'un icosaèdre subdivisé 256 fois, gravité vers le centre, relief par bruit, mer, calottes, nuages, étoiles,
+  soleil qui tourne en 16 min, secteurs en disques cernés d'un liseré, carte-globe avec voyage rapide) ; 3 quatre
+  intérieurs (station, comptoir, atelier, laboratoire) ; 4 concessionnaire et cinq véhicules à quatre améliorations ;
+  5 mode construction (touche B, cinq catégories, 29 pièces, électricité en réseaux de 10 m, ruches autonomes,
+  tableau de supervision). Palette : blanc #EDEAE4, charbon #2E343A, orange #F08A24, cyan #4FD6E3.
+  Une pièce occupe une tuile de la planète (id de tuile, six directions). Sauvegarde locale format 6, clés
+  `pollen-v10-…` ; une sauvegarde v9 n'apporte que l'argent, les outils et le temps (le monde plat ne se transpose pas).
+  Simplifications connues : convoyeur courbe et fusionneur ne diffèrent du droit que par le modèle et la vitesse ;
+  le transporteur lourd contourne les obstacles simplement et renonce s'il reste bloqué ; pas de câbles dessinés.
+  Code dans `v10/src`, assemblé par `node v10/construire.mjs` ; ne pas modifier `v10/index.html` à la main.
+  Test : `npm run smoke:v10`.
+- **v9 (brief « station agricole ») : `v9/index.html`**, mise de côté par la v10 (terrain plat), en six étapes livrées une à une (décor et
   charte, vue et contrôles, interface, boucle, activités, automatisation). Le brief demandait une copie de Moon Sweepers
   (esthétique et interface poste par poste) : refusé, comme la v6. Direction originale validée par le fondateur
   (« fais-le en plusieurs semaines ») : palette POLLEN blanc cassé #ECE8DF, graphite #2F3338, jaune pollen #F4B41A,
@@ -22,10 +35,8 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   contre-jour, reflets, panneaux rainurés à liseré orange, chanfreins partout ; interface à cinq éléments, aucun texte
   qui dise quoi faire. Sauvegarde locale format 5 (trois emplacements, copie de secours, conversion des formats 2 à 4,
   tuiles en octets, export/import .json) : tout changement de format ajoute une conversion dans `CONVERSIONS`.
-  Brief v10 (design, bâtiments, planète) en cours, dans l'ordre : 1 anomalies (FAIT : collisions en boîtes, zones
-  d'approche, repère de stationnement, bâtiments fermés à terminal mural, palette cyan/orange) ; 2 planète sphérique de
-  500 m (arbitrage à donner au fondateur avant de commencer : elle remplace le terrain, les tuiles et la sauvegarde) ;
-  3 intérieurs ; 4 concessionnaire ; 5 automatisation (mode construction, supervision).
+  Le brief v10 a d'abord corrigé ses anomalies ici (collisions en boîtes, zones d'approche, bâtiments fermés), puis
+  est passé dans `v10/`.
   Code dans `v9/src`, assemblé par `node v9/construire.mjs` ; ne pas modifier `v9/index.html`
   à la main. Test : `npm run smoke:v9`.
 - **v8 (brief « vrais modèles 3D, gratuits ») : `v8/index.html`**, mise de côté par la v9. Plus rien de dessiné en code : les
