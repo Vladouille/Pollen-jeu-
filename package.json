@@ -14,6 +14,7 @@
     "smoke:v7": "node tests/v7-smoke.mjs",
     "smoke:v8": "node tests/v8-smoke.mjs",
     "smoke:v9": "node v9/construire.mjs && node tests/v9-smoke.mjs && node tests/v9-sauvegarde.mjs",
-    "smoke:v10": "node v10/construire.mjs && node tests/v10-smoke.mjs"
+    "smoke:v10": "node v10/construire.mjs && node tests/v10-smoke.mjs",
+    "smoke:v11": "node v11/construire.mjs && node tests/v11-smoke.mjs"
   }
 }

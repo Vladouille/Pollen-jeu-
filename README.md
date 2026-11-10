@@ -1,5 +1,48 @@
 # POLLEN
 
+## v11 — la planète-prairie (`v11/index.html`)
+
+Version courante. Un seul fichier, ordinateur et téléphone. Code dans `v11/src`, assemblé par `node v11/construire.mjs`.
+Lancer : ouvrir `v11/index.html`. Test : `npm run smoke:v11` (30 vérifications, toutes passent).
+
+- **La planète** : une sphère de 500 m couverte de fleurs d'un pôle à l'autre, ni mer ni montagne (relief de ±1,5 m).
+  40 891 tuiles d'environ 8 m, douze secteurs (un par sommet de l'icosaèdre), liseré lumineux entre eux. Ciel noir
+  étoilé, fin halo bleuté à l'horizon, soleil qui tourne en 16 minutes. Les fleurs sont dessinées jusqu'à 46 m (30 m
+  sur téléphone) ; au-delà, chaque tuile est un aplat coloré.
+- **Les outils** : pinceau (1 tuile, 2,5 s, 12 kg), brosse 400, brosse large 2 500, extra-large 9 000, souffleur
+  30 000, souffleur double 95 000, pulvérisateur 280 000, diffuseur 800 000 (20 tuiles, 0,15 s, 5 000 kg) ; plus le
+  collecteur à nectar 1 500, le râteau 300, l'enfumoir 600 et l'outil de construction 3 000.
+- **L'interface** : boussole et distance vers l'objectif, anneau et pourcentage du secteur, pastille orange de l'outil
+  et charge en gros chiffres, ronds des outils, argent en orange. Une étiquette flottante près de l'objet visé.
+  Paliers à 25, 50, 75 et 100 % : vague de floraison, nuée, le chiffre pulse, un son plein. Le son monte d'un
+  demi-ton par tuile enchaînée jusqu'à l'octave, et le compteur de charge pulse de plus en plus vite.
+- **Les machines** circulent en lots de 10 kg, débits en kg/s, énergie en kW, trois niveaux qui doublent le débit :
+  collecteur 50 kg/s, extracteur 20, maturateur 12, raffineur de cire 8, couveuse 5, germoir 3, empoteuse 30,
+  trieuse 60, compacteur 40, convoyeur 25 ; poste solaire 20 kW, panneau suiveur 60 kW, batterie 400 kWh. Un tapis
+  qui aboutit au collecteur de la base vend. Jusqu'à cinquante ruches autonomes.
+- **Sauvegarde** locale au format 7. Une partie de la v10 n'apporte que l'argent, les outils et le temps de jeu.
+
+Rythme des déblocages, **estimé au calcul** (pas encore mesuré sur un joueur) :
+
+| Minute | Ce qui s'ouvre |
+| --- | --- |
+| 4 | Brosse à pollen (400) |
+| 7 | Râteau à graines (300) |
+| 10 | Portée, à l'atelier (500) |
+| 14 | Réservoir +25 %, à l'atelier (800) |
+| 19 | Collecteur à nectar (1 500) |
+| 24 | Brosse large (2 500) |
+| 30 | Outil de construction (3 000), palier 25 % |
+| 33 | Ruche simple (2 000) |
+| 36 | Extracteur (1 500), palier 50 % |
+| 40 | Poste solaire (2 000) |
+| 45 | Brosse extra-large (9 000) |
+| 48 | Secteur 2 |
+
+Ce qui reste simplifié : la cadence d'images n'est pas mesurée (pas de carte graphique ici : 2,7 millions de triangles
+par image sur ordinateur, 0,5 million sur téléphone) ; le convoyeur courbe ne diffère du droit que par le modèle ;
+les lignes électriques ne sont pas dessinées.
+
 ## v10 — la planète (`v10/index.html`)
 
 Version courante. Un seul fichier, ordinateur et téléphone. Code dans `v10/src`, assemblé par `node v10/construire.mjs`.

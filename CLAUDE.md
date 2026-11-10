@@ -10,7 +10,14 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v10 (brief « design, bâtiments, planète ») : `v10/index.html`**, version courante. Les cinq étapes du brief sont
+- **v11 (brief « design épuré, planète, addiction ») : `v11/index.html`**, version courante, les six étapes faites.
+  Le brief demande « le style exact de Moon Sweepers » et une comparaison de captures : refusé comme en v6 et v9 ; ses
+  dix contraintes de forme sont appliquées comme charte propre à POLLEN. Planète-prairie sans mer ni montagne,
+  40 891 tuiles de 8 m (treillis 64), grille de construction de 2 m (treillis 256), douze secteurs = régions des
+  douze sommets de l'icosaèdre, prix par secteur 8 → 480 cr. Huit couleurs en tout (le jaune ne sert qu'au cœur de la
+  fleur et au pollen). Huit outils et quatorze machines aux chiffres du brief, lots de 10 kg, énergie en kW et kWh.
+  Sauvegarde format 7, clés `pollen-v11-…`. Code dans `v11/src`, `node v11/construire.mjs`. Test : `npm run smoke:v11`.
+- **v10 (brief « design, bâtiments, planète ») : `v10/index.html`**, mise de côté par la v11. Les cinq étapes du brief sont
   faites (le fondateur : « fais toutes les étapes sans me demander ») : 1 anomalies ; 2 planète sphérique de 500 m
   (tuiles d'un icosaèdre subdivisé 256 fois, gravité vers le centre, relief par bruit, mer, calottes, nuages, étoiles,
   soleil qui tourne en 16 min, secteurs en disques cernés d'un liseré, carte-globe avec voyage rapide) ; 3 quatre

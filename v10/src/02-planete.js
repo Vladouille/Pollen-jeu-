@@ -30,7 +30,7 @@ const CANON = new Map();
 function alias(f, i, j) {   // tous les noms (face, i, j) de cette tuile
   if (i > 0 && j > 0 && i + j < NSUB) return [[f, i, j]];
   const d = dirTuile(f, i, j, new V3()), out = [];
-  for (let g = 0; g < 20; g++) { const [u, v] = treillis(g, d); if (u > -1e-4 && v > -1e-4 && u + v < NSUB + 1e-4) { const [a, b] = arrondir(u, v); out.push([g, a, b]); } }
+  for (let g = 0; g < 20; g++) { if (d.dot(ICO[g].cen) < 0.5) continue; const [u, v] = treillis(g, d); if (u > -1e-4 && v > -1e-4 && u + v < NSUB + 1e-4) { const [a, b] = arrondir(u, v); out.push([g, a, b]); } }
   return out.length ? out : [[f, i, j]];
 }
 function canon(f, i, j) {
