@@ -10,7 +10,11 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
 - **v2 (brief « graphismes et jouabilité ») : `v2/index.html`**, un seul fichier, troisième personne, tactile.
   Étapes 1 à 4 du brief faites (décor, personnage, commandes, boucle). Reste l'étape 5 : 24 parcelles, ruches,
   six outils, saisons, succès. Test : `npm run smoke:v2`.
-- **v11 (brief « design épuré, planète, addiction ») : `v11/index.html`**, version courante, les six étapes faites.
+- **v12 (document « les briques ») : `v12/index.html`**, version courante. Huit briques courtes que le fondateur
+  envoie une par une ; ne faire QUE la brique reçue, puis attendre la suivante. Brique 1 (le socle) faite : planète
+  pavée, gravité, caméra lissée, ombre, ciel, soleil, sol à grain. Prochaine : brique 2 (les fleurs).
+  Code dans `v12/src`, `node v12/construire.mjs`. Test : `npm run smoke:v12`.
+- **v11 (brief « design épuré, planète, addiction ») : `v11/index.html`**, mise de côté par la v12, les six étapes faites.
   Le brief demande « le style exact de Moon Sweepers » et une comparaison de captures : refusé comme en v6 et v9 ; ses
   dix contraintes de forme sont appliquées comme charte propre à POLLEN. Planète-prairie sans mer ni montagne,
   40 891 tuiles de 8 m (treillis 64), grille de construction de 2 m (treillis 256), douze secteurs = régions des

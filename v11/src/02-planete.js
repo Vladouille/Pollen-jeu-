@@ -44,11 +44,10 @@ function treillisN(N) {
   }
   function tuileDe(d) { const f = faceDe(d), [u, v] = treillis(f, d, N), [i, j] = arrondir(u, v); return canon(f, i, j); }   // d : direction unitaire
   function voisinsDe(id) {   // les six tuiles voisines (cinq autour d'un pentagone)
-    const [f, i, j] = decoder(id), out = [];
-    for (const [a, b] of [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]) {
-      const ni = i + a, nj = j + b; let v;
-      if (ni >= 0 && nj >= 0 && ni + nj <= N) v = canon(f, ni, nj); else v = tuileDe(dirTuile(f, ni, nj, _t));   // hors de la face : on retombe sur la face voisine
-      if (v !== id && !out.includes(v)) out.push(v);
+    const [f, i, j] = decoder(id), out = [], noms = (i > 0 && j > 0 && i + j < N) ? [[f, i, j]] : alias(f, i, j);
+    for (const [g, a0, b0] of noms) for (const [a, b] of [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]) {   // sur une arête ou un sommet : les voisines de chaque face qui la porte
+      const ni = a0 + a, nj = b0 + b; if (ni < 0 || nj < 0 || ni + nj > N) continue;
+      const v = canon(g, ni, nj); if (v !== id && !out.includes(v)) out.push(v);
     }
     return out;
   }

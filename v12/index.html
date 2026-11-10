@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#cfe6f7">
+<title>POLLEN socle</title>
+<!-- Fichier généré par v12/construire.mjs à partir de v12/src : ne pas modifier à la main. -->
+<!--
+  POLLEN v12, brique 1 : le socle. Une planète de 500 m pavée d'hexagones, la gravité vers le centre, la vue à la
+  première personne et son ombre, le ciel noir étoilé et le soleil qui tourne. Rien d'autre.
+  ?mode=pc ou ?mode=mobile pour forcer l'appareil, ?debug pour les compteurs.
+-->
+<style>
+  :root { --orange: #f08a24; --encre: #fffdf7; color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; overscroll-behavior: none; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; font: 800 14px/1.2 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: var(--encre); }
+  #jeu { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
+  #c { display: block; width: 100%; height: 100%; outline: none; cursor: crosshair; }
+  .stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .6); background: rgba(28, 31, 35, .18); pointer-events: none; }
+  .stick b { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255, 253, 247, .85); }
+  #debug { position: absolute; left: 10px; top: 10px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
+  #panne { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9; padding: 10px 14px; border-radius: 8px; background: rgba(47, 51, 56, .92); }
+</style>
+<script>
+  function panne(m) { var p = document.getElementById('panne'); if (p) { p.hidden = false; p.textContent = m; } }
+  window.addEventListener('error', function (e) { panne('Erreur : ' + (e.message || e.type)); });
+</script>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="jeu">
+  <canvas id="c" tabindex="0" aria-label="POLLEN, une petite planète à parcourir"></canvas>
+  <div class="stick" hidden><b></b></div>
+  <button id="agir" type="button" hidden aria-label="Action"></button>
+  <button id="inter" type="button" hidden aria-label="Interagir"></button>
+  <pre id="debug" hidden></pre>
+</div>
+<div id="panne" hidden></div>
+<script type="module">
+import * as THREE from 'three';
+
+// =====================================================================
+// 1. Appareil, qualité, outils
+// =====================================================================
+const params = new URLSearchParams(location.search);
+const MOBILE = params.has('mode') ? params.get('mode') === 'mobile'
+  : (matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const Q = MOBILE ? { nom: 'mobile', dpr: 1.5, msaa: 2, ombres: 1024, vignette: false } : { nom: 'pc', dpr: 2, msaa: 4, ombres: 2048, vignette: true };
+const DEBUG = params.has('debug');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const mulberry = (seed) => { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const PERM = new Uint8Array(512), VAL = new Float32Array(256);
+{ const R = mulberry(17); for (let i = 0; i < 256; i++) { PERM[i] = i; VAL[i] = R(); } for (let i = 255; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [PERM[i], PERM[j]] = [PERM[j], PERM[i]]; } for (let i = 0; i < 256; i++) PERM[i + 256] = PERM[i]; }
+function bruit(x, y, p = 256) {   // bruit de valeur, périodique de période p (textures sans couture)
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const v = (a, b) => VAL[PERM[((a % p) + p) % p + PERM[((b % p) + p) % p]]];
+  const u = xf * xf * (3 - 2 * xf), w = yf * yf * (3 - 2 * yf);
+  return lerp(lerp(v(xi, yi), v(xi + 1, yi), u), lerp(v(xi, yi + 1), v(xi + 1, yi + 1), u), w);
+}
+const fbm = (x, y, o = 4, p = 256) => { let a = 0.5, f = 1, s = 0, n = 0; for (let k = 0; k < o; k++) { s += a * bruit(x * f, y * f, Math.min(256, p * f)); n += a; a *= 0.5; f *= 2; } return s / n; };
+
+
+// =====================================================================
+// 2. La charte de la brique 1 : un seul sol, beige sec.
+// =====================================================================
+const SEC = 0xbfb49a;
+const V3 = THREE.Vector3;
+
+// =====================================================================
+// 3. Rendu : ciel noir étoilé, fin halo bleuté d'atmosphère, un soleil chaud (2,5) qui tourne vraiment autour de la
+//    planète, ombres douces, lumière d'hémisphère à 0,5 pour que les ombres ne soient jamais noires.
+// =====================================================================
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;   // ombres douces
+const scene = new THREE.Scene();
+const HORIZON = new THREE.Color(0x6f9fd8);
+scene.fog = new THREE.FogExp2(HORIZON.clone(), 0.0018);
+const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.06, 6000);   // œil à 1,7 m, champ de vision 70°
+let gt = 0;   // horloge du jeu (s)
+const MAJ = [];   // fonctions de mise à jour, appelées à chaque image
+const DUREE_JOUR = 960;   // un tour de soleil en 16 minutes
+const SOLEIL = new V3(1, 0.25, 0).normalize(), JOUR = { angle: 0.6, ici: 1 };
+function placerSoleil() { SOLEIL.set(Math.cos(JOUR.angle) * 0.97, 0.24, Math.sin(JOUR.angle) * 0.97).normalize(); }
+placerSoleil();
+const sun = new THREE.DirectionalLight(0xffe7c4, 2.5);
+sun.castShadow = true; sun.shadow.mapSize.set(Q.ombres, Q.ombres); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; sun.shadow.radius = 3; sun.shadow.intensity = 0.72;   // une ombre nette, jamais noire
+Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 140 }); sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0xbfd8ff, 0xb9ac8c, 0.5); scene.add(hemi);   // son « haut » suit la verticale du joueur
+const CIEL_U = { uSol: { value: SOLEIL }, uHaut: { value: new V3(0, 1, 0) }, uJour: { value: 1 } };
+const ciel = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false, uniforms: CIEL_U,
+  vertexShader: 'varying vec3 vD; void main(){ vD = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
+  fragmentShader: `uniform vec3 uSol, uHaut; uniform float uJour; varying vec3 vD;
+    void main(){ vec3 d = normalize(vD);
+      vec3 g = floor(d * 190.0) + 0.5; float h = fract(sin(dot(g, vec3(12.9898, 78.233, 37.719))) * 43758.5453);   // étoiles : une par case tirée au sort
+      float etoile = step(0.992, h) * smoothstep(0.0034, 0.0008, length(d - normalize(g))) * (0.5 + 0.5 * fract(h * 71.0));
+      float e = dot(d, uHaut), halo = exp(-max(e + 0.02, 0.0) * 14.0) * (0.25 + 0.75 * uJour);           // noir même de jour ; halo au ras de l'horizon
+      vec3 c = vec3(etoile) * (1.0 - smoothstep(0.0, 0.5, halo)) * 1.3 + vec3(0.31, 0.6, 1.0) * halo * 0.9 + vec3(0.95, 0.5, 0.22) * uJour * (1.0 - uJour) * exp(-abs(e) * 10.0) * 1.2;
+      float s = max(dot(d, uSol), 0.0); c += vec3(1.0, 0.92, 0.78) * (pow(s, 900.0) * 9.0 + pow(s, 40.0) * 0.2);
+      gl_FragColor = vec4(c, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+}));
+ciel.frustumCulled = false; ciel.renderOrder = -10; scene.add(ciel);
+// Bruit de valeur à trois dimensions : le relief de la planète (continents, collines, montagnes).
+function bruit3(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi;
+  const h = (a, b, c) => VAL[PERM[(a & 255) + PERM[(b & 255) + PERM[c & 255]]]];
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  return lerp(lerp(lerp(h(xi, yi, zi), h(xi + 1, yi, zi), u), lerp(h(xi, yi + 1, zi), h(xi + 1, yi + 1, zi), u), v),
+    lerp(lerp(h(xi, yi, zi + 1), h(xi + 1, yi, zi + 1), u), lerp(h(xi, yi + 1, zi + 1), h(xi + 1, yi + 1, zi + 1), u), v), w);
+}
+const fbm3 = (x, y, z, o = 4) => { let a = 0.5, f = 1, s = 0, n = 0; for (let k = 0; k < o; k++) { s += a * bruit3(x * f + k * 17.3, y * f, z * f); n += a; a *= 0.5; f *= 2; } return s / n; };
+
+function texture(w, h, fn, srgb = true, rep = 1) {   // texture générée sur canvas
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'); fn(g, w, h);
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep);
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function pixels(w, h, fn, srgb = true, rep = 1) {
+  return texture(w, h, (g) => { const im = g.createImageData(w, h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = fn(x, y), i = (y * w + x) * 4; im.data[i] = c[0]; im.data[i + 1] = c[1]; im.data[i + 2] = c[2]; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); }, srgb, rep);
+}
+
+
+
+
+// =====================================================================
+// 4. La planète : une sphère de 500 m de rayon (3,1 km de tour). « Haut » = du centre vers soi.
+//    Pavage par subdivision d'icosaèdre (64 par arête) : des hexagones d'environ 8 m et douze pentagones ;
+//    la même fonction de repérage tourne ici et dans le shader du sol. Relief très léger : un bruit sur le rayon.
+// =====================================================================
+const RP = 500, POLE = new V3(0, 1, 0);
+const NM = MOBILE ? 80 : 128;   // finesse du maillage du sol, par arête de face
+const ICO = (() => {
+  const t = (1 + Math.sqrt(5)) / 2, v = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map((a) => new V3(...a).normalize());
+  const f = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8], [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
+  const faces = f.map(([a, b, c]) => { const A = v[a], B = v[b], C = v[c], M = new THREE.Matrix3().set(A.x, B.x, C.x, A.y, B.y, C.y, A.z, B.z, C.z); return { A, B, C, inv: M.clone().invert(), cen: A.clone().add(B).add(C).normalize() }; });
+  faces.sommets = v; return faces;
+})();
+const _w = new V3(), _d = new V3(), _d2 = new V3();
+function faceDe(d) { let m = -2, f = 0; for (let k = 0; k < 20; k++) { const t = d.dot(ICO[k].cen); if (t > m) { m = t; f = k; } } return f; }
+function treillis(f, d, n) { _w.copy(d).applyMatrix3(ICO[f].inv); const s = _w.x + _w.y + _w.z; return [_w.y / s * n, _w.z / s * n]; }   // coordonnées (u, v) dans la face
+function arrondir(u, v) {   // le sommet du treillis le plus proche (arrondi « cube », comme pour toute grille hexagonale)
+  const y = -u - v; let rx = Math.round(u), ry = Math.round(y), rz = Math.round(v); const dx = Math.abs(rx - u), dy = Math.abs(ry - y), dz = Math.abs(rz - v);
+  if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+  return [rx, rz];
+}
+// Un treillis de N subdivisions : repérage, voisins, nom canonique (une tuile sur une arête appartient à deux faces).
+function treillisN(N) {
+  const N1 = N + 1, CANON = new Map(), _t = new V3();
+  const idDe = (f, i, j) => (f * N1 + i) * N1 + j;
+  const decoder = (id) => [Math.floor(id / (N1 * N1)), Math.floor(id / N1) % N1, id % N1];
+  const dirTuile = (f, i, j, out) => { const F = ICO[f]; return out.set(0, 0, 0).addScaledVector(F.A, (N - i - j) / N).addScaledVector(F.B, i / N).addScaledVector(F.C, j / N).normalize(); };
+  const dirDe = (id, out = new V3()) => { const [f, i, j] = decoder(id); return dirTuile(f, i, j, out); };
+  function alias(f, i, j) {   // tous les noms (face, i, j) de cette tuile
+    if (i > 0 && j > 0 && i + j < N) return [[f, i, j]];
+    const d = dirTuile(f, i, j, new V3()), out = [];
+    for (let g = 0; g < 20; g++) { if (d.dot(ICO[g].cen) < 0.5) continue; const [u, v] = treillis(g, d, N); if (u > -1e-4 && v > -1e-4 && u + v < N + 1e-4) { const [a, b] = arrondir(u, v); out.push([g, a, b]); } }
+    return out.length ? out : [[f, i, j]];
+  }
+  function canon(f, i, j) {
+    if (i > 0 && j > 0 && i + j < N) return idDe(f, i, j);
+    const k = idDe(f, i, j); let c = CANON.get(k);
+    if (c === undefined) { const a = alias(f, i, j)[0]; c = idDe(a[0], a[1], a[2]); CANON.set(k, c); }
+    return c;
+  }
+  function tuileDe(d) { const f = faceDe(d), [u, v] = treillis(f, d, N), [i, j] = arrondir(u, v); return canon(f, i, j); }   // d : direction unitaire
+  function voisinsDe(id) {   // les six tuiles voisines (cinq autour d'un pentagone)
+    const [f, i, j] = decoder(id), out = [], noms = (i > 0 && j > 0 && i + j < N) ? [[f, i, j]] : alias(f, i, j);
+    for (const [g, a0, b0] of noms) for (const [a, b] of [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]) {   // sur une arête ou un sommet : les voisines de chaque face qui la porte
+      const ni = a0 + a, nj = b0 + b; if (ni < 0 || nj < 0 || ni + nj > N) continue;
+      const v = canon(g, ni, nj); if (v !== id && !out.includes(v)) out.push(v);
+    }
+    return out;
+  }
+  return { N, N1, idDe, decoder, dirTuile, dirDe, alias, canon, tuileDe, voisinsDe, PAS: ICO[0].A.distanceTo(ICO[0].B) / N * RP };
+}
+const GROS = treillisN(64);   // les tuiles : 40 962 (40 950 hexagones et douze pentagones), d'environ 8,2 m
+let NT = 0; { const vus = new Set(); for (let f = 0; f < 20; f++) for (let i = 0; i <= 64; i++) for (let j = 0; j <= 64 - i; j++) vus.add(GROS.canon(f, i, j)); NT = vus.size; }
+
+// --- Repères locaux. ---
+function repere(p) { const up = new V3().copy(p).normalize(), est = new V3().crossVectors(POLE, up); if (est.lengthSq() < 1e-8) est.set(1, 0, 0); est.normalize(); return { up, est, nord: new V3().crossVectors(up, est) }; }
+function tangent(p, v, out = new V3()) { _d.copy(p).normalize(); return out.copy(v).addScaledVector(_d, -v.dot(_d)).normalize(); }   // v ramené dans le plan du sol en p
+const _mb = new THREE.Matrix4(), _x = new V3(), _y = new V3();
+function poserSur(obj, p, face) {   // pose un objet debout en p, sa face avant (+z) tournée vers le vecteur « face »
+  _y.copy(p).normalize(); const z = tangent(p, face, new V3()); _x.crossVectors(_y, z);
+  obj.position.copy(p); obj.quaternion.setFromRotationMatrix(_mb.makeBasis(_x, _y, z)); obj.updateMatrixWorld(true);
+  obj.userData.ax = _x.clone(); obj.userData.az = z; return obj;
+}
+const qHaut = (dir, out = new THREE.Quaternion()) => out.setFromUnitVectors(POLE, dir);
+
+function relief(d) {   // de simples ondulations, ±1,5 m
+  return (fbm3(d.x * 5 + 3.1, d.y * 5 + 1.3, d.z * 5 + 7.7, 3) - 0.5) * 3.2 + (bruit3(d.x * 22, d.y * 22, d.z * 22) - 0.5) * 0.5;
+}
+const lisse = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+// Les hauteurs sont calculées une fois sur le maillage du sol ; « sol » interpole ce maillage : rien ne flotte.
+const ixM = (i, j) => i * (NM + 1) - (i * (i - 1) >> 1) + j;
+const HAUTEURS = ICO.map((F) => { const a = new Float32Array((NM + 1) * (NM + 2) / 2); for (let i = 0; i <= NM; i++) for (let j = 0; j <= NM - i; j++) { _d2.set(0, 0, 0).addScaledVector(F.A, (NM - i - j) / NM).addScaledVector(F.B, i / NM).addScaledVector(F.C, j / NM).normalize(); a[ixM(i, j)] = RP + relief(_d2); } return a; });
+function sol(d) {   // rayon du sol dans la direction unitaire d
+  const f = faceDe(d), Hf = HAUTEURS[f]; let [u, v] = treillis(f, d, NM); u = clamp(u, 0, NM); v = clamp(v, 0, NM - u);
+  let i = Math.floor(u), j = Math.floor(v); if (i + j >= NM) { if (i > 0) i--; else j--; }
+  const fu = u - i, fv = v - j;
+  if (fu + fv <= 1 || i + j >= NM - 1) return Hf[ixM(i, j)] * (1 - fu - fv) + Hf[ixM(i + 1, j)] * fu + Hf[ixM(i, j + 1)] * fv;
+  return Hf[ixM(i + 1, j + 1)] * (fu + fv - 1) + Hf[ixM(i + 1, j)] * (1 - fv) + Hf[ixM(i, j + 1)] * (1 - fu);
+}
+function surSol(p, h = 0, out = new V3()) { out.copy(p).normalize(); return out.multiplyScalar(sol(out) + h); }
+const altitude = (p) => { _d.copy(p).normalize(); return sol(_d) - RP; };
+
+// --- Le sol : vingt faces de maillage. Jamais une surface unie : un grain peint sur canvas (couleur) et une carte de
+//     normales tirée du même bruit, à 2,5 m par motif ; les tuiles se lisent par une rainure fine sur leur contour. ---
+const GRAIN = 256, HG = new Float32Array(GRAIN * GRAIN);
+for (let y = 0; y < GRAIN; y++) for (let x = 0; x < GRAIN; x++) HG[y * GRAIN + x] = 0.55 * bruit(x / 8, y / 8, 32) + 0.3 * bruit(x / 4, y / 4, 64) + 0.15 * Math.random();
+const TEX_GRAIN = pixels(GRAIN, GRAIN, (x, y) => { const v = 1 + 0.22 * (HG[y * GRAIN + x] - 0.5), r = SEC >> 16 & 255, g = SEC >> 8 & 255, b = SEC & 255; return [Math.min(255, r * v), Math.min(255, g * v), Math.min(255, b * v)]; });   // beige sec #BFB49A, ±11 %
+const TEX_NORMALES = pixels(GRAIN, GRAIN, (x, y) => {   // pente du grain → normale, encodée en couleur
+  const h = (a, b) => HG[((b + GRAIN) % GRAIN) * GRAIN + ((a + GRAIN) % GRAIN)], dx = (h(x + 1, y) - h(x - 1, y)) * 2.2, dy = (h(x, y + 1) - h(x, y - 1)) * 2.2, l = Math.hypot(dx, dy, 1);
+  return [(-dx / l * 0.5 + 0.5) * 255, (-dy / l * 0.5 + 0.5) * 255, (1 / l * 0.5 + 0.5) * 255];
+}, false);
+const M_SOL = new THREE.MeshStandardMaterial({ color: 0xffffff, map: TEX_GRAIN, normalMap: TEX_NORMALES, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 0.95 });
+const SOL_U = { uCen: { value: ICO.map((F) => F.cen) }, uInv: { value: ICO.map((F) => F.inv) } };
+M_SOL.onBeforeCompile = (sh) => {
+  Object.assign(sh.uniforms, SOL_U);
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMonde;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+    varying vec3 vMonde; uniform vec3 uCen[20]; uniform mat3 uInv[20];
+    vec2 arrondir(vec2 uv) { vec3 c = vec3(uv.x, -uv.x - uv.y, uv.y); vec3 r = floor(c + 0.5); vec3 e = abs(r - c); if (e.x > e.y && e.x > e.z) r.x = -r.y - r.z; else if (e.y > e.z) r.y = -r.x - r.z; else r.z = -r.x - r.y; return r.xz; }
+    float bordHex(vec2 d) { return 2.0 * max(abs(d.x + 0.5 * d.y), max(abs(d.y + 0.5 * d.x), 0.5 * abs(d.x - d.y))); }`)
+    .replace('#include <map_fragment>', `#include <map_fragment>
+    { vec3 dir = normalize(vMonde); float m = -2.0; int f = 0; for (int k = 0; k < 20; k++) { float t = dot(dir, uCen[k]); if (t > m) { m = t; f = k; } }
+      vec3 w = uInv[f] * dir; vec2 uv = w.yz / (w.x + w.y + w.z) * ${GROS.N}.0; float bord = bordHex(uv - arrondir(uv)), dcam = distance(vMonde, cameraPosition);
+      diffuseColor.rgb *= 1.0 - 0.16 * smoothstep(0.95, 0.99, bord) * (1.0 - smoothstep(25.0, 80.0, dcam)); }`);
+};
+const PLANETE = new THREE.Group(); scene.add(PLANETE);
+{
+  const bord = new Map(), faces = [];
+  ICO.forEach((F, f) => {
+    const n = (NM + 1) * (NM + 2) / 2, pos = new Float32Array(n * 3), uvs = new Float32Array(n * 2), idx = [];
+    const e1 = new V3().subVectors(F.B, F.A).normalize(), e2 = new V3().subVectors(F.C, F.A); e2.addScaledVector(e1, -e2.dot(e1)).normalize();
+    for (let i = 0; i <= NM; i++) for (let j = 0; j <= NM - i; j++) {
+      const k = ixM(i, j); _d2.set(0, 0, 0).addScaledVector(F.A, (NM - i - j) / NM).addScaledVector(F.B, i / NM).addScaledVector(F.C, j / NM).normalize();
+      const r = HAUTEURS[f][k]; pos.set([_d2.x * r, _d2.y * r, _d2.z * r], k * 3);
+      uvs.set([_d2.dot(e1) * RP / 2.5, _d2.dot(e2) * RP / 2.5], k * 2);   // coordonnées de texture à l'échelle du monde : 2,5 m par motif
+    }
+    for (let i = 0; i < NM; i++) for (let j = 0; j < NM - i; j++) { idx.push(ixM(i, j), ixM(i + 1, j), ixM(i, j + 1)); if (i + j < NM - 1) idx.push(ixM(i + 1, j), ixM(i + 1, j + 1), ixM(i, j + 1)); }
+    if (new V3().subVectors(F.B, F.A).cross(new V3().subVectors(F.C, F.A)).dot(F.cen) < 0) for (let k = 0; k < idx.length; k += 3) { const t = idx[k + 1]; idx[k + 1] = idx[k + 2]; idx[k + 2] = t; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const nor = g.attributes.normal;   // les sommets partagés entre deux faces prennent la même normale : pas de couture visible
+    const noter = (i, j) => { const k = ixM(i, j), c = Math.round(pos[k * 3] * 20) + ',' + Math.round(pos[k * 3 + 1] * 20) + ',' + Math.round(pos[k * 3 + 2] * 20); if (!bord.has(c)) bord.set(c, { n: new V3(), l: [] }); const e = bord.get(c); e.n.x += nor.getX(k); e.n.y += nor.getY(k); e.n.z += nor.getZ(k); e.l.push([nor, k]); };
+    for (let i = 0; i <= NM; i++) { noter(i, 0); if (i < NM) noter(0, NM - i); if (i > 0 && i < NM) noter(i, NM - i); }
+    faces.push(g);
+  });
+  for (const e of bord.values()) { e.n.normalize(); for (const [nor, k] of e.l) nor.setXYZ(k, e.n.x, e.n.y, e.n.z); }
+  for (const g of faces) { const m = new THREE.Mesh(g, M_SOL); m.receiveShadow = true; PLANETE.add(m); }
+}
+
+// =====================================================================
+// 8. Les commandes : objet d'entrée E. Ordinateur : ZQSD/WASD, souris au pointeur verrouillé
+//    (premier clic), clic gauche pour agir, E pour interagir, 1-7 pour l'outil. Téléphone : joystick
+//    au pouce gauche, regard au pouce droit en même temps, boutons action et E, paysage forcé.
+// =====================================================================
+const jeu = document.getElementById('jeu');
+const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, tourner: false, carte: false, verrou: false, molette: 0 };   // presse : une pression, même brève, entre deux images
+let tourne = false;   // téléphone tenu en portrait : la scène tourne d'un quart de tour
+const versJeu = (cx, cy) => tourne ? [cy, innerWidth - cx] : [cx, cy];
+const sons = { init() {} };   // remplacé par le module du son
+if (!MOBILE) {
+  const touches = {}; let verrou = false, refus = false, glisse = false, souris = false;
+  const maj = () => {
+    E.mz = (touches.KeyW || touches.ArrowUp ? 1 : 0) - (touches.KeyS || touches.ArrowDown ? 1 : 0);
+    E.mx = (touches.KeyD || touches.ArrowRight ? 1 : 0) - (touches.KeyA || touches.ArrowLeft ? 1 : 0);
+    E.action = souris || !!touches.Space;
+  };
+  addEventListener('keydown', (e) => {
+    if (['Space'].includes(e.code) || e.code.startsWith('Arrow')) e.preventDefault();
+    if (e.repeat) return;
+    touches[e.code] = true; sons.init(); maj();
+    if (e.code === 'KeyE' || e.code === 'KeyF') E.inter = true;
+    if (/^Digit[0-9]$/.test(e.code)) E.outil = (+e.code.slice(5) + 9) % 10;
+    if (e.code === 'Space') E.presse = true;
+    if (e.code === 'KeyB') E.construire = true;
+    if (e.code === 'KeyR') E.tourner = true;
+    if (e.code === 'KeyM') E.carte = true;
+    if (e.code === 'KeyG') E.verrou = true;
+  });
+  addEventListener('keyup', (e) => { touches[e.code] = false; maj(); });
+  const echec = () => { refus = true; if (glisse) { souris = true; maj(); } };
+  canvas.addEventListener('mousedown', (e) => {
+    sons.init(); if (e.button !== 0) return;
+    if (verrou || refus) { souris = true; glisse = !verrou; E.presse = true; maj(); return; }
+    glisse = true;   // premier clic : il verrouille le pointeur, il n'agit pas
+    try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(echec); } catch (err) { echec(); }
+  });
+  document.addEventListener('pointerlockerror', echec);
+  document.addEventListener('pointerlockchange', () => { verrou = document.pointerLockElement === canvas; if (verrou) glisse = false; else { souris = false; maj(); } });
+  addEventListener('mouseup', (e) => { if (e.button === 0) { glisse = false; souris = false; maj(); } });
+  addEventListener('mousemove', (e) => {
+    if (!verrou && !glisse) return;
+    if (Math.abs(e.movementX) > 250 || Math.abs(e.movementY) > 250) return;   // saut parasite au verrouillage
+    E.dYaw += e.movementX * 0.0022; E.dPitch += e.movementY * 0.0022;
+  });
+  canvas.addEventListener('wheel', (e) => { E.outil = -2 - (e.deltaY > 0 ? 1 : 0); E.molette = e.deltaY > 0 ? 1 : -1; e.preventDefault(); }, { passive: false });   // -2 : précédent, -3 : suivant
+  addEventListener('blur', () => { for (const k in touches) touches[k] = false; souris = false; glisse = false; maj(); });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+} else {
+  const agir = document.getElementById('agir'), inter = document.getElementById('inter'), stickEl = document.querySelector('.stick');
+  // brique 1 : pas encore de bouton d’action
+  const R = 56, SENS = 0.0056; let stick = null, regard = null, agirId = null, agirPos = null, essai = false;
+  const majStick = (x, y) => { const l = Math.hypot(x, y); if (l < 0.12) { E.mx = 0; E.mz = 0; return; } const m = Math.max(0.18, Math.pow((Math.min(l, 1) - 0.12) / 0.88, 1.5)); E.mx = x / l * m; E.mz = -y / l * m; };
+  const premier = () => { sons.init(); if (essai) return; essai = true; try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (err) { /* refusé : la scène tourne */ } };
+  agir.addEventListener('touchstart', (e) => { premier(); const t = e.changedTouches[0]; agirId = t.identifier; agirPos = versJeu(t.clientX, t.clientY); E.action = true; E.presse = true; agir.classList.add('appui'); e.preventDefault(); e.stopPropagation(); }, { passive: false });
+  inter.addEventListener('touchstart', (e) => { premier(); E.inter = true; e.preventDefault(); e.stopPropagation(); }, { passive: false });
+  addEventListener('touchstart', (e) => {
+    premier();
+    const larg = tourne ? innerHeight : innerWidth;
+    for (const t of e.changedTouches) {
+      if (t.identifier === agirId || (t.target && t.target.closest && t.target.closest('button, [data-tactile]'))) continue;   // les boutons gardent leurs touches
+      const [x, y] = versJeu(t.clientX, t.clientY);
+      if (x < larg * 0.45 && !stick) { stick = { id: t.identifier, ox: x, oy: y }; stickEl.hidden = false; stickEl.style.left = x + 'px'; stickEl.style.top = y + 'px'; stickEl.firstChild.style.transform = ''; }
+      else if (!regard) regard = { id: t.identifier, x, y };
+    }
+    if (!(e.target && e.target.closest && e.target.closest('button, [data-tactile]'))) e.preventDefault();
+  }, { passive: false });
+  addEventListener('touchmove', (e) => {
+    for (const t of e.changedTouches) {
+      const [x, y] = versJeu(t.clientX, t.clientY);
+      if (stick && t.identifier === stick.id) { let dx = (x - stick.ox) / R, dy = (y - stick.oy) / R; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } stickEl.firstChild.style.transform = `translate(${dx * R}px, ${dy * R}px)`; majStick(dx, dy); }
+      else if (regard && t.identifier === regard.id) { const dx = x - regard.x, dy = y - regard.y, acc = 1 + Math.min(Math.hypot(dx, dy), 30) / 30 * 0.5; E.dYaw += dx * SENS * acc; E.dPitch += dy * SENS * acc; regard.x = x; regard.y = y; }
+      else if (t.identifier === agirId && agirPos) { E.dYaw += (x - agirPos[0]) * SENS * 0.6; E.dPitch += (y - agirPos[1]) * SENS * 0.6; agirPos = [x, y]; }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  const fin = (e) => { sons.init(); for (const t of e.changedTouches) { if (stick && t.identifier === stick.id) { stick = null; stickEl.hidden = true; majStick(0, 0); } if (regard && t.identifier === regard.id) regard = null; if (t.identifier === agirId) { agirId = null; agirPos = null; E.action = false; agir.classList.remove('appui'); } } };
+  addEventListener('touchend', fin); addEventListener('touchcancel', fin);
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+}
+
+// =====================================================================
+// 9. Le joueur, sur la sphère : première personne, œil à 1,7 m. Sa verticale est le vecteur centre → position.
+//    À chaque image, son orientation est un quaternion qui aligne son axe vertical sur ce vecteur ; la caméra le
+//    rejoint par une interpolation sphérique lissée : elle ne tourne jamais brutalement.
+//    Pas de modèle visible, mais un corps invisible projette une ombre nette au sol, devant lui.
+// =====================================================================
+const OEIL = 1.7, VIT = 4.2;
+const joueur = { p: surSol(ICO.sommets[8].clone().multiplyScalar(RP)), q: new THREE.Quaternion(), yaw: 0, pitch: -0.12, v: new V3(), haut: new V3(), f: new V3(), pas: 0, vitesse: 0 };
+const _up = new V3(), _cible = new THREE.Quaternion(), _qy = new THREE.Quaternion(), _qx = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _np = new V3(), _dr = new V3(), _cb = new V3();
+// Le repère du joueur : on garde un « avant » tangent, qu'on transporte d'une position à l'autre (aucune torsion au pôle).
+joueur.haut.copy(joueur.p).normalize(); tangent(joueur.p, new V3(0, 1, 0.3), joueur.f);
+function repereJoueur(out) {   // quaternion qui envoie (x droite, y haut, -z avant) sur le repère local du joueur
+  const up = joueur.haut, f = joueur.f, r = _dr.crossVectors(f, up).normalize();
+  return out.setFromRotationMatrix(_mb.makeBasis(r, up, _cb.copy(f).negate()));
+}
+repereJoueur(joueur.q);
+function majJoueur(dt) {
+  const dY = E.dYaw, dP = E.dPitch; E.dYaw = 0; E.dPitch = 0;
+  joueur.haut.copy(joueur.p).normalize(); tangent(joueur.p, joueur.f, joueur.f);   // l'avant suit la courbure
+  joueur.f.applyAxisAngle(joueur.haut, -dY); joueur.pitch = clamp(joueur.pitch - dP, -1.35, 1.25);
+  _dr.crossVectors(joueur.f, joueur.haut);
+  let mx = E.mx, mz = E.mz; const m = Math.hypot(mx, mz); if (m > 1) { mx /= m; mz /= m; }
+  _cb.set(0, 0, 0).addScaledVector(joueur.f, mz).addScaledVector(_dr, mx).multiplyScalar(VIT);
+  joueur.v.lerp(_cb, 1 - Math.exp(-dt * 10)); joueur.v.addScaledVector(joueur.haut, -joueur.v.dot(joueur.haut));
+  _np.copy(joueur.p).addScaledVector(joueur.v, dt); surSol(_np, 0, joueur.p);   // gravité vers le centre : toujours collé au sol
+  joueur.vitesse = joueur.v.length();
+  if (joueur.vitesse > 0.25) joueur.pas += dt * joueur.vitesse * 1.7; else joueur.pas = lerp(joueur.pas, Math.round(joueur.pas / Math.PI) * Math.PI, 1 - Math.exp(-dt * 6));
+  // Orientation cible = repère local × regard vertical ; la caméra la rejoint en douceur.
+  repereJoueur(_cible).multiply(_qx.setFromAxisAngle(_c1.set(1, 0, 0), joueur.pitch));
+  joueur.q.slerp(_cible, 1 - Math.exp(-dt * 18));
+}
+const _c1 = new V3(), _oe = new V3();
+function majCamera() {
+  const up = joueur.haut, a = clamp(joueur.vitesse / VIT, 0, 1.3), sb = Math.sin(joueur.pas);
+  _oe.copy(joueur.p).addScaledVector(up, OEIL + Math.abs(sb) * 0.045 * a - 0.02 * a).addScaledVector(_dr.crossVectors(joueur.f, up), sb * 0.02 * a);   // léger balancement à la marche
+  camera.position.copy(_oe); camera.quaternion.copy(joueur.q); camera.updateMatrixWorld();
+}
+// Le corps invisible : il n'écrit ni couleur ni profondeur, mais projette son ombre.
+const corps = new THREE.Group();
+{
+  const invisible = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+  const p = (geo, x, y, z, rz = 0) => { const m = new THREE.Mesh(geo, invisible); m.position.set(x, y, z); m.rotation.z = rz; m.castShadow = true; corps.add(m); return m; };
+  p(new THREE.CapsuleGeometry(0.2, 0.62, 4, 12), 0, 1.05, 0);
+  p(new THREE.SphereGeometry(0.13, 12, 10), 0, 1.6, 0);
+  p(new THREE.CapsuleGeometry(0.08, 0.7, 3, 8), -0.12, 0.42, 0);
+  p(new THREE.CapsuleGeometry(0.08, 0.7, 3, 8), 0.12, 0.42, 0);
+  p(new THREE.CapsuleGeometry(0.06, 0.5, 3, 8), -0.27, 1.12, 0, 0.12);
+  p(new THREE.CapsuleGeometry(0.06, 0.5, 3, 8), 0.3, 1.15, -0.15, -0.5);
+}
+scene.add(corps);
+function majCorps() {
+  const sb = Math.sin(joueur.pas), a = clamp(joueur.vitesse / VIT, 0, 1);
+  poserSur(corps, joueur.p, _c1.copy(joueur.f).negate());   // le corps regarde vers -z
+  corps.children[2].rotation.x = sb * 0.5 * a; corps.children[3].rotation.x = -sb * 0.5 * a;
+}
+
+
+// =====================================================================
+// 99. Mise en page (paysage forcé sur téléphone), boucle de jeu
+// =====================================================================
+let dpr = Math.min(devicePixelRatio || 1, Q.dpr), LARG = innerWidth, HAUT = innerHeight;
+function disposer() {
+  tourne = MOBILE && innerHeight > innerWidth;
+  LARG = tourne ? innerHeight : innerWidth; HAUT = tourne ? innerWidth : innerHeight;
+  jeu.style.width = LARG + 'px'; jeu.style.height = HAUT + 'px';
+  jeu.style.transform = tourne ? `translate(${innerWidth}px, 0) rotate(90deg)` : 'none';
+  renderer.setPixelRatio(dpr); renderer.setSize(LARG, HAUT, false);
+  camera.aspect = LARG / HAUT; camera.fov = 70; camera.updateProjectionMatrix();
+}
+disposer(); addEventListener('resize', disposer); addEventListener('orientationchange', () => setTimeout(disposer, 250));
+const dbg = document.getElementById('debug'); if (DEBUG) dbg.hidden = false;
+renderer.info.autoReset = false;
+const _ici = new V3();
+function majMonde(dt) {
+  gt += dt;
+  JOUR.angle += dt * Math.PI * 2 / DUREE_JOUR; placerSoleil();   // le soleil tourne vraiment : la ligne du jour avance sur la planète
+  majJoueur(dt); majCamera(); majCorps();
+  for (const f of MAJ) f(dt);
+  E.inter = false; E.presse = false; E.outil = -1; E.construire = false; E.tourner = false; E.carte = false; E.verrou = false; E.molette = 0;
+  const haut = joueur.haut, ici = lisse(-0.12, 0.22, haut.dot(SOLEIL)); JOUR.ici = ici;
+  // Le soleil éclaire depuis sa vraie direction ; sa caméra d'ombre suit le joueur (ombre nette autour de lui).
+  sun.target.position.copy(joueur.p); sun.position.copy(joueur.p).addScaledVector(SOLEIL, 60); sun.target.updateMatrixWorld();
+  sun.intensity = 2.5 * lisse(-0.05, 0.15, haut.dot(SOLEIL));
+  hemi.position.copy(haut); hemi.intensity = 0.12 + 0.38 * ici;   // 0,5 en plein jour
+  CIEL_U.uHaut.value.copy(haut); CIEL_U.uJour.value = ici; scene.fog.color.setHex(0x0b1220).lerp(HORIZON, ici);
+  ciel.position.copy(camera.position);
+}
+// Si l'image ralentit sous 50 img/s, la résolution baisse d'elle-même (et remonte quand ça va mieux).
+const CADENCE = { n: 0, t: 0, ips: 60 };
+function adapter(raw) {
+  CADENCE.n++; CADENCE.t += raw; if (CADENCE.t < 2) return;
+  CADENCE.ips = CADENCE.n / CADENCE.t; CADENCE.n = 0; CADENCE.t = 0;
+  const avant = dpr;
+  if (CADENCE.ips < 50 && dpr > 0.75) dpr = Math.max(0.75, dpr - 0.25); else if (CADENCE.ips > 58 && dpr < Math.min(devicePixelRatio || 1, Q.dpr)) dpr = Math.min(Q.dpr, dpr + 0.25);
+  if (dpr !== avant) disposer();
+}
+let dernier = performance.now();
+function image(now) {
+  requestAnimationFrame(image);
+  const raw = (now - dernier) / 1000; dernier = now;
+  if (!window.pollen.figer) { majMonde(Math.min(0.05, Math.max(0, raw))); if (!params.has('fixe')) adapter(raw); }
+  renderer.info.reset(); renderer.render(scene, camera);
+  if (DEBUG) dbg.textContent = `${Q.nom} · ${CADENCE.ips.toFixed(0)} img/s · résolution ×${dpr} · triangles ${(renderer.info.render.triangles / 1000).toFixed(0)} k · appels ${renderer.info.render.calls}\ntuiles ${NT} · altitude ${altitude(joueur.p).toFixed(2)} m`;
+}
+window.pollen = {
+  figer: false, Q, scene, camera, renderer, joueur, E, RP, NT, GROS, ICO, sol, surSol, altitude, repere, tangent, corps, sun, hemi, SOLEIL, JOUR, placerSoleil, CIEL_U, M_SOL, V3,
+  step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { p: joueur.p.toArray(), pitch: joueur.pitch, vitesse: joueur.vitesse }; },
+};
+majMonde(0);
+requestAnimationFrame(image);
+
+</script>
+</body>
+</html>

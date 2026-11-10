@@ -1,5 +1,15 @@
 # POLLEN
 
+## v12 — les briques, une par une (`v12/index.html`)
+
+Nouveau départ, sur la méthode du document « les briques » : huit prompts courts, envoyés un par un, la suivante
+seulement quand la précédente tourne. Code dans `v12/src`, `node v12/construire.mjs`. Test : `npm run smoke:v12`.
+
+- **Brique 1, le socle (faite)** : planète de 500 m pavée de 40 962 tuiles (douze pentagones), relief de ±1,5 m,
+  gravité vers le centre, vue à 1,7 m et 70°, caméra orientée par quaternion et lissée, ombre du joueur sans modèle,
+  ciel noir étoilé à halo bleuté, soleil à 2,5 qui tourne en 16 minutes, hémisphère à 0,5, ACES 1,1, sol beige sec à
+  grain peint et carte de normales, rainure fine entre les tuiles. La résolution baisse d'elle-même sous 50 img/s.
+
 ## v11 — la planète-prairie (`v11/index.html`)
 
 Version courante. Un seul fichier, ordinateur et téléphone. Code dans `v11/src`, assemblé par `node v11/construire.mjs`.
