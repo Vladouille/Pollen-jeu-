@@ -5,7 +5,7 @@
 //     - Quand : toutes les 30 s ; juste après un achat, une vente, une machine posée, un secteur fini (sauverBientot) ;
 //       quand l'onglet passe en arrière-plan ou se ferme.
 //     - Où : trois emplacements ; chacun garde aussi la sauvegarde précédente en copie de secours.
-//     - Quoi : format 6 (la planète). Les tuiles sont un tableau d'octets en base64. Une sauvegarde de la v9 (format 5
+//     - Quoi : format 7 (la planète, secteurs en bandes). Le format 6 (secteurs en disques) repart d'un monde neuf. Les tuiles sont un tableau d'octets en base64. Une sauvegarde de la v9 (format 5
 //       et avant, terrain plat) ne peut pas être reposée sur la planète : on en garde l'argent, les outils et le temps
 //       de jeu, le monde repart de zéro. Illisible : copie de secours, sinon partie neuve, avec un message clair.
 //     - Export / import : un fichier .json.
@@ -41,7 +41,7 @@ MAJ.push((dt) => {
     e.maj(); }
 });
 
-const VERSION_SAUVE = 6, NB_EMPL = 3;
+const VERSION_SAUVE = 7, NB_EMPL = 3;
 const cleEmpl = (n) => `pollen-v10-emplacement-${n}`, cleSecours = (n) => `pollen-v10-emplacement-${n}-secours`;
 const stock = {   // le localStorage peut être refusé (navigation privée, stockage plein) : on joue alors sans sauvegarde
   lire(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -75,7 +75,7 @@ function etatSauve() {
 // --- Conversion des anciens formats. Les formats 2 à 5 sont ceux du terrain plat de la v9 : le monde ne se transpose
 //     pas sur la planète. On en garde ce qui appartient au joueur (argent, outils, temps de jeu, ventes). ---
 const CONVERSIONS = {};
-for (const f of [2, 3, 4, 5]) CONVERSIONS[f] = (d) => ({ v: 6, date: d.date, temps: d.temps || (d.S && d.S.temps) || 0, monde: 'neuf', S: { credits: (d.S && d.S.credits) || 0, outils: ((d.S && d.S.outils) || ['pinceau']).filter((o) => OUTILS_DEF[o]), ventes: (d.S && d.S.ventes) || 0, tuiles: 0 }, ouverts: 1, tuiles: '' });
+for (const f of [2, 3, 4, 5, 6]) CONVERSIONS[f] = (d) => ({ v: 7, date: d.date, temps: d.temps || (d.S && d.S.temps) || 0, monde: 'neuf', S: { credits: (d.S && d.S.credits) || 0, outils: ((d.S && d.S.outils) || ['pinceau']).filter((o) => OUTILS_DEF[o]), ventes: (d.S && d.S.ventes) || 0, tuiles: 0 }, ouverts: 1, tuiles: '' });
 function convertir(d) {
   if (!d || typeof d !== 'object' || typeof d.v !== 'number') throw new Error('pas une sauvegarde POLLEN');
   while (d.v < VERSION_SAUVE) { const f = CONVERSIONS[d.v]; if (!f) throw new Error(`format ${d.v} trop ancien`); d = f(d); }

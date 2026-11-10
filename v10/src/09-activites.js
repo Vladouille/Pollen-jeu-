@@ -91,7 +91,7 @@ function fabriquerRuche(niveau = 0) {   // corps à panneaux en hausses (une de 
 }
 function ciblesRuche(p, niveau) {   // les tuiles du rayon ; la ruche mère couvre tout le secteur où elle est posée
   const out = [];
-  if (niveau === 2) { let s = -1, bd = 1e9; for (let k = 0; k < NSECT; k++) { const d = RP * _d.copy(p).normalize().distanceTo(SECTEURS[k].c) - SECTEURS[k].r; if (d < bd) { bd = d; s = k; } } if (bd > 12) return out; for (let k = 0; k < NT; k++) if (T.sect[k] === s) out.push(k); return out; }
+  if (niveau === 2) { let s = -1, bd = 1e9; for (let k = 0; k < NSECT; k++) { const d = SECTEURS[k].ecart(_d.copy(p).normalize()); if (d < bd) { bd = d; s = k; } } if (bd > 12) return out; for (let k = 0; k < NT; k++) if (T.sect[k] === s) out.push(k); return out; }
   const r = RAYONS_RUCHE[niveau] + 0.3; for (let k = 0; k < NT; k++) if (Math.abs(T.pos[k].x - p.x) < r && T.pos[k].distanceTo(p) < r) out.push(k);
   return out;
 }
@@ -158,7 +158,7 @@ MAJ.push((dt) => {
 // --- L'exploration : une balise au-delà de chaque secteur. E : +100 cr, le feu passe au cyan. ---
 const BALISES = [];
 for (let s = 0; s < NSECT; s++) {
-  const p = surSol(deplacer(SECTEURS[s].c, 40 + s * 67, SECTEURS[s].r + 9)), g = new THREE.Group(), base = socle(g, 0.6, 0.6);
+  const p = surSol(SECTEURS[s].bout.clone()), g = new THREE.Group(), base = socle(g, 0.6, 0.6);   // au bout de la bande
   placer(g, tube(0.06, 0.08, 3.2, M.blanc), 0, base + 1.6, 0);
   for (let k = 0; k < 3; k++) placer(g, tube(0.085, 0.085, 0.06, M.graphite), 0, base + 0.6 + k * 1, 0);
   const feu = placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 10), new THREE.MeshStandardMaterial({ color: 0x000000, emissive: CHARTE.pollen, emissiveIntensity: 2.5 })), 0, base + 3.35, 0); feu.userData.garder = true;

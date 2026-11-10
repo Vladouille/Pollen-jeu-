@@ -78,7 +78,19 @@ function deplacer(dir, capDeg, dist) {   // la direction atteinte en partant de 
   const { up, est, nord } = repere(dir), a = capDeg * Math.PI / 180, t = new V3().addScaledVector(nord, Math.cos(a)).addScaledVector(est, Math.sin(a)), w = dist / RP;
   return up.multiplyScalar(Math.cos(w)).addScaledVector(t, Math.sin(w)).normalize();
 }
-const SECTEURS = [[0, 0, 50], [80, 150, 38], [55, 340, 45], [115, 620, 52], [70, 980, 60], [95, 1500, 70]].map(([cap, dist, r], k) => ({ c: k ? deplacer(BASE_DIR, cap, dist) : BASE_DIR.clone(), r, r0: k ? 0 : RB }));
+// Les secteurs sont de longues bandes parallèles, côte à côte, qui partent du bord sud de la base et s'en éloignent.
+// Repère commun : B0, le point de départ (40 m au sud du centre de la base) ; BT, la direction « vers le sud » ; BN, la
+// normale du grand cercle. Une direction d a une abscisse le long des bandes (0 au départ) et un écart latéral.
+const B0 = deplacer(BASE_DIR, 180, RB + 6), BT = repere(B0).nord.negate(), BN = new V3().crossVectors(B0, BT).normalize();
+const bande = (d) => [Math.atan2(d.dot(BT), d.dot(B0)) * RP, Math.asin(clamp(d.dot(BN), -1, 1)) * RP];   // [le long, en travers], en mètres
+const versBande = (le, tr) => { const a = le / RP, l = tr / RP; return new V3().copy(B0).multiplyScalar(Math.cos(a)).addScaledVector(BT, Math.sin(a)).multiplyScalar(Math.cos(l)).addScaledVector(BN, Math.sin(l)).normalize(); };
+// [décalage latéral, largeur, longueur] en mètres : la première au milieu, les suivantes alternent à droite et à gauche.
+const SECTEURS = [[0, 24, 120], [31, 26, 150], [-32, 28, 180], [65, 30, 210], [-68, 32, 240], [103, 34, 270]].map(([x0, w, len]) => {
+  const S = { x0, hw: w / 2, len, c: versBande(len / 2, x0), bout: versBande(len + 9, x0), r: Math.min(60, len / 2) };
+  S.ecart = (d) => { const [le, tr] = bande(d), dl = Math.max(0, -le, le - len), dt = Math.max(0, Math.abs(tr - x0) - S.hw); return Math.hypot(dl, dt); };   // 0 dedans
+  S.dans = (d) => S.ecart(d) === 0;
+  return S;
+});
 const OUVERTS = { value: 1 };   // nombre de secteurs ouverts
 const lisse = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function relief(d) {   // hauteur du sol au-dessus du rayon de référence, en mètres (négatif : sous la mer)
@@ -86,11 +98,12 @@ function relief(d) {   // hauteur du sol au-dessus du rayon de référence, en m
   let h;
   if (s < 0) h = s * 55;
   else { const terre = Math.min(1, s / 0.08); h = s * 8 + ((fbm3(x * 9, y * 9, z * 9, 2) - 0.5) * 9 + Math.pow(Math.max(0, fbm3(x * 4.3 + 7, y * 4.3, z * 4.3, 2) - 0.58) / 0.42, 1.5) * 60) * terre; }
-  for (let k = 0; k < NSECT; k++) {   // autour de la base et des secteurs : terre ferme, relief doux
-    const S = SECTEURS[k], a = RP * Math.sqrt(Math.max(0, 2 - 2 * d.dot(S.c))); if (a > S.r + 45) continue;
-    const doux = 1.2 + (bruit3(x * 12 + k, y * 12, z * 12) - 0.5) * 2.4 * (k ? 1 : lisse(RB + 1, RB + 12, a));
-    h = lerp(h, doux, 1 - lisse(S.r + 5, S.r + 45, a));
+  for (let k = 0; k < NSECT; k++) {   // sous les bandes et autour : terre ferme, relief doux
+    const e = SECTEURS[k].ecart(d); if (e > 45) continue;
+    h = lerp(h, 1.2 + (bruit3(x * 12 + k, y * 12, z * 12) - 0.5) * 2.4, 1 - lisse(5, 45, e));
   }
+  const aB = RP * d.distanceTo(BASE_DIR);   // la base : une esplanade plate
+  if (aB < RB + 45) h = lerp(h, 1.2 + (bruit3(x * 12, y * 12, z * 12) - 0.5) * 2.4 * lisse(RB + 1, RB + 12, aB), 1 - lisse(RB + 5, RB + 45, aB));
   return h;
 }
 // Les hauteurs sont calculées une fois sur le maillage du sol ; « sol » interpole ce maillage : un objet posé touche donc
@@ -114,19 +127,19 @@ const versBase = (p) => tangent(p, new V3().subVectors(BASE, p));   // le vecteu
 const T = { n: 0, id: [], sect: [], vert: [], sorte: [], irrigue: [], nectar: [], t0: [], pos: [], dir: [] };
 const IDX = new Map();   // id canonique → rang dans T
 for (let k = 0; k < NSECT; k++) {
-  const S = SECTEURS[k], vu = new Set(), file = [tuileDe(k ? S.c : deplacer(S.c, 0, RB + 4))], liste = []; vu.add(file[0]);
+  const S = SECTEURS[k], vu = new Set(), file = [tuileDe(S.c)], liste = []; vu.add(file[0]);
   while (file.length) {
-    const id = file.pop(), d = dirDe(id, new V3()), a = RP * d.distanceTo(S.c);
-    if (a > S.r) continue;
-    if (a >= S.r0) liste.push([id, d, a]);
+    const id = file.pop(), d = dirDe(id, new V3()), a = 0;
+    if (!S.dans(d) || RP * d.distanceTo(BASE_DIR) < RB) continue;
+    liste.push([id, d, a]);
     for (const v of voisinsDe(id)) if (!vu.has(v)) { vu.add(v); file.push(v); }
   }
   liste.sort((u, v) => u[0] - v[0]);   // ordre stable : c'est celui de la sauvegarde
   for (const [id, d, a] of liste) {
     if (IDX.has(id)) continue;
     const R = mulberry(id * 7 + 13), aride = (k === 3 || k === 4) && bruit3(d.x * 60 + 3, d.y * 60, d.z * 60) > 0.55;
-    const jardin = k === 0 && a < RB + 3.5, sorte = jardin ? 0 : aride ? 2 : R() < 0.1 ? 1 : (R() < 0.007 && k > 0) ? 3 : 0;
-    IDX.set(id, T.n++); T.id.push(id); T.sect.push(k); T.vert.push(jardin ? 1 : 0); T.sorte.push(sorte); T.irrigue.push(0); T.nectar.push(0); T.t0.push(jardin ? -1000 : 1e6);
+    const sorte = aride ? 2 : R() < 0.1 ? 1 : (R() < 0.007 && k > 0) ? 3 : 0;   // aucune parcelle fleurie au départ
+    IDX.set(id, T.n++); T.id.push(id); T.sect.push(k); T.vert.push(0); T.sorte.push(sorte); T.irrigue.push(0); T.nectar.push(0); T.t0.push(1e6);
     T.dir.push(d); T.pos.push(new V3().copy(d).multiplyScalar(sol(d)));
   }
 }
@@ -147,7 +160,7 @@ etatTex.clearLayerUpdates();   // premier envoi : la texture entière
 const R_FLEURS = MOBILE ? 16 : 22;
 const SOL_U = {
   uCen: { value: ICO.map((F) => F.cen) }, uInv: { value: ICO.map((F) => F.inv) }, uEtat: { value: etatTex },
-  uSect: { value: SECTEURS.map((S) => new THREE.Vector4(S.c.x, S.c.y, S.c.z, S.r)) }, uProg: { value: [0, 0, 0, 0, 0, 0] }, uOuverts: OUVERTS, uBase: { value: BASE_DIR },
+  uSect: { value: SECTEURS.map((S) => new THREE.Vector4(S.x0, S.hw, S.len, 0)) }, uB0: { value: B0 }, uBT: { value: BT }, uBN: { value: BN }, uProg: { value: [0, 0, 0, 0, 0, 0] }, uOuverts: OUVERTS, uBase: { value: BASE_DIR },
   uSel: { value: [0, 1, 2, 3, 4].map(() => new V3(-1, 0, 0)) }, uSelI: { value: 0 }, uCarte: { value: 0 }, uCons: { value: 0 },
   uSec: { value: new THREE.Color(CHARTE.sec) }, uVert: { value: new THREE.Color(CHARTE.prairie) }, uBleu: { value: new THREE.Color(AZUR.petale) },
 };
@@ -164,12 +177,17 @@ M_SOL.onBeforeCompile = (sh) => {
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vMonde;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
     precision highp sampler2DArray;
-    varying vec3 vMonde; uniform sampler2DArray uEtat; uniform vec4 uSect[6]; uniform float uProg[6]; uniform float uOuverts, uSelI, uCarte, uCons; uniform vec3 uBase, uSel[5], uSec, uVert, uBleu;
+    varying vec3 vMonde; uniform sampler2DArray uEtat; uniform vec4 uSect[6]; uniform vec3 uB0, uBT, uBN; uniform float uProg[6]; uniform float uOuverts, uSelI, uCarte, uCons; uniform vec3 uBase, uSel[5], uSec, uVert, uBleu;
     float gLis, gSel, gGrille;` + GLSL_TUILE)
     .replace('#include <color_fragment>', `#include <color_fragment>
     vec3 dir = normalize(vMonde); float aBase = ${RP}.0 * distance(dir, uBase), dcam = distance(vMonde, cameraPosition);
     int sk = -1; float lisD = 1e3;
-    for (int k = 0; k < 6; k++) { float a = ${RP}.0 * distance(dir, uSect[k].xyz); lisD = min(lisD, abs(a - uSect[k].w)); if (a < uSect[k].w) sk = k; }
+    float le = atan(dot(dir, uBT), dot(dir, uB0)) * ${RP}.0, tr = asin(clamp(dot(dir, uBN), -1.0, 1.0)) * ${RP}.0;   // repère des bandes
+    for (int k = 0; k < 6; k++) {
+      float dt = abs(tr - uSect[k].x) - uSect[k].y, dl = max(-le, le - uSect[k].z);
+      if (dt < 0.0 && dl < 0.0) { sk = k; lisD = min(lisD, min(-dt, -dl)); } else lisD = min(lisD, length(vec2(max(dl, 0.0), max(dt, 0.0))));
+    }
+    if (sk >= 0 && ${RP}.0 * distance(dir, uBase) < ${RB}.0) sk = -1;
     bool grille = uCons > 0.5 && dcam < 34.0;
     float bord = 0.0; vec4 st = vec4(0.0); int tf = 0; vec2 tij = vec2(0.0), uv = vec2(0.0);
     if (sk >= 0 || grille || aBase < ${RB}.0) { tuileDe(dir, tf, uv); tij = arrondir(uv); bord = bordHex(uv - tij); if (sk >= 0) st = texelFetch(uEtat, ivec3(int(tij.x), int(tij.y), tf), 0); }

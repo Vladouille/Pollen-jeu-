@@ -168,7 +168,7 @@ try {
   const sv = await page.evaluate(() => { const P = pollen; P.S.credits = 4321; const e = P.etatSauve(); const ok = P.sauver(); return { v: e.v, ok, pieces: e.pieces.length, tuiles: P.S.tuiles, octets: JSON.stringify(e).length, outils: P.S.outils.length, amelio: P.S.amelio.sac }; });
   await page.goto(`http://localhost:${srv.address().port}/?mode=pc`); await page.waitForFunction(() => window.pollen, null, { timeout: 180000 }); await page.waitForTimeout(1500);
   const rs = await page.evaluate(() => { const P = pollen; return { cr: P.S.credits, pieces: P.GRILLE.size, chariot: P.FLOTTE.chariot.possede && !!P.FLOTTE.chariot.g, moteur: P.FLOTTE.chariot.niv.moteur, vertes: P.T.vert.reduce((s, v) => s + v, 0), outils: P.S.outils.length, amelio: P.S.amelio.sac, ruches: P.RUCHES.length, alt: P.altitude(P.joueur.p), succes: Object.keys(P.S.succes).length }; });
-  check(sv.v === 6 && sv.ok && sv.octets < 60000, `sauvegarde au format ${sv.v} (${(sv.octets / 1024).toFixed(1)} Ko)`);
+  check(sv.v === 7 && sv.ok && sv.octets < 60000, `sauvegarde au format ${sv.v} (${(sv.octets / 1024).toFixed(1)} Ko)`);
   check(rs.cr === 4321 && rs.pieces === sv.pieces && rs.chariot && rs.moteur === 1 && rs.outils === sv.outils && rs.amelio === 1 && rs.ruches === 1 && rs.alt > 0, `rechargée : argent, ${rs.pieces} pièces, ruche, chariot amélioré, outils et améliorations retrouvés`);
   const perf = await page.evaluate(() => { const P = pollen; P.figer = false; return new Promise((res) => setTimeout(() => res({ tri: P.renderer.info.render.triangles, appels: P.renderer.info.render.calls }), 1500)); });
   console.log(`     (pc : ${(perf.tri / 1000).toFixed(0)} k triangles, ${perf.appels} appels de dessin par image, toutes passes comprises)`);
@@ -182,7 +182,7 @@ try {
   const mo2 = await m.page.evaluate(() => ({ actif: pollen.CONS.actif, barre: !document.getElementById('barreCons').hidden }));
   await m.page.tap('#barreCons [data-cat="3"]'); await m.page.waitForTimeout(300);
   const mo3 = await m.page.evaluate(() => ({ cat: pollen.CONS.cat, piece: pollen.CONS.piece }));
-  await m.page.tap('#consFermer'); await m.page.waitForTimeout(500); await m.page.tap("#carte"); await m.page.waitForTimeout(1200);
+  await m.page.tap('#consFermer'); await m.page.waitForTimeout(500); await m.page.tap("#carte"); await m.page.waitForFunction(() => pollen.CARTE.ouverte, null, { timeout: 15000 }).catch(() => {});
   const mo4 = await m.page.evaluate(() => ({ cons: pollen.CONS.actif, carte: pollen.CARTE.ouverte, tri: pollen.renderer.info.render.triangles, appels: pollen.renderer.info.render.calls }));
   console.log('     ' + JSON.stringify([mo, mo2, mo3, mo4]));
   check(mo.nom === 'mobile' && mo.agir && mo2.actif && mo2.barre && mo3.cat === 3 && mo3.piece === 'silo' && !mo4.cons && mo4.carte, 'téléphone : boutons construire et carte, barre de construction au doigt');

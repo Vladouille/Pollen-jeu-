@@ -2,6 +2,8 @@
 
 Retour à la v10 à la demande du fondateur : parcelles de 2 m, planète de 500 m, six secteurs, intérieurs,
 concessionnaire, mode construction. Les v11 à v13 restent dans le dépôt, mises de côté. Test : `npm run smoke:v10`.
+Aucune parcelle n'est fleurie au départ. Les six secteurs sont de longues bandes parallèles (24 à 34 m de large, 120 à
+270 m de long) qui partent du bord sud de la base, la première au milieu, les suivantes à droite et à gauche.
 
 # POLLEN
 

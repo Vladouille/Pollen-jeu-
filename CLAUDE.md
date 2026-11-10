@@ -14,6 +14,9 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;
   v11, v12 et v13 restent dans le dépôt, mises de côté.
+  Puis : « enlève les parcelles déjà pollinisées et fais des secteurs en longueur, pas autour de la base » → aucune
+  parcelle fleurie au départ ; six secteurs en longues bandes parallèles (24 à 34 m de large, 120 à 270 m de long) qui
+  partent du bord sud de la base (repère B0/BT/BN dans 02-planete.js). Sauvegarde v10 passée au format 7.
 - **v13 (« des parcelles plus petites, remets ce que tu avais fait avant ») : `v13/index.html`**, mise de côté (ne marchait pas chez le fondateur).
   La v11 entière sur des parcelles de 2 m (treillis 256, une seule grille pour fleurs et machines), douze secteurs en
   disques en spirale autour de la base, friche entre eux, prix 5 → 230 cr. Sauvegarde format 8, clés `pollen-v13-…`.
