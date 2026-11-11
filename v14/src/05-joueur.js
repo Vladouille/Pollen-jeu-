@@ -84,7 +84,7 @@ function fabriquerOutil(cle) {
 //    au pouce gauche, regard au pouce droit en même temps, boutons action et E, paysage forcé.
 // =====================================================================
 const jeu = document.getElementById('jeu');
-const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, tourner: false, carte: false, verrou: false, molette: 0 };   // presse : une pression, même brève, entre deux images
+const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, suppr: false, vueVeh: false, tourner: false, carte: false, verrou: false, molette: 0 };   // presse : une pression, même brève, entre deux images
 let tourne = false;   // téléphone tenu en portrait : la scène tourne d'un quart de tour
 const versJeu = (cx, cy) => tourne ? [cy, innerWidth - cx] : [cx, cy];
 const sons = { init() {} };   // remplacé par le module du son
@@ -106,6 +106,8 @@ if (!MOBILE) {
     if (e.code === 'KeyR') E.tourner = true;
     if (e.code === 'KeyM') E.carte = true;
     if (e.code === 'KeyG') E.verrou = true;
+    if (e.code === 'KeyX' || e.code === 'Delete') E.suppr = true;
+    if (e.code === 'KeyC') E.vueVeh = true;
   });
   addEventListener('keyup', (e) => { touches[e.code] = false; maj(); });
   const echec = () => { refus = true; if (glisse) { souris = true; maj(); } };
@@ -220,9 +222,22 @@ function majJoueur(dt) {
   if (joueur.vitesse > 0.25) joueur.pas += dt * joueur.vitesse * 1.7; else joueur.pas = lerp(joueur.pas, Math.round(joueur.pas / Math.PI) * Math.PI, 1 - Math.exp(-dt * 6));
 }
 const _oe = new V3(), _lk = new V3();
+// Au volant, la vue passe dehors : derrière le véhicule et au-dessus, on le voit avec son pilote (C : vue cabine).
+const VUE_VEH = { exterieure: true, p: new V3(), lisse: false };
 function majCamera() {
   if (CARTE.ouverte) return;
   const up = joueur.haut.copy(joueur.p).normalize(), a = clamp(joueur.vitesse / VIT, 0, 1.3), sb = Math.sin(joueur.pas);
+  const v = joueur.enVehicule;
+  if (v && VUE_VEH.exterieure) {
+    const D = v.D, upV = _dr.copy(v.p).normalize(), dist = 3.4 + D.hd * 1.55, h = 1.9 + D.hd * 0.55 + clamp(-joueur.pitch - 0.18, -0.4, 0.9) * dist * 0.6;
+    _oe.copy(v.p).addScaledVector(joueur.f, -dist).addScaledVector(upV, h);
+    const sg = sol(_lk.copy(_oe).normalize()) + 0.8; if (_oe.length() < sg) _oe.setLength(sg);   // jamais sous le sol
+    if (VUE_VEH.lisse) VUE_VEH.p.lerp(_oe, 0.2); else VUE_VEH.p.copy(_oe); VUE_VEH.lisse = true;
+    camera.position.copy(VUE_VEH.p); camera.up.copy(upV);
+    camera.lookAt(_lk.copy(v.p).addScaledVector(upV, 1.0 + D.hd * 0.3).addScaledVector(joueur.f, D.hd * 0.8));
+    camera.updateMatrixWorld(); return;
+  }
+  VUE_VEH.lisse = false;
   _oe.copy(joueur.p).addScaledVector(up, OEIL + Math.abs(sb) * 0.045 * a - 0.02 * a).addScaledVector(_dr.crossVectors(joueur.f, up), sb * 0.02 * a);
   if (secousse > 0.001) { _oe.addScaledVector(_dr, (Math.random() - 0.5) * secousse * 0.12).addScaledVector(up, (Math.random() - 0.5) * secousse * 0.12); secousse *= 0.86; }
   camera.position.copy(_oe); camera.up.copy(up);

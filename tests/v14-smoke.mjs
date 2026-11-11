@@ -135,12 +135,27 @@ try {
     v.p.copy(P.PARKING.p); P.step(0.05, 2); const cr0 = P.S.credits; out.vert = P.parkingVert(); P.E.inter = true; P.step(0.05, 1); out.vendu = P.S.credits - cr0; P.E.inter = true; P.step(0.05, 1); out.descendu = !P.joueur.enVehicule;
     return out;
   });
-  check(ve.dedans && ve.modeles.length === 5 && ve.prix.join() === '900,4000,18000,35000,90000', `concessionnaire : cinq véhicules (${ve.prix.join(', ')} cr)`);
+  check(ve.dedans && ve.modeles.length === 7 && ve.prix.join() === '900,4000,18000,35000,90000,250000,750000', `concessionnaire : sept véhicules (${ve.prix.join(', ')} cr)`);
   check(ve.refus === false && ve.vuBorne && ve.possede && ve.cr === 4100, 'achat à la borne : refusé sans argent, immédiat avec');
   check(ve.porte > 0.85 && ve.sorti && ve.auVolant && ve.distParvis < 16 && ve.referme < 0.2, `la porte sectionnelle s'ouvre, le véhicule sort se garer sur le parvis, on est au volant, la porte se referme`);
   check(ve.vuAmelio && ve.moteur === 1 && ve.plus && ve.crAmelio === 4100 - 135, 'amélioration du moteur : achetée à la borne, visible sur le véhicule');
   check(ve.tuiles >= 3 && ve.charge >= 1.5 && ve.avance > 8 && ve.pastille === 'Chariot pousseur', `le chariot pollinise en roulant (${ve.tuiles} tuiles, ${ve.charge} kg)`);
   check(ve.vert && ve.vendu > 0 && ve.descendu, `garé au collecteur : repère vert, E vide les cuves (+${ve.vendu} cr), E encore fait descendre`);
+  // --- 4 bis. Le haut de gamme et la vue extérieure au volant ---
+  const hg = await page.evaluate(() => {
+    const P = pollen, V3 = P.V3, out = {}; P.S.credits = 1e6; P.figer = false;
+    out.achat = P.acheterVehicule('aeroglisseur'); let n = 0; while (P.SORTIE.v && n++ < 1200) P.step(0.05, 1);
+    const v = P.FLOTTE.aeroglisseur; out.auVolant = P.joueur.enVehicule === v; out.parc = v.p.distanceTo(P.placeParvis('aeroglisseur'));
+    v.p.copy(P.surSol(P.local(40, 60))); v.f.copy(P.tangent(v.p, new V3().subVectors(P.local(40, 120), v.p))); P.joueur.f.copy(v.f); P.poserVehicule(v); P.step(0.05, 20);
+    const up = v.p.clone().normalize(), d = P.camera.position.clone().sub(v.p); out.derriere = d.dot(v.f); out.hauteur = d.dot(up);
+    out.pilote = v.g.userData.caisse.children.some((o) => o.children.length > 8); out.ext = document.getElementById('jeu').classList.contains('ext');
+    P.E.vueVeh = true; P.step(0.05, 2); out.cabine = P.camera.position.distanceTo(P.joueur.p) < 2.2; P.E.vueVeh = true; P.step(0.05, 2);
+    const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 200); P.E.mz = 0; P.step(0.05, 10); out.tuiles = P.S.tuiles - t0;
+    P.descendre(); P.step(0.05, 2); out.sortiExt = !document.getElementById('jeu').classList.contains('ext'); return out;
+  });
+  check(hg.achat && hg.auVolant && hg.parc < 1, `aéroglisseur à rampe (750 000 cr) : il sort se garer à son parc, on est au volant`);
+  check(hg.derriere < -3 && hg.hauteur > 2 && hg.pilote && hg.ext && hg.cabine && hg.sortiExt, `vue extérieure au volant : caméra ${(-hg.derriere).toFixed(1)} m derrière et ${hg.hauteur.toFixed(1)} m au-dessus, pilote visible ; C passe en vue cabine`);
+  check(hg.tuiles > 200, `l'aéroglisseur pollinise ${hg.tuiles} parcelles en 10 s`);
   // --- 5. Le mode construction ---
   const co = await page.evaluate(() => {
     const P = pollen, C = P.COLLECTEUR, out = {}, V3 = P.V3;
@@ -150,7 +165,7 @@ try {
     P.E.outil = 2; P.step(0.05, 1); out.cat3 = P.CONS.cat; P.E.inter = true; P.step(0.05, 1); out.suivante = P.CONS.piece; P.E.outil = 0; P.step(0.05, 1);
     // fantôme : vert sur une tuile libre, rouge avec sa raison sinon
     P.joueur.pitch = -0.5; P.step(0.05, 2); out.cible = !!P.CONS.cible && P.CONS.cible.ok; const r0 = P.CONS.rot; P.E.molette = 1; P.step(0.05, 1); out.tourne = P.CONS.rot !== r0;
-    P.E.presse = true; P.step(0.05, 1); out.pose = P.GRILLE.size; out.cr1 = P.S.credits; P.step(0.05, 1); P.E.presse = true; P.step(0.05, 1); out.demonte = P.GRILLE.size; out.cr2 = P.S.credits;
+    P.E.presse = true; P.step(0.05, 1); out.pose = P.GRILLE.size; out.cr1 = P.S.credits; P.step(0.05, 1); P.E.presse = true; P.step(0.05, 1); out.resteSansSuppr = P.GRILLE.size; P.E.suppr = true; P.step(0.05, 1); out.modeSuppr = P.CONS.suppr; P.E.presse = true; P.step(0.05, 1); out.demonte = P.GRILLE.size; out.cr2 = P.S.credits; P.E.suppr = true; P.step(0.05, 1);
     // raisons de refus
     const az = C.userData.az, id0 = P.tuileDe(C.position.clone().addScaledVector(az, 3.3).normalize()), suite = [id0]; for (let k = 0; k < 7; k++) suite.push(P.voisineVers(suite[k], az));
     const mer = suite[2];   // plus de mer : toute la planète est en parcelles
@@ -171,12 +186,17 @@ try {
     // ruche simple : rayon d'une tuile ; elle pollinise seule
     const bord = P.tuileDe(P.local(0, 39).normalize()), ru = P.poserPiece('ruche0', bord, P.voisinsDe(bord)[0]); out.cibles = ru.ruche.cibles.length; const t0 = P.S.tuiles; P.step(0.05, 400); out.parRuche = P.S.tuiles - t0;
     const mere = P.poserPiece('ruche2', P.tuileDe(P.local(4, 40).normalize()), bord); out.ciblesMere = mere.ruche.cibles.length; P.demonter(mere);
+    // revenus automatiques : ruche → convoyeurs → réceptionnaire ; pollinisateur → convoyeur → réceptionnaire
+    const ligne = (x0, z0, n) => { const vec = P.tangent(P.local(x0, z0), new V3().subVectors(P.local(x0, z0 + 30), P.local(x0, z0))), t = [P.tuileDe(P.local(x0, z0).normalize())]; for (let k = 1; k <= n; k++) t.push(P.voisineVers(t[k - 1], vec)); return t; };
+    const la = ligne(-14, 46, 5), ru2 = P.poserPiece('ruche1', la[0], la[1]); P.poserPiece('convoyeur', la[1], la[2]); P.poserPiece('convoyeur', la[2], la[3]); const re1 = P.poserPiece('receptionnaire', la[3], la[4]); ru2.ruche.miel = 6; ru2.ruche.cire = 2;
+    const lb = ligne(14, 46, 4), po = P.poserPiece('pollinisateur', lb[0], lb[1]); P.poserPiece('convoyeur', lb[1], lb[2]); const re2 = P.poserPiece('receptionnaire', lb[2], lb[3]);
+    P.step(0.05, 1200); out.venteRuche = Math.round(re1.total || 0); out.ventePoll = Math.round(re2.total || 0); out.mielReste = ru2.ruche.miel;
     return out;
   });
   check(co.sansMarteau === false && co.actif && co.barre && co.bleu === 1, 'mode construction : une touche (B), le monde bleuit, la barre apparaît (il faut l’outil de construction)');
-  check(co.cats.length === 5 && co.parCat.join() === '7,8,5,4,6', `cinq catégories (${co.cats.join(', ')}) : ${co.parCat.join(' + ')} pièces`);
+  check(co.cats.length === 5 && co.parCat.join() === '7,9,5,4,6', `cinq catégories (${co.cats.join(', ')}) : ${co.parCat.join(' + ')} pièces`);
   check(co.cat3 === 2 && co.suivante === 'double' && co.cible && co.tourne, 'chiffres pour la catégorie, E pour la pièce suivante, molette pour tourner, fantôme vert sur une tuile libre');
-  check(co.pose === 1 && co.demonte === 0 && co.cr1 === 19980 && co.cr2 === 20000, 'clic : pose (−20 cr) ; clic sur la pièce : démontage remboursé entièrement');
+  check(co.pose === 1 && co.resteSansSuppr === 1 && co.modeSuppr && co.demonte === 0 && co.cr1 === 19980 && co.cr2 === 20000, 'clic : pose (−20 cr) ; un clic sur une pièce posée ne la casse plus ; mode Supprimer (X) : elle part, remboursée entièrement');
   check(/bâtiment/.test(co.raisons.batiment) && /Crédits/.test(co.raisons.argent) && /occupé/.test(co.raisons.occupe), `raisons du refus : « ${co.raisons.batiment} », « ${co.raisons.argent} », « ${co.raisons.occupe} »`);
   if (!(co.departs === 1 && co.vuColl && co.silo >= 5 && co.sacVide === 0)) console.log(JSON.stringify([co.departs, co.vuColl, co.silo, co.sacVide]));
   check(co.departs === 1 && co.vuColl && co.silo >= 5 && co.sacVide === 0, 'le collecteur verse le sac dans son silo quand un convoyeur en part');
@@ -185,6 +205,7 @@ try {
   check(co.paye === 1200 && co.rembourse === 800, `démonter une machine améliorée rembourse l'achat et l'amélioration (+${co.rembourse} cr)`);
   check(co.cibles >= 3 && co.cibles <= 7 && co.parRuche >= 2 && co.ciblesMere > 300, `ruche simple : ${co.cibles} tuiles dans son rayon, ${co.parRuche} pollinisées seules ; ruche mère : tout le secteur (${co.ciblesMere})`);
   check(co.ferme, 'B referme le mode construction');
+  check(co.venteRuche >= 72 && co.ventePoll > 0, `revenus automatiques : la ruche reliée vend seule son miel et sa cire (${co.venteRuche} cr en 1 min), le pollinisateur automatique aussi (${co.ventePoll} cr)`);
   // --- 6. La carte : le globe ---
   const ca = await page.evaluate(() => {
     const P = pollen, out = {}; U.aller(P.local(8, 20)); P.E.carte = true; P.step(0.05, 2);

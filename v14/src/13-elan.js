@@ -32,7 +32,7 @@ MAJ.push(() => {
 
 // --- Pollinisation : l'élan, l'or, la bourrasque multiplient la valeur ; chaque parcelle compte pour les contrats. ---
 APRES_POLLEN.push((k, par, v) => {
-  if (par === 'ruche' || ELAN.off) return v;
+  if ((par !== 'joueur' && par !== 'vehicule') || ELAN.off) return v;   // ruches et machines ne font pas monter l'élan
   if (gt - ELAN.t > 3) ELAN.n = 0;   // plus de trois secondes sans rien : l'élan repart de zéro
   ELAN.n += par === 'vehicule' ? 0.5 : 1; ELAN.t = gt; ELAN.max = Math.max(ELAN.max, ELAN.n);
   const palier = [10, 25, 50].find((p) => ELAN.n >= p && ELAN.n - (par === 'vehicule' ? 0.5 : 1) < p);

@@ -48,6 +48,15 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   nombres qui s'envolent, compteur de crédits qui monte, gains des ruches pendant l'absence (2 h au plus). Sans
   piège : rien ne se perd à l'arrêt, pas de fausse urgence, pas d'achat réel. Branché par `APRES_POLLEN` et
   `APRES_VENTE` (07-jeu) ; sauvegardé dans S (niveau, xp, contrats, dorees). `ELAN.off` le coupe pour les tests.
+  Puis : « des véhicules beaucoup plus chers et efficaces ; une vue extérieure au volant ; supprimer avec le marteau ;
+  relier les rampes aux ruches et aux pollinisateurs pour gagner seul » → moissonneuse géante (250 000 cr, 11 voies) et
+  aéroglisseur à rampe (750 000 cr, 15 voies, 15 m/s), exposés dans l'accueil, garés à leur parc (`parc`, en local) ;
+  quai : vidange en 20 s quelle que soit la cuve. Vue extérieure par défaut au volant (`VUE_VEH`, touche C pour la
+  cabine), pilote visible (`fabriquerPilote`, `assise` par véhicule). Marteau : mode Supprimer (bouton ou X), un clic
+  sur une pièce ne la casse plus hors de ce mode. « Rampes » compris comme convoyeurs : une ruche dépose miel et cire
+  sur un convoyeur qui la touche (`sortieRuche`) ; nouveau pollinisateur automatique (3 000 cr) qui pollinise son
+  rayon puis récolte le pollen à 40 % sans fin (`recolteAuto`) ; un réceptionnaire au bout vend seul. Miel toutes les
+  20/12/6 s selon la ruche.
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

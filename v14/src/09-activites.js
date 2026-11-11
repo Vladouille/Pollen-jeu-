@@ -111,8 +111,8 @@ MAJ.push((dt) => {
   for (const r of RUCHES) {
     if (r.partie) continue;
     r.t += dt; if (r.t >= DUREES_RUCHE[r.niveau]) { r.t = 0; const k = tuileRuche(r); if (k >= 0) { S.credits += polliniser(k, 'ruche'); noter('pollen', KG_TUILE); } }
-    r.tMiel += dt; if (r.tMiel >= 20) { r.tMiel = 0; r.miel = Math.min(6, r.miel + 1); }
-    if (r.niveau >= 1) { r.tCire += dt; if (r.tCire >= 40) { r.tCire = 0; r.cire = Math.min(4, r.cire + 1); } }
+    r.tMiel += dt; if (r.tMiel >= [20, 12, 6][r.niveau]) { r.tMiel = 0; r.miel = Math.min(6, r.miel + 1); }   // un pot toutes les 20, 12 ou 6 s selon la ruche
+    if (r.niveau >= 1) { r.tCire += dt; if (r.tCire >= [40, 24, 12][r.niveau]) { r.tCire = 0; r.cire = Math.min(4, r.cire + 1); } }
   }
   // L'essaim : il s'envole vers son point de chute, puis tourne en boule.
   if (!ESSAIM.actif) { ESSAIM.prochain -= dt; if (ESSAIM.prochain <= 0) { ESSAIM.prochain = 360 + Math.random() * 180; echapperEssaim(); } nuage.visible = false; return; }

@@ -79,6 +79,7 @@
   .outilHud:hover, .outilHud:focus-visible { opacity: 1; outline: 2px solid var(--pollen); }
   .outilHud svg { width: 100%; height: 100%; fill: none; stroke: var(--encre); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
   #carte { top: calc(98px + env(safe-area-inset-top, 0px)); } #construire { top: calc(134px + env(safe-area-inset-top, 0px)); }
+  .ext #reticule { display: none; }
   #reticule.carte { width: 34px; height: 34px; margin: -17px 0 0 -17px; border-color: rgba(79, 214, 227, .9); }
   #barreCons { position: absolute; left: 50%; bottom: calc(var(--pad, 14px) + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(880px, 94vw); padding: 8px 10px; background: rgba(20, 30, 44, .78); border: 1px solid rgba(79, 214, 227, .5); border-radius: 8px; pointer-events: auto; }
   #barreCons .cats, #barreCons .items { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
@@ -88,6 +89,8 @@
   #barreCons button.actif { border-color: #f08a24; background: #f08a24; color: #1c1f22; } #barreCons button.actif i { color: #1c1f22; }
   #barreCons .items b { display: block; margin-top: 3px; color: var(--pollen); } #barreCons .items button.actif b { color: #1c1f22; }
   #barreCons .bas { display: flex; align-items: center; gap: 8px; margin-top: 7px; min-height: 26px; }
+  #barreCons #consSuppr.actif { border-color: #e0452f; background: #e0452f; color: #fffdf7; }
+  .suppr #barreCons { border-color: rgba(224, 69, 47, .8); }
   #consRaison { flex: 1; color: #ff8d7a; font-size: 13px; text-align: center; }
   .cons #pastille { bottom: auto; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); } .cons #credits { bottom: auto; top: calc(62px + env(safe-area-inset-top, 0px)); right: calc(56px + env(safe-area-inset-right, 0px)); }
   /* 5. Argent, en bas à droite. */
@@ -163,7 +166,7 @@
   <button id="construire" class="outilHud" type="button" data-tactile aria-label="Construire"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l8-8"/><path d="M10.5 6.5l7 7 3-3-7-7z"/></svg></button>
   <div id="barreCons" hidden data-tactile>
     <div class="cats"></div><div class="items"></div>
-    <div class="bas"><button type="button" id="consTourner" data-tactile>Tourner</button><button type="button" id="consVerrou" data-tactile>Verrou</button><span id="consRaison" role="status"></span><button type="button" id="consFermer" data-tactile>Fermer</button></div>
+    <div class="bas"><button type="button" id="consTourner" data-tactile>Tourner</button><button type="button" id="consVerrou" data-tactile>Verrou</button><button type="button" id="consSuppr" data-tactile>Supprimer (X)</button><span id="consRaison" role="status"></span><button type="button" id="consFermer" data-tactile>Fermer</button></div>
   </div>
   <div id="panneauSauve" class="plaque" hidden data-tactile>
     <h2>Sauvegardes</h2>

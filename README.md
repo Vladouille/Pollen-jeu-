@@ -14,6 +14,8 @@ système d'eau, véhicules sans pièces qui flottent (essieux, berceaux, bras, p
 montent vraiment en pente.
 Puis : l'élan (parcelles enchaînées ×1 à ×3), fleurs dorées, bourrasques de pollen, niveaux à prime, trois contrats
 toujours à l'écran, prochain achat, gains des ruches pendant l'absence.
+Puis : moissonneuse géante et aéroglisseur à rampe, vue extérieure au volant (C : cabine), mode Supprimer du marteau
+(X), ruches et pollinisateur automatique reliés par convoyeur à un réceptionnaire qui vend seul.
 
 ## Version courante : v10 (`v10/index.html`)
 
