@@ -28,8 +28,11 @@ function majHUD() {
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;
   if (sig !== tSlots) { tSlots = sig; hud.slots.innerHTML = possedes.map((o) => `<button type="button" data-tactile data-outil="${o}" class="${o === outilEnMain ? 'actif' : ''}" aria-label="${OUTILS_DEF[o].nom}">${ICONES[o] || ICONES.defaut}</button>`).join(''); }
   hud.slots.style.display = CONS.actif || CARTE.ouverte ? 'none' : '';
-  hud.cr.textContent = fmtCr(S.credits);
+  if (S.credits > crAffiche + 0.5) { if (gt - crPulse > 0.4) { crPulse = gt; $('credits').classList.remove('gain'); void $('credits').offsetWidth; $('credits').classList.add('gain'); } crAffiche += Math.max(1, (S.credits - crAffiche) * 0.25); if (crAffiche > S.credits) crAffiche = S.credits; }
+  else crAffiche = S.credits;   // une dépense s'affiche tout de suite
+  hud.cr.textContent = fmtCr(crAffiche);
 }
+let crAffiche = 0, crPulse = -1;
 const ICONES = {   // pictogrammes des ronds, dessinés au trait
   pinceau: '<svg viewBox="0 0 24 24"><path d="M5 19l9-9m1-1l3-3 1 1-3 3"/><path d="M4 20c1-3 2-4 3-3s0 2-3 3z"/></svg>',
   brosse: '<svg viewBox="0 0 24 24"><path d="M12 3v10"/><rect x="7" y="13" width="10" height="3" rx="1"/><path d="M8 16v4m2-4v4m2-4v4m2-4v4m2-4v4"/></svg>',

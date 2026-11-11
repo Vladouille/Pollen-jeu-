@@ -97,13 +97,15 @@ const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
 for (let k = 0; k < NT; k++) { secteurs[T.sect[k]].total++; secteurs[T.sect[k]].vert += T.vert[k]; PLANETE_PROG.vert += T.vert[k]; }
 const majProgres = (s) => { if (s === undefined) { for (let k = 0; k < NSECT; k++) PROG[k] = secteurs[k].vert / secteurs[k].total; } else PROG[s] = secteurs[s].vert / secteurs[s].total; PROG_TEX.needsUpdate = true; };
 const FIN_SECTEUR = [];   // la fête : toutes les 500 parcelles rendues à la vie
+const APRES_POLLEN = [], APRES_VENTE = [];   // (k, par, valeur) → valeur, et (crédits) : l'élan s'y branche
 function polliniser(k, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur de son pollen
   if (!pollinisable(k)) return 0;
   fleurirTuile(k, gt); secteurs[T.sect[k]].vert++; S.tuiles++; majProgres(T.sect[k]);
   bouffee(T.pos[k], par === 'joueur' ? 16 : 8, CHARTE.pollen);
   const s = T.sect[k];
   PLANETE_PROG.vert++; if (PLANETE_PROG.vert % 500 === 0) for (const f of FIN_SECTEUR) f(s);
-  return prixTuile(k);
+  let v = prixTuile(k); for (const f of APRES_POLLEN) v = f(k, par, v);
+  return v;
 }
 // L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil. Relâcher, ou changer de cible,
 // remet la jauge à zéro. Les activités ajoutent leurs actions : { quand(v), faire(v), duree, geste, objet(v) }.
@@ -169,7 +171,7 @@ function ecrireEcran(mat, texte) {
   mat.emissiveMap.needsUpdate = true;
 }
 let ECRAN_COLLECTEUR = null; COLLECTEUR.traverse((o) => { if (o.isMesh && o.material.emissiveMap) ECRAN_COLLECTEUR = o.material; });
-function encaisser(v) { const cr = Math.round(v * amelio('negoce') / 100); S.credits += cr; return cr; }   // tout ce qui se vend passe par ici
+function encaisser(v) { const cr = Math.round(v * amelio('negoce') / 100); S.credits += cr; for (const f of APRES_VENTE) f(cr); return cr; }   // tout ce qui se vend passe par ici
 function vendre(extra = 0) {
   const brut = valeurSac() + extra; if (brut <= 0) { sons.refus(); return 0; }
   const cr = encaisser(brut); S.ventes++; S.sac = sacVide();

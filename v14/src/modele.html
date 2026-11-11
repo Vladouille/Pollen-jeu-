@@ -95,6 +95,40 @@
   .piece { width: 24px; height: 24px; background: var(--pollen); clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); position: relative; }
   .piece::after { content: ''; position: absolute; inset: 6px; background: #c78f00; clip-path: inherit; }
   #cr { font-size: 22px; color: var(--encre); min-width: 2ch; }
+  /* L'élan : niveau et contrats en haut à gauche, multiplicateur sous le réticule, nombres qui s'envolent, bandeau. */
+  #progression { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); width: min(272px, 38vw); padding: 8px 11px 9px; }
+  #progression .tete { display: flex; align-items: center; gap: 9px; }
+  #niv { width: 28px; height: 31px; display: grid; place-items: center; background: var(--pollen); color: var(--graphite); font-size: 14px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  #progression .xp { flex: 1; height: 7px; border-radius: 4px; background: rgba(255, 253, 247, .15); overflow: hidden; }
+  #xpBar { display: block; height: 100%; background: var(--pollen); transform-origin: left; transition: transform .25s; }
+  #contrats { list-style: none; margin: 7px 0 0; padding: 0; display: grid; gap: 4px; }
+  #contrats li { position: relative; display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 0 5px; }
+  #contrats li em { font-style: normal; color: var(--pollen); white-space: nowrap; }
+  #contrats li i { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--seve); transform-origin: left; transition: transform .3s; }
+  #contrats li.fait { color: var(--seve); animation: fait .4s ease-in-out 3; }
+  #contrats li.achat { margin-top: 3px; padding-top: 7px; border-top: 1px solid rgba(255, 253, 247, .15); color: #c9c3b6; }
+  #contrats li.achat i { background: var(--pollen); }
+  #contrats li.pret { color: var(--pollen); }
+  @keyframes fait { 50% { transform: translateX(4px); } }
+  #elan { position: absolute; left: 50%; top: calc(50% + 30px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #elan.actif { opacity: 1; }
+  #elanX { font-size: 18px; color: var(--pollen); text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+  #elan span { width: 56px; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, .35); overflow: hidden; }
+  #elanBar { display: block; height: 100%; background: var(--pollen); transform-origin: left; }
+  #elan.palier #elanX { animation: palier .45s ease-out; }
+  @keyframes palier { 40% { transform: scale(1.6); color: #fffdf7; } }
+  #flottants span { position: absolute; left: 0; top: 0; font-size: 15px; color: var(--encre); text-shadow: 0 1px 3px rgba(0, 0, 0, .7); opacity: 0; white-space: nowrap; will-change: transform; }
+  #flottants .fort { color: var(--pollen); font-size: 17px; }
+  #flottants .or { color: #ffd23a; font-size: 23px; }
+  #bandeau { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+  #bandeau b { display: block; font-size: 30px; color: var(--pollen); text-shadow: 0 2px 8px rgba(0, 0, 0, .6); }
+  #bandeau small { font-size: 15px; text-shadow: 0 1px 4px rgba(0, 0, 0, .7); }
+  #bandeau.vu { animation: bandeau 3.2s ease forwards; }
+  @keyframes bandeau { 0% { opacity: 0; transform: translate(-50%, 12px) scale(.9); } 10%, 80% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; } }
+  .bourrasque #hud { box-shadow: inset 0 0 140px rgba(244, 180, 26, .32); }
+  #credits.gain { animation: gain .35s ease-out; } @keyframes gain { 40% { transform: scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { #bandeau.vu, #credits.gain, #elan.palier #elanX, #contrats li.fait { animation: none; } }
+  .mobile #progression { width: min(230px, 34vw); padding: 6px 9px 7px; } .mobile #contrats li { font-size: 11px; }
   .mobile #slots button { width: 44px; height: 44px; }
   .mobile #boussole { width: min(300px, 40vw); }
 </style>
@@ -119,6 +153,10 @@
     <div id="pastille" class="plaque"><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div>
     <div id="slots"></div>
     <div id="credits" class="plaque"><span class="piece" aria-hidden="true"></span><strong id="cr">0</strong></div>
+    <div id="progression" class="plaque"><div class="tete"><b id="niv">1</b><div class="xp"><i id="xpBar"></i></div></div><ul id="contrats"></ul></div>
+    <div id="elan" aria-hidden="true"><b id="elanX">×1,0</b><span><i id="elanBar"></i></span></div>
+    <div id="flottants" aria-hidden="true"></div>
+    <div id="bandeau" role="status" hidden></div>
   </div>
   <button id="sauvegardes" type="button" data-tactile aria-label="Sauvegardes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
   <button id="carte" class="outilHud" type="button" data-tactile aria-label="Carte"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3.2 3 3.2 14 0 17M12 3.5c-3.2 3-3.2 14 0 17"/></svg></button>

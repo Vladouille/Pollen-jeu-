@@ -12,6 +12,8 @@ Puis : sauvegarde automatique qui survit à la fermeture de la page (copie local
 un seul bâtiment (hall vitré de 41 × 18 m : comptoir, station, atelier, laboratoire, garage et accueil), plus de
 système d'eau, véhicules sans pièces qui flottent (essieux, berceaux, bras, pattes), rampe pleine et escalier qui
 montent vraiment en pente.
+Puis : l'élan (parcelles enchaînées ×1 à ×3), fleurs dorées, bourrasques de pollen, niveaux à prime, trois contrats
+toujours à l'écran, prochain achat, gains des ruches pendant l'absence.
 
 ## Version courante : v10 (`v10/index.html`)
 

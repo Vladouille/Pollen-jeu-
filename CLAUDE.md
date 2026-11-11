@@ -41,6 +41,13 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   champ `tuyaux` (une tuile aride d'une vieille sauvegarde redevient normale). Véhicules : essieux, berceaux, bras,
   pattes ; améliorations fixées à un endroit qui les porte (`equiper(c, niv, { pot, cof, av })`). Rampe (0,31 m, coin
   plein) et escalier (0,95 m, jusqu'au tablier d'une passerelle) en pente réelle (surcote `incline`).
+  Puis : garage dégagé (plateformes plus petites et espacées, allée de 3 m devant l'atelier et le labo ; le test marche
+  jusqu'à chaque pièce). Puis : « rends le jeu psychologiquement addictif et pas ennuyant » → `13-elan.js` : élan
+  (parcelles enchaînées, ×1 à ×3, retombe après 3 s de pause), fleurs dorées (1 sur 90, ×12), bourrasque de pollen
+  (toutes les 2 à 4 min, 30 s à ×2), niveaux avec prime, trois contrats toujours affichés, barre du prochain achat,
+  nombres qui s'envolent, compteur de crédits qui monte, gains des ruches pendant l'absence (2 h au plus). Sans
+  piège : rien ne se perd à l'arrêt, pas de fausse urgence, pas d'achat réel. Branché par `APRES_POLLEN` et
+  `APRES_VENTE` (07-jeu) ; sauvegardé dans S (niveau, xp, contrats, dorees). `ELAN.off` le coupe pour les tests.
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

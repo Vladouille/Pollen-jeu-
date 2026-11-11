@@ -25,6 +25,7 @@ async function ouvrir(ctx, q) {
   await page.goto(`http://localhost:${srv.address().port}/${q}`, { timeout: 180000 });
   await page.waitForFunction(() => window.pollen, null, { timeout: 180000 }); await page.waitForTimeout(2500);
   await page.evaluate(OUTILS);
+  await page.evaluate(() => { window.pollen.ELAN.off = true; });   // les vérifications de crédits au centime se font sans élan ; la section « élan » le rallume
   return { page, erreurs };
 }
 try {
@@ -94,6 +95,28 @@ try {
     return { pieces, passages };
   });
   check(mh.pieces.every(Boolean) && mh.passages.every(Boolean), `à pied depuis la porte du hall : les quatre pièces atteintes (${mh.pieces}) ; on passe entre les plateformes du garage (${mh.passages})`);
+  // --- 3 ter. L'élan : multiplicateur, niveaux, contrats, bourrasque, nombres qui s'envolent ---
+  const el = await page.evaluate(() => {
+    const P = pollen, out = {}; P.ELAN.off = false; P.ELAN.n = 0; P.figer = true;
+    const ks = []; for (let k = 0; ks.length < 40; k++) { const i = (k * 7919 + 13) % P.NT; if (P.pollinisable(i)) ks.push(i); }
+    const prix = (k) => P.VARIETES[P.SECTEURS[P.T.sect[k]].variete].prix;
+    const n0 = P.S.niveau, cr0 = P.S.credits;
+    out.v1 = P.polliniser(ks[0], 'joueur') / prix(ks[0]);
+    for (let n = 1; n < 25; n++) P.polliniser(ks[n], 'joueur');
+    out.v26 = P.polliniser(ks[25], 'joueur') / prix(ks[25]); out.n = P.ELAN.n;
+    out.niveau = P.S.niveau - n0; out.prime = P.S.credits - cr0;
+    P.step(0.05, 4); out.flottants = [...document.querySelectorAll('#flottants span')].filter((e) => +e.style.opacity > 0).length;
+    out.hud = !document.getElementById('progression').hidden && document.querySelectorAll('#contrats li').length; out.elanVisible = document.getElementById('elan').classList.contains('actif');
+    P.step(0.05, 70); out.retombe = P.ELAN.n;
+    out.genres = P.S.contrats.map((c) => c.g); const c0 = P.S.contrats[0], crc = P.S.credits; P.progresser(c0.g, c0.but, c0.g === 'elan'); out.paye = P.S.credits - crc >= c0.cr; P.step(0.05, 40); out.remplace = P.S.contrats[0] !== c0 && !P.S.contrats[0].fait;
+    P.BOURRASQUE.prochaine = 0; P.step(0.05, 2); out.bourrasque = P.BOURRASQUE.fin > 0 && !document.getElementById('bandeau').hidden; P.ELAN.n = 0; P.ELAN.t = -10;
+    out.vB = P.polliniser(ks[30], 'joueur') / prix(ks[30]); P.BOURRASQUE.fin = -1;
+    out.achat = P.prochainAchat(); P.ELAN.off = true; return out;
+  });
+  check(el.v1 >= 1 && el.v1 < 1.1 && el.v26 >= 1.9 && el.retombe === 0, `élan : ×${el.v1.toFixed(2)} à la première parcelle, ×${el.v26.toFixed(2)} à la 26e enchaînée, retombe à 0 après une pause`);
+  check(el.niveau >= 1 && el.prime > 0 && el.flottants > 0 && el.hud === 4 && el.elanVisible, `niveau +${el.niveau} (prime ${el.prime} cr), ${el.flottants} nombres qui s'envolent, trois contrats et le prochain achat à l'écran`);
+  check(new Set(el.genres).size === 3 && el.paye && el.remplace, `contrats : trois genres différents (${el.genres.join(', ')}), un contrat rempli paie et un nouveau le remplace`);
+  check(el.bourrasque && el.vB >= 2, `bourrasque de pollen : bandeau, la parcelle vaut ×${el.vB.toFixed(2)} ; prochain achat : ${el.achat && el.achat.nom}`);
   // --- 4. Le concessionnaire et les véhicules ---
   const ve = await page.evaluate(() => {
     const P = pollen, g = P.CONCESSION, S = g.userData.salle, out = {};

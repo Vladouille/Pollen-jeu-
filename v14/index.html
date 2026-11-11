@@ -95,6 +95,40 @@
   .piece { width: 24px; height: 24px; background: var(--pollen); clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); position: relative; }
   .piece::after { content: ''; position: absolute; inset: 6px; background: #c78f00; clip-path: inherit; }
   #cr { font-size: 22px; color: var(--encre); min-width: 2ch; }
+  /* L'élan : niveau et contrats en haut à gauche, multiplicateur sous le réticule, nombres qui s'envolent, bandeau. */
+  #progression { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); width: min(272px, 38vw); padding: 8px 11px 9px; }
+  #progression .tete { display: flex; align-items: center; gap: 9px; }
+  #niv { width: 28px; height: 31px; display: grid; place-items: center; background: var(--pollen); color: var(--graphite); font-size: 14px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  #progression .xp { flex: 1; height: 7px; border-radius: 4px; background: rgba(255, 253, 247, .15); overflow: hidden; }
+  #xpBar { display: block; height: 100%; background: var(--pollen); transform-origin: left; transition: transform .25s; }
+  #contrats { list-style: none; margin: 7px 0 0; padding: 0; display: grid; gap: 4px; }
+  #contrats li { position: relative; display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 0 5px; }
+  #contrats li em { font-style: normal; color: var(--pollen); white-space: nowrap; }
+  #contrats li i { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--seve); transform-origin: left; transition: transform .3s; }
+  #contrats li.fait { color: var(--seve); animation: fait .4s ease-in-out 3; }
+  #contrats li.achat { margin-top: 3px; padding-top: 7px; border-top: 1px solid rgba(255, 253, 247, .15); color: #c9c3b6; }
+  #contrats li.achat i { background: var(--pollen); }
+  #contrats li.pret { color: var(--pollen); }
+  @keyframes fait { 50% { transform: translateX(4px); } }
+  #elan { position: absolute; left: 50%; top: calc(50% + 30px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #elan.actif { opacity: 1; }
+  #elanX { font-size: 18px; color: var(--pollen); text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+  #elan span { width: 56px; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, .35); overflow: hidden; }
+  #elanBar { display: block; height: 100%; background: var(--pollen); transform-origin: left; }
+  #elan.palier #elanX { animation: palier .45s ease-out; }
+  @keyframes palier { 40% { transform: scale(1.6); color: #fffdf7; } }
+  #flottants span { position: absolute; left: 0; top: 0; font-size: 15px; color: var(--encre); text-shadow: 0 1px 3px rgba(0, 0, 0, .7); opacity: 0; white-space: nowrap; will-change: transform; }
+  #flottants .fort { color: var(--pollen); font-size: 17px; }
+  #flottants .or { color: #ffd23a; font-size: 23px; }
+  #bandeau { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+  #bandeau b { display: block; font-size: 30px; color: var(--pollen); text-shadow: 0 2px 8px rgba(0, 0, 0, .6); }
+  #bandeau small { font-size: 15px; text-shadow: 0 1px 4px rgba(0, 0, 0, .7); }
+  #bandeau.vu { animation: bandeau 3.2s ease forwards; }
+  @keyframes bandeau { 0% { opacity: 0; transform: translate(-50%, 12px) scale(.9); } 10%, 80% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; } }
+  .bourrasque #hud { box-shadow: inset 0 0 140px rgba(244, 180, 26, .32); }
+  #credits.gain { animation: gain .35s ease-out; } @keyframes gain { 40% { transform: scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { #bandeau.vu, #credits.gain, #elan.palier #elanX, #contrats li.fait { animation: none; } }
+  .mobile #progression { width: min(230px, 34vw); padding: 6px 9px 7px; } .mobile #contrats li { font-size: 11px; }
   .mobile #slots button { width: 44px; height: 44px; }
   .mobile #boussole { width: min(300px, 40vw); }
 </style>
@@ -119,6 +153,10 @@
     <div id="pastille" class="plaque"><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div>
     <div id="slots"></div>
     <div id="credits" class="plaque"><span class="piece" aria-hidden="true"></span><strong id="cr">0</strong></div>
+    <div id="progression" class="plaque"><div class="tete"><b id="niv">1</b><div class="xp"><i id="xpBar"></i></div></div><ul id="contrats"></ul></div>
+    <div id="elan" aria-hidden="true"><b id="elanX">×1,0</b><span><i id="elanBar"></i></span></div>
+    <div id="flottants" aria-hidden="true"></div>
+    <div id="bandeau" role="status" hidden></div>
   </div>
   <button id="sauvegardes" type="button" data-tactile aria-label="Sauvegardes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
   <button id="carte" class="outilHud" type="button" data-tactile aria-label="Carte"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3.2 3 3.2 14 0 17M12 3.5c-3.2 3-3.2 14 0 17"/></svg></button>
@@ -1430,13 +1468,15 @@ const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
 for (let k = 0; k < NT; k++) { secteurs[T.sect[k]].total++; secteurs[T.sect[k]].vert += T.vert[k]; PLANETE_PROG.vert += T.vert[k]; }
 const majProgres = (s) => { if (s === undefined) { for (let k = 0; k < NSECT; k++) PROG[k] = secteurs[k].vert / secteurs[k].total; } else PROG[s] = secteurs[s].vert / secteurs[s].total; PROG_TEX.needsUpdate = true; };
 const FIN_SECTEUR = [];   // la fête : toutes les 500 parcelles rendues à la vie
+const APRES_POLLEN = [], APRES_VENTE = [];   // (k, par, valeur) → valeur, et (crédits) : l'élan s'y branche
 function polliniser(k, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur de son pollen
   if (!pollinisable(k)) return 0;
   fleurirTuile(k, gt); secteurs[T.sect[k]].vert++; S.tuiles++; majProgres(T.sect[k]);
   bouffee(T.pos[k], par === 'joueur' ? 16 : 8, CHARTE.pollen);
   const s = T.sect[k];
   PLANETE_PROG.vert++; if (PLANETE_PROG.vert % 500 === 0) for (const f of FIN_SECTEUR) f(s);
-  return prixTuile(k);
+  let v = prixTuile(k); for (const f of APRES_POLLEN) v = f(k, par, v);
+  return v;
 }
 // L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil. Relâcher, ou changer de cible,
 // remet la jauge à zéro. Les activités ajoutent leurs actions : { quand(v), faire(v), duree, geste, objet(v) }.
@@ -1502,7 +1542,7 @@ function ecrireEcran(mat, texte) {
   mat.emissiveMap.needsUpdate = true;
 }
 let ECRAN_COLLECTEUR = null; COLLECTEUR.traverse((o) => { if (o.isMesh && o.material.emissiveMap) ECRAN_COLLECTEUR = o.material; });
-function encaisser(v) { const cr = Math.round(v * amelio('negoce') / 100); S.credits += cr; return cr; }   // tout ce qui se vend passe par ici
+function encaisser(v) { const cr = Math.round(v * amelio('negoce') / 100); S.credits += cr; for (const f of APRES_VENTE) f(cr); return cr; }   // tout ce qui se vend passe par ici
 function vendre(extra = 0) {
   const brut = valeurSac() + extra; if (brut <= 0) { sons.refus(); return 0; }
   const cr = encaisser(brut); S.ventes++; S.sac = sacVide();
@@ -1598,8 +1638,11 @@ function majHUD() {
   const possedes = ORDRE_OUTILS.filter((o) => S.outils.includes(o)), sig = possedes.join() + outilEnMain;
   if (sig !== tSlots) { tSlots = sig; hud.slots.innerHTML = possedes.map((o) => `<button type="button" data-tactile data-outil="${o}" class="${o === outilEnMain ? 'actif' : ''}" aria-label="${OUTILS_DEF[o].nom}">${ICONES[o] || ICONES.defaut}</button>`).join(''); }
   hud.slots.style.display = CONS.actif || CARTE.ouverte ? 'none' : '';
-  hud.cr.textContent = fmtCr(S.credits);
+  if (S.credits > crAffiche + 0.5) { if (gt - crPulse > 0.4) { crPulse = gt; $('credits').classList.remove('gain'); void $('credits').offsetWidth; $('credits').classList.add('gain'); } crAffiche += Math.max(1, (S.credits - crAffiche) * 0.25); if (crAffiche > S.credits) crAffiche = S.credits; }
+  else crAffiche = S.credits;   // une dépense s'affiche tout de suite
+  hud.cr.textContent = fmtCr(crAffiche);
 }
+let crAffiche = 0, crPulse = -1;
 const ICONES = {   // pictogrammes des ronds, dessinés au trait
   pinceau: '<svg viewBox="0 0 24 24"><path d="M5 19l9-9m1-1l3-3 1 1-3 3"/><path d="M4 20c1-3 2-4 3-3s0 2-3 3z"/></svg>',
   brosse: '<svg viewBox="0 0 24 24"><path d="M12 3v10"/><rect x="7" y="13" width="10" height="3" rx="1"/><path d="M8 16v4m2-4v4m2-4v4m2-4v4m2-4v4"/></svg>',
@@ -2798,7 +2841,7 @@ function etatSauve() {
   const v = joueur.enVehicule, p = v ? surSol(new V3().copy(v.p).addScaledVector(new V3().crossVectors(v.f, joueur.haut), -(v.D.hw + 0.9))) : joueur.p;   // au volant : on reprendra à côté du véhicule
   return {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
-    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte) },
+    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0 },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
     balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),
@@ -2931,7 +2974,7 @@ MAJ.push((dt) => { NUAGE.t += dt; if (NUAGE.t >= 60) { NUAGE.t = 0; envoyerNuage
       if (d) {
         const ecrit = stock.ecrire(cleEmpl(EMPL), m.texte) && stock.lire(cleEmpl(EMPL)) === m.texte;
         if (DEMARRAGE.repris && ecrit) { SUPPRIME.v = true; location.reload(); return; }   // une partie locale tourne déjà : on recharge sur la copie en ligne
-        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); }
+        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); retourAbsence(d.date); }
       }
     }
     NUAGE.pret = true; NUAGE.etat = 'en ligne'; envoyerNuage();
@@ -3003,6 +3046,152 @@ function montrerAnnonce(t) { annonce.textContent = t; annonce.hidden = false; cl
 if (ANNONCE.texte) montrerAnnonce(ANNONCE.texte);
 
 // =====================================================================
+// 15. L'élan : ce qui donne envie de continuer. Des récompenses fréquentes, lisibles et parfois surprenantes, sans
+//     piège : rien ne se perd si l'on s'arrête, aucune fausse urgence, aucun achat réel.
+//     - Élan : des parcelles enchaînées sans pause font monter un multiplicateur (×1 à ×3) ; une pause le fait redescendre.
+//     - Fleurs dorées : une parcelle sur 90 environ vaut douze fois plus (récompense variable).
+//     - Bourrasque de pollen : toutes les 2 à 4 minutes de jeu, 30 s où tout vaut double et l'or sort trois fois plus.
+//     - Niveaux : chaque parcelle et chaque vente donnent de l'expérience ; chaque niveau paie une prime.
+//     - Contrats : toujours trois petits objectifs à l'écran ; dès qu'un est rempli, un autre le remplace.
+//     - Prochain achat : la barre de l'objet suivant qu'on peut s'offrir (outil ou véhicule).
+//     - Retour : les ruches ont travaillé pendant l'absence (deux heures au plus) ; on le dit à l'arrivée.
+// =====================================================================
+const ELAN = { n: 0, t: -10, mult: 1, max: 0, off: false };   // off : coupé par les tests qui comptent les crédits au centime
+const BOURRASQUE = { fin: -1, prochaine: 150 + Math.random() * 90 };
+const CHANCE_OR = 1 / 90, MULT_OR = 12;
+const enBourrasque = () => gt < BOURRASQUE.fin;
+const multElan = (n) => 1 + Math.min(n, 50) / 25;   // ×1 au départ, ×3 à 50 parcelles enchaînées
+// --- Les nombres qui s'envolent : « +3 », « ★ +45 », au-dessus de la parcelle, puis s'effacent. ---
+const FLOT = $('flottants'), POOL_FLOT = Array.from({ length: 14 }, () => { const el = document.createElement('span'); FLOT.appendChild(el); return { el, t: -10, p: new V3() }; });
+let flotI = 0, tFlotVeh = 0;
+function flotter(p, texte, classe = '') { const f = POOL_FLOT[flotI++ % POOL_FLOT.length]; f.el.textContent = texte; f.el.className = classe; f.t = gt; f.p.copy(p); }
+const _pf = new V3();
+MAJ.push(() => {
+  const W = jeu.clientWidth, H = jeu.clientHeight;
+  for (const f of POOL_FLOT) {
+    const age = gt - f.t; if (age > 1.1) { if (f.el.style.opacity !== '0') f.el.style.opacity = '0'; continue; }
+    _pf.copy(f.p).addScaledVector(_d.copy(f.p).normalize(), 0.6 + age * 1.1).project(camera);
+    if (_pf.z > 1) { f.el.style.opacity = '0'; continue; }
+    f.el.style.transform = `translate(${(_pf.x + 1) / 2 * W}px, ${(1 - _pf.y) / 2 * H}px) translate(-50%, -50%) scale(${age < 0.12 ? 0.6 + age * 4 : 1})`;
+    f.el.style.opacity = String(age < 0.8 ? 1 : (1.1 - age) / 0.3);
+  }
+});
+
+// --- Pollinisation : l'élan, l'or, la bourrasque multiplient la valeur ; chaque parcelle compte pour les contrats. ---
+APRES_POLLEN.push((k, par, v) => {
+  if (par === 'ruche' || ELAN.off) return v;
+  if (gt - ELAN.t > 3) ELAN.n = 0;   // plus de trois secondes sans rien : l'élan repart de zéro
+  ELAN.n += par === 'vehicule' ? 0.5 : 1; ELAN.t = gt; ELAN.max = Math.max(ELAN.max, ELAN.n);
+  const palier = [10, 25, 50].find((p) => ELAN.n >= p && ELAN.n - (par === 'vehicule' ? 0.5 : 1) < p);
+  if (palier) { sons.palier(palier); $('elan').classList.remove('palier'); void $('elan').offsetWidth; $('elan').classList.add('palier'); }
+  let m = multElan(ELAN.n) * (enBourrasque() ? 2 : 1);
+  const dore = Math.random() < CHANCE_OR * (enBourrasque() ? 3 : 1);
+  if (dore) { m *= MULT_OR; S.dorees = (S.dorees || 0) + 1; sons.or(); bouffee(T.pos[k], 40, 0xffd23a); progresser('doree', 1); gagnerXp(10); }
+  const val = v * m;
+  progresser('polliniser', 1); progresser('elan', ELAN.n, true); gagnerXp(par === 'vehicule' ? 0.5 : 1);
+  if (dore) flotter(T.pos[k], `★ +${Math.round(val)}`, 'or');
+  else if (par === 'joueur') flotter(T.pos[k], `+${Math.round(val)}`, m >= 2 ? 'fort' : '');
+  else if (gt - tFlotVeh > 0.35) { tFlotVeh = gt; flotter(T.pos[k], `+${Math.round(val)}`, m >= 2 ? 'fort' : ''); }
+  return val;
+});
+APRES_VENTE.push((cr) => { if (ELAN.off) return; progresser('gagner', cr); gagnerXp(cr / 20); });
+
+// --- Les niveaux. ---
+const xpPour = (n) => Math.round(20 * Math.pow(1.3, n - 1));   // 20, 26, 34… 212 au niveau 10
+const primeNiveau = (n) => Math.round(15 * Math.pow(n, 1.5) / 5) * 5;   // 40 cr au niveau 2, 170 au 5, 475 au 10, 1 340 au 20
+S.niveau = S.niveau || 1; S.xp = S.xp || 0;
+function gagnerXp(x) {
+  S.xp += x;
+  while (S.xp >= xpPour(S.niveau)) {
+    S.xp -= xpPour(S.niveau); S.niveau++; const prime = primeNiveau(S.niveau); S.credits += prime;
+    sons.niveau(); bouffee(joueur.p, 50, CHARTE.pollen); montrerBandeau(`Niveau ${S.niveau}`, `+${fmtCr(prime)} cr`); sauverBientot();
+  }
+}
+
+// --- Les contrats : trois à la fois, jamais deux du même genre ; l'effort demandé suit le niveau. ---
+const GENRES = {
+  polliniser: (L) => { const n = Math.min(400, 15 + 6 * L); return { but: n, cr: Math.round(n * 2 / 5) * 5, texte: `Pollinise ${n} parcelles` }; },
+  elan: (L) => { const n = Math.min(60, 8 + 3 * L); return { but: n, cr: 20 + 10 * L, texte: `Enchaîne ${n} parcelles sans pause` }; },
+  gagner: (L) => { const n = Math.round(120 * Math.pow(1.35, L - 1) / 10) * 10; return { but: n, cr: Math.round(n * 0.2 / 5) * 5, texte: `Gagne ${fmtCr(n)} cr` }; },
+  doree: (L) => ({ but: 1, cr: 40 + 15 * L, texte: 'Trouve une fleur dorée' }),
+};
+function nouveauContrat(exclus) {
+  const libres = Object.keys(GENRES).filter((g) => !exclus.includes(g)), g = libres[Math.floor(Math.random() * libres.length)];
+  return { g, prog: 0, ...GENRES[g](S.niveau) };
+}
+if (!Array.isArray(S.contrats) || S.contrats.length !== 3) { S.contrats = []; for (let k = 0; k < 3; k++) S.contrats.push(nouveauContrat(S.contrats.map((c) => c.g))); }
+let tContrats = '';
+function progresser(g, n, max = false) {
+  S.contrats.forEach((c, k) => {
+    if (c.g !== g || c.fait) return;
+    c.prog = max ? Math.max(c.prog, n) : c.prog + n;
+    if (c.prog >= c.but) {
+      c.fait = gt; S.credits += c.cr; gagnerXp(5 + S.niveau); sons.contrat(); sauverBientot();
+    }
+  });
+}
+
+// --- Le prochain achat : l'outil ou le véhicule le moins cher qu'on n'a pas encore. ---
+function prochainAchat() {
+  let best = null;
+  for (const [cle, prix] of VENTE_COMPTOIR) if (prix && !S.outils.includes(cle) && (!best || prix < best.prix)) best = { nom: OUTILS_DEF[cle].nom, prix, ou: 'au comptoir' };
+  for (const cle of ORDRE_VEHICULES) { const v = FLOTTE[cle]; if (!v.possede && (!best || v.D.prix < best.prix)) best = { nom: v.D.nom, prix: v.D.prix, ou: 'au garage' }; }
+  return best;
+}
+
+// --- La bourrasque de pollen. ---
+MAJ.push((dt) => {
+  if (CARTE.ouverte) return;
+  BOURRASQUE.prochaine -= dt;
+  if (BOURRASQUE.prochaine <= 0 && !ELAN.off) { BOURRASQUE.prochaine = 120 + Math.random() * 120; BOURRASQUE.fin = gt + 30; sons.bourrasque(); montrerBandeau('Bourrasque de pollen', 'tout vaut double pendant 30 s'); }
+  jeu.classList.toggle('bourrasque', enBourrasque());
+});
+
+// --- Le bandeau (niveau, bourrasque) : quelques secondes au centre, puis il s'efface. ---
+function montrerBandeau(titre, sous) { const b = $('bandeau'); b.innerHTML = `<b></b><small></small>`; b.firstChild.textContent = titre; b.lastChild.textContent = sous; b.hidden = false; b.classList.remove('vu'); void b.offsetWidth; b.classList.add('vu'); clearTimeout(montrerBandeau.t); montrerBandeau.t = setTimeout(() => { b.hidden = true; }, 3200); }
+
+// --- L'affichage : niveau et barre d'expérience, contrats, prochain achat, élan. ---
+let tElan = 0;
+MAJ.push((dt) => {
+  if (gt - ELAN.t > 3 && ELAN.n > 0) ELAN.n = 0;
+  S.contrats.forEach((c, k) => { if (c.fait && (gt - c.fait > 1.6 || gt < c.fait)) { S.contrats[k] = nouveauContrat(S.contrats.map((x) => x.g)); tContrats = ''; } });   // un contrat rempli laisse place au suivant
+  const cache = CONS.actif || CARTE.ouverte;
+  $('progression').hidden = cache;
+  ELAN.mult = multElan(ELAN.n) * (enBourrasque() ? 2 : 1);
+  const el = $('elan'), actif = ELAN.n >= 3 || enBourrasque();
+  el.classList.toggle('actif', actif && !cache);
+  tElan += dt; if (tElan < 0.1) return; tElan = 0;
+  $('elanX').textContent = `×${ELAN.mult.toFixed(1).replace('.', ',')}`;
+  $('elanBar').style.transform = `scaleX(${enBourrasque() && ELAN.n < 3 ? (BOURRASQUE.fin - gt) / 30 : Math.max(0, 1 - (gt - ELAN.t) / 3)})`;
+  $('niv').textContent = S.niveau; $('xpBar').style.transform = `scaleX(${Math.min(1, S.xp / xpPour(S.niveau))})`;
+  const pa = prochainAchat(), sig = S.contrats.map((c) => `${c.g}${Math.floor(c.prog)}${c.fait ? 'f' : ''}`).join() + (pa ? pa.nom + Math.floor(Math.min(S.credits, pa.prix) / Math.max(1, pa.prix) * 50) : '');
+  if (sig === tContrats) return; tContrats = sig;
+  const lignes = S.contrats.map((c) => `<li class="${c.fait ? 'fait' : ''}"><span>${c.texte}</span><em>+${fmtCr(c.cr)}</em><i style="transform:scaleX(${Math.min(1, c.prog / c.but)})"></i></li>`);
+  if (pa) { const ok = S.credits >= pa.prix; lignes.push(`<li class="achat ${ok ? 'pret' : ''}"><span>${ok ? `${pa.nom} : à prendre ${pa.ou}` : pa.nom}</span><em>${ok ? '✓' : `${fmtCr(S.credits)} / ${fmtCr(pa.prix)}`}</em><i style="transform:scaleX(${Math.min(1, S.credits / pa.prix)})"></i></li>`); }
+  $('contrats').innerHTML = lignes.join('');
+});
+
+// --- Le retour : ce que les ruches ont fait pendant l'absence (deux heures au plus). ---
+function retourAbsence(date) {
+  if (!date || !RUCHES.length) return;
+  const s = Math.min(7200, (Date.now() - date) / 1000); if (s < 300) return;
+  let cr = 0; for (const r of RUCHES) cr += s * (3 * 0.5 / DUREES_RUCHE[r.niveau] + PRIX_MIEL * 0.5 / 20);
+  cr = Math.round(cr); if (cr <= 0) return; S.credits += cr;
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  montrerAnnonce(`Pendant ton absence (${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}), tes ${RUCHES.length} ruche${RUCHES.length > 1 ? 's ont' : ' a'} rapporté ${fmtCr(cr)} cr.`);
+}
+if (DEMARRAGE.repris) retourAbsence(DEMARRAGE.date);
+
+// --- Les sons de l'élan : paliers, or, niveau, contrat, bourrasque. ---
+Object.assign(sons, {
+  palier(n) { const b = n >= 50 ? 784 : n >= 25 ? 659 : 523; [b, b * 1.25, b * 1.5].forEach((f, k) => this.note(f, k * 0.05, 0.18, 'triangle', 0.18)); },
+  or() { [1047, 1319, 1568, 2093].forEach((f, k) => this.note(f, k * 0.06, 0.3, 'sine', 0.2)); this.note(2637, 0.26, 0.5, 'triangle', 0.08); },
+  niveau() { [523, 659, 784, 1047, 1319].forEach((f, k) => this.note(f, k * 0.09, 0.4, 'triangle', 0.22)); },
+  contrat() { [784, 988, 1175].forEach((f, k) => this.note(f, k * 0.07, 0.25, 'square', 0.07)); },
+  bourrasque() { for (let k = 0; k < 8; k++) this.note(330 * Math.pow(2, k / 6), k * 0.05, 0.2, 'sine', 0.12); },
+});
+
+// =====================================================================
 // 99. Post-traitement, mise en page (paysage forcé sur téléphone), boucle de jeu
 // =====================================================================
 const cible = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: Q.msaa });
@@ -3063,7 +3252,7 @@ function image(now) {
 window.pollen = {
   figer: false, Q, T, NT, IDX, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, SURCOTES, vue, corps, RP, PAS, SECTEURS, BASE, QUAI, poserVehicule, refaireVehicule, local, sol, surSol, altitude, repere, tangent, tuileDe, tuileA, dirDe, voisinsDe, deplacer, V3,
   get outil() { return outilEnMain; }, prendre, S, INTER, ETAL, AMELIOS, TERMINAL_ATELIER, COMPTOIR, STATION, ATELIER, LABO, CONCESSION, HALL, placeParvis, SALLES, DEDANS, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, VARIETES, OUVERTS, PIECES, CATEGORIES, ameliorer, demonter, raisonRefus, SEL, kgSac, valeurSac, ajouter, sacVide, COLIS, emballer, ESSAIM, echapperEssaim, PANNES, VAGUE, FIN_SECTEUR, MATS_FLEUR, FLEUR_GEOS, contreJour, sun, hemi, lampe, lampeSalle, ao, secousseMax: () => secousse, parkingVert: () => M_PARK.color.getHex() === 0x3fd35a, ecartObstacle, repousser, penetre, surcote, PARKING, bienGare, M, composer, sons, porteColis: () => porte, PAQUETS, majFleurs,
-  GRILLE, poserPiece, CAPSULES, FLOTTE, VEHICULES, acheterVehicule, monter, descendre, SORTIE, sauver, charger, etatSauve, CONS, CARTE, departs, RUCHES, BALISES, ACTIONS, ENERGIE, JOUR, SOLEIL, placerSoleil, dormir, SUCCES, MEDAILLONS, DEBITS, SOL_U, HALO, PLANETE, posTuile, voisineVers, accepter, amelio, viser, MAJ,
+  GRILLE, poserPiece, CAPSULES, FLOTTE, VEHICULES, acheterVehicule, monter, descendre, SORTIE, sauver, charger, etatSauve, CONS, CARTE, departs, RUCHES, BALISES, ELAN, BOURRASQUE, gagnerXp, progresser, retourAbsence, xpPour, prochainAchat, ACTIONS, ENERGIE, JOUR, SOLEIL, placerSoleil, dormir, SUCCES, MEDAILLONS, DEBITS, SOL_U, HALO, PLANETE, posTuile, voisineVers, accepter, amelio, viser, MAJ,
   get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { p: joueur.p.toArray(), f: joueur.f.toArray(), pitch: joueur.pitch, vitesse: joueur.vitesse }; },
 };
