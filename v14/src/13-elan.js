@@ -124,14 +124,20 @@ MAJ.push((dt) => {
   $('contrats').innerHTML = lignes.join('');
 });
 
-// --- Le retour : ce que les ruches ont fait pendant l'absence (deux heures au plus). ---
+// --- Le retour : ce que les ruches ont fait pendant l'absence (deux heures au plus), exactement comme en jeu : chacune
+//     pollinise ce qui reste dans son rayon à son rythme, puis remplit ses pots de miel et ses pains de cire (plafonnés). ---
 function retourAbsence(date) {
   if (!date || !RUCHES.length) return;
   const s = Math.min(7200, (Date.now() - date) / 1000); if (s < 300) return;
-  let cr = 0; for (const r of RUCHES) cr += s * (3 * 0.5 / DUREES_RUCHE[r.niveau] + PRIX_MIEL * 0.5 / 20);
-  cr = Math.round(cr); if (cr <= 0) return; S.credits += cr;
-  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
-  montrerAnnonce(`Pendant ton absence (${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}), tes ${RUCHES.length} ruche${RUCHES.length > 1 ? 's ont' : ' a'} rapporté ${fmtCr(cr)} cr.`);
+  const cr0 = S.credits; let tuiles = 0;
+  for (const r of RUCHES) {
+    if (r.partie) continue;
+    for (let n = Math.min(4000, Math.floor(s / DUREES_RUCHE[r.niveau])); n > 0; n--) { const k = tuileRuche(r); if (k < 0) break; S.credits += polliniser(k, 'ruche'); tuiles++; }
+    r.miel = Math.min(6, r.miel + Math.floor(s / 20)); if (r.niveau >= 1) r.cire = Math.min(4, r.cire + Math.floor(s / 40));
+  }
+  const cr = Math.round(S.credits - cr0), h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  montrerAnnonce(`Pendant ton absence (${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}), tes ruches ont pollinisé ${tuiles} parcelle${tuiles > 1 ? 's' : ''}${cr ? ` (+${fmtCr(cr)} cr)` : ''} et rempli leurs pots : passe les prendre à l'enfumoir.`);
+  if (tuiles) sauverBientot();
 }
 if (DEMARRAGE.repris) retourAbsence(DEMARRAGE.date);
 
