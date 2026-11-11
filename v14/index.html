@@ -78,7 +78,7 @@
   .outilHud { position: absolute; right: calc(var(--pad, 14px) + env(safe-area-inset-right, 0px)); width: 30px; height: 30px; padding: 5px; border: 0; border-radius: 6px; background: rgba(32, 35, 39, .35); cursor: pointer; opacity: .7; }
   .outilHud:hover, .outilHud:focus-visible { opacity: 1; outline: 2px solid var(--pollen); }
   .outilHud svg { width: 100%; height: 100%; fill: none; stroke: var(--encre); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
-  #carte { top: calc(98px + env(safe-area-inset-top, 0px)); } #construire { top: calc(134px + env(safe-area-inset-top, 0px)); }
+  #carte { top: calc(98px + env(safe-area-inset-top, 0px)); } #construire { top: calc(134px + env(safe-area-inset-top, 0px)); } #rappel { top: calc(170px + env(safe-area-inset-top, 0px)); }
   .ext #reticule { display: none; }
   #reticule.carte { width: 34px; height: 34px; margin: -17px 0 0 -17px; border-color: rgba(79, 214, 227, .9); }
   #barreCons { position: absolute; left: 50%; bottom: calc(var(--pad, 14px) + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(880px, 94vw); padding: 8px 10px; background: rgba(20, 30, 44, .78); border: 1px solid rgba(79, 214, 227, .5); border-radius: 8px; pointer-events: auto; }
@@ -164,6 +164,7 @@
   <button id="sauvegardes" type="button" data-tactile aria-label="Sauvegardes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
   <button id="carte" class="outilHud" type="button" data-tactile aria-label="Carte"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3.2 3 3.2 14 0 17M12 3.5c-3.2 3-3.2 14 0 17"/></svg></button>
   <button id="construire" class="outilHud" type="button" data-tactile aria-label="Construire"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l8-8"/><path d="M10.5 6.5l7 7 3-3-7-7z"/></svg></button>
+  <button id="rappel" class="outilHud" type="button" data-tactile aria-label="Faire venir mon véhicule (V)" title="Faire venir mon véhicule (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15l2-6h10l4 4h2v2"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/><path d="M9 16.5h6"/></svg></button>
   <div id="barreCons" hidden data-tactile>
     <div class="cats"></div><div class="items"></div>
     <div class="bas"><button type="button" id="consTourner" data-tactile>Tourner</button><button type="button" id="consVerrou" data-tactile>Verrou</button><button type="button" id="consSuppr" data-tactile>Supprimer (X)</button><span id="consRaison" role="status"></span><button type="button" id="consFermer" data-tactile>Fermer</button></div>
@@ -915,7 +916,7 @@ function fabriquerOutil(cle) {
 //    au pouce gauche, regard au pouce droit en même temps, boutons action et E, paysage forcé.
 // =====================================================================
 const jeu = document.getElementById('jeu');
-const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, suppr: false, vueVeh: false, tourner: false, carte: false, verrou: false, molette: 0 };   // presse : une pression, même brève, entre deux images
+const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, suppr: false, vueVeh: false, rappel: false, tourner: false, carte: false, verrou: false, molette: 0 };   // presse : une pression, même brève, entre deux images
 let tourne = false;   // téléphone tenu en portrait : la scène tourne d'un quart de tour
 const versJeu = (cx, cy) => tourne ? [cy, innerWidth - cx] : [cx, cy];
 const sons = { init() {} };   // remplacé par le module du son
@@ -939,6 +940,7 @@ if (!MOBILE) {
     if (e.code === 'KeyG') E.verrou = true;
     if (e.code === 'KeyX' || e.code === 'Delete') E.suppr = true;
     if (e.code === 'KeyC') E.vueVeh = true;
+    if (e.code === 'KeyV') E.rappel = true;
   });
   addEventListener('keyup', (e) => { touches[e.code] = false; maj(); });
   const echec = () => { refus = true; if (glisse) { souris = true; maj(); } };
@@ -1674,6 +1676,7 @@ const ICONES = {   // pictogrammes des ronds, dessinés au trait
   defaut: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>',
 };
 // Toucher ou cliquer un rond prend l'outil.
+$('rappel').addEventListener('pointerdown', (e) => { E.rappel = true; e.stopPropagation(); e.preventDefault(); });
 hud.slots.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-outil]'); if (!b) return; changerOutil(b.dataset.outil); e.stopPropagation(); e.preventDefault(); });
 
 // --- Fin de secteur : vague de floraison qui traverse tout le secteur, nuée d'abeilles, le pourcentage pulse. ---
@@ -1942,7 +1945,7 @@ const PIECES = {
   empoteuse: { nom: 'Empoteuse', cat: 1, prix: 2500, entree: ['cru', 'bougie'], besoin: 1, sortie: 'pot', mult: 1.4, durees: [3, 2, 1.2], conso: 4 },
   trieuse: { nom: 'Trieuse', cat: 1, prix: 600, vitesse: 0.6, tapis: true, conso: 1 },
   raffineur: { nom: 'Raffineur de cire', cat: 1, prix: 1100, entree: ['cire'], besoin: 1, sortie: 'bougie', mult: 2, durees: [4, 2.5, 1.5], conso: 3 },
-  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 3000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], conso: 3, auto: true },   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
+  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 3000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], auto: true },   // autonome : ni courant ni convoyeur ; s'il a un convoyeur devant lui, il l'utilise   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
   ruche0: { nom: 'Ruche simple', cat: 1, prix: 400, ruche: 0 },
   ruche1: { nom: 'Ruche renforcée', cat: 1, prix: 1500, ruche: 1 },
   ruche2: { nom: 'Ruche mère', cat: 1, prix: 6000, ruche: 2 },
@@ -1976,12 +1979,12 @@ tapis.wrapT = THREE.RepeatWrapping; const M_TAPIS = new THREE.MeshStandardMateri
 const M_CELLULE = new THREE.MeshStandardMaterial({ color: 0x1b2a44, roughness: 0.08, metalness: 0.6 }), M_CELLULE_SALE = new THREE.MeshStandardMaterial({ color: 0x6b5a3e, roughness: 0.9 });
 const M_ROUGE = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xe0452f, emissiveIntensity: 2 });
 function ecranMachine() { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({ color: 0x0d0f11, roughness: 0.1, metalness: 0.2, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 1.3 }); }
-function cadence(p) { const d = PIECES[p.cle]; if (d.durees) return 60 / d.durees[p.niveau] * (p.courant ? 1 : 0.25); if (d.tapis) return d.vitesse * 60; if (d.ruche !== undefined) return 60 / DUREES_RUCHE[d.ruche]; return 0; }
+function cadence(p) { const d = PIECES[p.cle]; if (d.durees) return 60 / d.durees[p.niveau] * (!d.conso || p.courant ? 1 : 0.25); if (d.tapis) return d.vitesse * 60; if (d.ruche !== undefined) return 60 / DUREES_RUCHE[d.ruche]; return 0; }
 function dessinerEcran(p) {   // écran sombre : cadence en chiffres, avancement du lot, niveau ; rouge à l'arrêt
   const mat = p.ecran; if (!mat) return; const cv = mat.emissiveMap.image, g = cv.getContext('2d'), d = PIECES[p.cle], av = p.duree ? p.t / p.duree : 0, arret = p.panne || (d.conso && !p.courant);
   g.fillStyle = '#121518'; g.fillRect(0, 0, 128, 64); g.textBaseline = 'middle'; g.textAlign = 'left';
   g.fillStyle = arret ? '#e0452f' : '#f4b41a'; g.font = '800 26px system-ui, sans-serif';
-  const txt = d.prod ? `${(p.puissance || 0).toFixed(1).replace('.', ',')} kW` : d.reserve ? `${Math.round((p.charge || 0) / d.reserve * 100)} %` : d.stock ? `${p.stock.length}/${d.stock}` : p.cle === 'receptionnaire' ? `${Math.round(p.total || 0)} cr` : `${Math.round(cadence(p))}/min`;
+  const txt = d.prod ? `${(p.puissance || 0).toFixed(1).replace('.', ',')} kW` : d.reserve ? `${Math.round((p.charge || 0) / d.reserve * 100)} %` : d.stock ? `${p.stock.length}/${d.stock}` : p.cle === 'receptionnaire' || d.auto ? `${Math.round(p.total || 0)} cr` : `${Math.round(cadence(p))}/min`;
   g.fillText(txt, 8, 22);
   if (d.durees) { g.fillStyle = 'rgba(244,180,26,.2)'; g.fillRect(8, 42, 112, 10); g.fillStyle = arret ? '#e0452f' : '#f4b41a'; g.fillRect(8, 42, 112 * av, 10); for (let k = 0; k < 3; k++) { g.fillStyle = k <= p.niveau ? '#4fd6e3' : '#3a3f45'; g.fillRect(86 + k * 13, 8, 9, 9); } }
   mat.emissiveMap.needsUpdate = true;
@@ -2174,6 +2177,10 @@ function deposerDans(p) {   // E sur un dépôt de terrain : le sac (ou le colis
 //     elle regarde d'abord, sinon n'importe quel convoyeur voisin qui s'en éloigne). Le pollinisateur automatique
 //     pollinise les parcelles fanées de son rayon (7 m), puis, quand tout a fleuri, récolte le pollen des fleurs à 40 %
 //     de leur prix, sans fin ; il pose chaque lot sur la pièce vers laquelle il regarde. Au bout, un réceptionnaire vend. ---
+function venteDirecte(p, cap) {   // une machine autonome encaisse elle-même ; le chiffre s'envole au-dessus d'elle
+  const cr = expedier(cap.valeur, cap.type); p.total = (p.total || 0) + cr;
+  if (cr > 0 && p.pos.distanceTo(joueur.p) < 30 && gt - (p.tFlot || 0) > 0.6) { p.tFlot = gt; flotter(surSol(p.pos, 2.2), `+${cr}`, ''); }
+}
 function sortieRuche(p) {
   const a = GRILLE.get(p.avant); if (a && (estTapis(a) || a.cle === 'receptionnaire' || PIECES[a.cle].stock)) return a;
   for (const id of voisinsDe(p.id)) { const n = GRILLE.get(id); if (n && estTapis(n) && n.avant !== p.id) return n; }
@@ -2228,18 +2235,20 @@ MAJ.push((dt) => {
     const def = PIECES[p.cle], ud = p.g.userData;
     if (def.prod) { ud.cellule.material = p.sale >= 1 ? M_CELLULE_SALE : M_CELLULE; if (ud.cellule2) ud.cellule2.material = ud.cellule.material; if (ud.tete && pres(p)) { _vp.copy(SOLEIL).applyQuaternion(_q.copy(p.g.quaternion).invert()); ud.tete.rotation.set(-Math.atan2(Math.hypot(_vp.x, _vp.z), Math.max(0.2, _vp.y)), Math.atan2(-_vp.x, -_vp.z), 0, 'YXZ'); } }
     if (ud.barres && pres(p)) ud.barres.forEach((b, k) => { b.material = (p.charge || 0) / def.reserve > k / 4 + 0.02 ? M.seve : M.graphite; });
-    if (p.ruche) { p.t += dt; const r = p.ruche, type = r.miel >= 1 ? 'miel' : r.cire >= 1 ? 'cire' : null; if (type && p.t > 0.8) { const n = sortieRuche(p); if (n && accepter(n, { type, valeur: type === 'miel' ? PRIX_MIEL : PRIX_CIRE })) { r[type]--; p.t = 0; noter(type); } } }   // ruche reliée : miel et cire partent seuls
+    if (p.ruche) { p.t += dt; const r = p.ruche, type = r.miel >= 1 ? 'miel' : r.cire >= 1 ? 'cire' : null; if (type && p.t > 0.8) { const n = sortieRuche(p), cap = { type, valeur: type === 'miel' ? PRIX_MIEL : PRIX_CIRE }; if (n ? accepter(n, cap) : (venteDirecte(p, cap), true)) { r[type]--; p.t = 0; noter(type); } } }   // miel et cire partent seuls : par le convoyeur s'il y en a un, sinon vendus sur place
     if (def.emet) { p.t += dt; if (p.t > 0.7 && p.stock.length && accepter(GRILLE.get(p.avant), p.stock[0])) { p.stock.shift(); p.t = 0; } }
     if (def.durees) {
       if (p.sortie && accepter(GRILLE.get(p.avant), p.sortie)) p.sortie = null;
+      else if (p.sortie && def.auto && !GRILLE.get(p.avant)) { venteDirecte(p, p.sortie); p.sortie = null; }   // rien devant lui : il vend lui-même
       p.veut = !p.sortie && (def.auto || p.entrees.length >= def.besoin); p.travaille = p.veut && !p.panne;
-      if (p.panne || (p.veut && !p.courant)) ENERGIE.arretees.push(p);
+      const alim = !def.conso || p.courant;   // une machine sans consommation n'a pas besoin du réseau
+      if (p.panne || (p.veut && !alim)) ENERGIE.arretees.push(p);
       if (p.panne && pres(p) && Math.random() < dt * 6) bouffee(surSol(p.pos, 1.5), 2, 0x8a8d90);   // elle fume
       if (p.travaille) {
-        const v = p.courant ? 1 : 0.25; p.duree = def.durees[p.niveau]; p.t += dt * v; p.anim += dt * 9 * v;
+        const v = alim ? 1 : 0.25; p.duree = def.durees[p.niveau]; p.t += dt * v; p.anim += dt * 9 * v;
         if (p.t >= p.duree) { p.t = 0; if (def.auto) { p.sortie = recolteAuto(p); if (p.sortie) noter('pollen'); } else { const lot = p.entrees.splice(0, def.besoin); p.sortie = { type: def.sortie, valeur: lot.reduce((s, c) => s + c.valeur, 0) * def.mult }; noter(def.sortie); } }
       } else p.t = 0;
-      if (pres(p)) { if (ud.rotor && p.travaille) ud.rotor.rotation.y += dt * 8 * (p.courant ? 1 : 0.25); ud.voyant.material = p.panne || (p.veut && !p.courant) ? (Math.sin(gt * 20) > 0 ? M_ROUGE : M.graphite) : p.travaille ? (Math.sin(gt * 12) > 0 ? M.seve : M.graphite) : p.sortie ? M.lisere : M.graphite; }
+      if (pres(p)) { if (ud.rotor && p.travaille) ud.rotor.rotation.y += dt * 8 * (alim ? 1 : 0.25); ud.voyant.material = p.panne || (p.veut && !alim) ? (Math.sin(gt * 20) > 0 ? M_ROUGE : M.graphite) : p.travaille ? (Math.sin(gt * 12) > 0 ? M.seve : M.graphite) : p.sortie ? M.lisere : M.graphite; }
     }
     if (p.ecran && pres(p)) { p.tEcran += dt; if (p.tEcran > 0.25) { p.tEcran = 0; dessinerEcran(p); } }
   }
@@ -2692,7 +2701,7 @@ function travailler(v, dt) {   // la brosse pollinise ce qui passe dessous ; la 
   const dr = _dr.crossVectors(v.f, _d2.copy(v.p).normalize()), vues = new Set(), rythme = lerp(1, MULT_VEH.phares[v.niv.phares], nuit()), n = D.largeur === 1 ? 0 : Math.max(2, Math.floor(D.largeur / 2));   // une voie tous les 0,95 m
   for (let k = -n; k <= n; k++) {
     const i = tuileA(_vp.copy(v.p).addScaledVector(v.f, D.tete).addScaledVector(dr, k * 0.95)); if (i < 0 || !pollinisable(i) || vues.has(i)) continue; vues.add(i);
-    const t = (v.contact.get(i) || 0) + dt * rythme; v.contact.set(i, t);
+    const t = (v.contact.get(i) || 0) + dt * rythme * (1 + Math.abs(v.v) * 2); v.contact.set(i, t);   // le contact se compte aussi en distance : à pleine vitesse, tout ce qui passe sous la brosse est pollinisé
     if (t >= D.contact && v.charge + KG_TUILE <= capacite(v)) { const val = polliniser(i, 'vehicule'); if (val > 0) { v.charge += KG_TUILE; v.valeur += val; noter('pollen', KG_TUILE); sons.pop(); } }
   }
   for (const i of v.contact.keys()) if (!vues.has(i)) v.contact.delete(i);
@@ -2735,7 +2744,26 @@ function acheterVehicule(cle) {
   S.credits -= v.D.prix; v.possede = true; sons.achat(); sauverBientot();
   v.p.copy(surSol(monde(CONCESSION, -7.5, 0, 1.2))); v.f.copy(CONCESSION.userData.az); refaireVehicule(v); v.obs.inactif = true; SORTIE.v = v; SORTIE.t = 0; SORTIE.k = 0; return true;
 }
-function monter(v) { if (v.D.auto || v.D.remorque) return; joueur.enVehicule = v; for (const t in S.sac) { const r = S.sac[t]; if (r.kg > 0 && v.charge + r.kg <= capacite(v)) { v.charge += r.kg; v.valeur += r.v; S.sac[t] = { kg: 0, v: 0 }; } } if (FLOTTE.citerne.possede && !v.D.remorque && v.cle !== 'chariot') FLOTTE.citerne.attelee = v; }
+// --- Ne jamais perdre un véhicule. V (ou le bouton) fait venir près de soi le dernier conduit ; la borne du garage
+//     renvoie le sien à sa place ; la carte les montre tous ; un véhicule perdu (hors du sol, coincé) revient seul. ---
+function rappeler(v, presDeMoi = true) {
+  if (!v || !v.possede || joueur.enVehicule === v || SORTIE.v === v) { sons.refus(); return false; }
+  let p = null;
+  if (presDeMoi && !DEDANS.salle) {   // devant soi, sinon sur les côtés, sinon derrière : là où il tient
+    for (const a of [0, 1.2, -1.2, 2.4, -2.4, Math.PI]) { const f = joueur.f.clone().applyAxisAngle(joueur.haut, a), q = surSol(new V3().copy(joueur.p).addScaledVector(f, v.D.hd + v.D.hw + 1.5)); if (!penetre(q, v.D.hw + 0.3, v.obs) && !sondesDe(v, q, f).some(([s, r]) => penetre(s, r, v.obs))) { p = q; v.f.copy(f); break; } }
+  }
+  if (!p) { p = surSol(placeParvis(v.cle)); tangent(p, CONCESSION.userData.az.clone().negate(), v.f); }
+  if (FLOTTE.citerne.attelee === v) FLOTTE.citerne.attelee = null;
+  v.p.copy(p); v.v = 0; poserVehicule(v); bouffee(surSol(p, 0.6), 30, 0x4fd6e3); sons.achat(); sauverBientot(); return true;
+}
+let tGarde = 0;
+MAJ.push((dt) => {
+  if (E.rappel) { E.rappel = false; if (!joueur.enVehicule) rappeler(FLOTTE[S.dernierVeh] || ORDRE_VEHICULES.map((c) => FLOTTE[c]).find((w) => w.possede && !w.D.auto && !w.D.remorque)); }
+  tGarde += dt; if (tGarde < 2) return; tGarde = 0;
+  for (const c of ORDRE_VEHICULES) { const w = FLOTTE[c]; if (!w.possede || SORTIE.v === w) continue; const h = w.p.length() - sol(_d.copy(w.p).normalize()); if (!Number.isFinite(h) || Math.abs(h) > 3) { w.p.copy(surSol(placeParvis(c))); w.v = 0; poserVehicule(w); } }   // perdu : il revient à sa place
+});
+REPERES_CARTE.push(() => ORDRE_VEHICULES.map((c) => FLOTTE[c]).filter((w) => w.possede).map((w) => w.p));
+function monter(v) { if (v.D.auto || v.D.remorque) return; joueur.enVehicule = v; S.dernierVeh = v.cle; for (const t in S.sac) { const r = S.sac[t]; if (r.kg > 0 && v.charge + r.kg <= capacite(v)) { v.charge += r.kg; v.valeur += r.v; S.sac[t] = { kg: 0, v: 0 }; } } if (FLOTTE.citerne.possede && !v.D.remorque && v.cle !== 'chariot') FLOTTE.citerne.attelee = v; }
 function descendre() {
   const v = joueur.enVehicule, dr = new V3().crossVectors(v.f, _d.copy(v.p).normalize()); joueur.enVehicule = null; v.v = 0; v.obs.inactif = false; poserVehicule(v);
   let p = new V3().copy(v.p).addScaledVector(dr, -(v.D.hw + 0.9)); if (penetre(p, 0.35, v.obs)) p = new V3().copy(v.p).addScaledVector(dr, v.D.hw + 0.9);
@@ -2806,7 +2834,7 @@ const BORNES_VEH = [];
     placer(tete, boite(0.62, 0.78, 0.07, M.graphite, 0.03), 0, 0, 0); const ec = placer(tete, new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.66), e.mat), 0, 0.02, 0.04); ec.userData.garder = true;
     placer(g, bouton(), bx, F + 0.72, bz + 0.1).scale.setScalar(0.75);
     CLES_AMELIO.forEach((a, k) => { const b = placer(g, bouton(), bx - 0.3 + k * 0.2, F + 0.52, bz + 0.08); b.scale.setScalar(0.32); INTER.push({ p: monde(g, bx - 0.3 + k * 0.2, F + 0.52, bz + 0.14), r: 1.9, cache: () => !FLOTTE[cle].possede, agir() { const v = FLOTTE[cle], prix = prixAmelioVeh(cle, v.niv[a]); if (!prix || S.credits < prix) { sons.refus(); return; } S.credits -= prix; v.niv[a]++; sons.achat(); refaireVehicule(v); sauverBientot(); } }); });
-    INTER.push({ p: monde(g, bx, F + 1.25, bz + 0.1), r: 2.4, agir: () => acheterVehicule(cle) });
+    INTER.push({ p: monde(g, bx, F + 1.25, bz + 0.1), r: 2.4, get etiquette() { return FLOTTE[cle].possede ? 'Rappeler' : null; }, agir: () => (FLOTTE[cle].possede ? rappeler(FLOTTE[cle], false) : acheterVehicule(cle)) });   // acquis : la borne le fait revenir à sa place
     OBSTACLES.push({ p: monde(g, bx, 0, bz), r: 0.25 });
     BORNES_VEH.push({ cle, e, pl, modele, sig: '' });
   });
@@ -2968,7 +2996,7 @@ function etatSauve() {
   const v = joueur.enVehicule, p = v ? surSol(new V3().copy(v.p).addScaledVector(new V3().crossVectors(v.f, joueur.haut), -(v.D.hw + 0.9))) : joueur.p;   // au volant : on reprendra à côté du véhicule
   return {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
-    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0 },
+    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
     balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),
@@ -3298,20 +3326,24 @@ MAJ.push((dt) => {
   $('contrats').innerHTML = lignes.join('');
 });
 
-// --- Le retour : ce que les ruches ont fait pendant l'absence (deux heures au plus), exactement comme en jeu : chacune
-//     pollinise ce qui reste dans son rayon à son rythme, puis remplit ses pots de miel et ses pains de cire (plafonnés). ---
+// --- Le retour : ce que les ruches et les pollinisateurs automatiques ont fait pendant l'absence (deux heures au
+//     plus), comme en jeu : les ruches pollinisent ce qui reste dans leur rayon et vendent leur miel et leur cire ; les
+//     pollinisateurs pollinisent puis récoltent, lot après lot, à leur cadence. ---
 function retourAbsence(date) {
-  if (!date || !RUCHES.length) return;
+  const autos = [...GRILLE.values()].filter((p) => PIECES[p.cle].auto);
+  if (!date || (!RUCHES.length && !autos.length)) return;
   const s = Math.min(7200, (Date.now() - date) / 1000); if (s < 300) return;
-  const cr0 = S.credits; let tuiles = 0;
+  const cr0 = S.credits; let tuiles = 0; const t0 = S.tuiles;
   for (const r of RUCHES) {
     if (r.partie) continue;
-    for (let n = Math.min(4000, Math.floor(s / DUREES_RUCHE[r.niveau])); n > 0; n--) { const k = tuileRuche(r); if (k < 0) break; S.credits += polliniser(k, 'ruche'); tuiles++; }
-    r.miel = Math.min(6, r.miel + Math.floor(s / 20)); if (r.niveau >= 1) r.cire = Math.min(4, r.cire + Math.floor(s / 40));
+    for (let n = Math.min(4000, Math.floor(s / DUREES_RUCHE[r.niveau])); n > 0; n--) { const k = tuileRuche(r); if (k < 0) break; S.credits += polliniser(k, 'ruche'); }
+    expedier(Math.floor(s / [20, 12, 6][r.niveau]) * PRIX_MIEL, 'miel'); if (r.niveau >= 1) expedier(Math.floor(s / [40, 24, 12][r.niveau]) * PRIX_CIRE, 'cire');
   }
+  for (const p of autos) for (let n = Math.min(4000, Math.floor(s / PIECES[p.cle].durees[p.niveau])); n > 0; n--) { const lot = recolteAuto(p); if (!lot) break; p.total = (p.total || 0) + expedier(lot.valeur, 'pollen'); }
+  tuiles = S.tuiles - t0;
   const cr = Math.round(S.credits - cr0), h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
-  montrerAnnonce(`Pendant ton absence (${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}), tes ruches ont pollinisé ${tuiles} parcelle${tuiles > 1 ? 's' : ''}${cr ? ` (+${fmtCr(cr)} cr)` : ''} et rempli leurs pots : passe les prendre à l'enfumoir.`);
-  if (tuiles) sauverBientot();
+  montrerAnnonce(`Pendant ton absence (${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}), tes ruches${autos.length ? ' et tes machines' : ''} ont rapporté ${fmtCr(cr)} cr${tuiles ? ` et pollinisé ${tuiles} parcelle${tuiles > 1 ? 's' : ''}` : ''}.`);
+  sauverBientot();
 }
 if (DEMARRAGE.repris) retourAbsence(DEMARRAGE.date);
 

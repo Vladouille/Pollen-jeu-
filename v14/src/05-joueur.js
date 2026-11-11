@@ -84,7 +84,7 @@ function fabriquerOutil(cle) {
 //    au pouce gauche, regard au pouce droit en même temps, boutons action et E, paysage forcé.
 // =====================================================================
 const jeu = document.getElementById('jeu');
-const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, suppr: false, vueVeh: false, tourner: false, carte: false, verrou: false, molette: 0 };   // presse : une pression, même brève, entre deux images
+const E = { mx: 0, mz: 0, dYaw: 0, dPitch: 0, action: false, presse: false, inter: false, outil: -1, construire: false, suppr: false, vueVeh: false, rappel: false, tourner: false, carte: false, verrou: false, molette: 0 };   // presse : une pression, même brève, entre deux images
 let tourne = false;   // téléphone tenu en portrait : la scène tourne d'un quart de tour
 const versJeu = (cx, cy) => tourne ? [cy, innerWidth - cx] : [cx, cy];
 const sons = { init() {} };   // remplacé par le module du son
@@ -108,6 +108,7 @@ if (!MOBILE) {
     if (e.code === 'KeyG') E.verrou = true;
     if (e.code === 'KeyX' || e.code === 'Delete') E.suppr = true;
     if (e.code === 'KeyC') E.vueVeh = true;
+    if (e.code === 'KeyV') E.rappel = true;
   });
   addEventListener('keyup', (e) => { touches[e.code] = false; maj(); });
   const echec = () => { refus = true; if (glisse) { souris = true; maj(); } };

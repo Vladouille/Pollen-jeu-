@@ -46,6 +46,7 @@ const ICONES = {   // pictogrammes des ronds, dessinés au trait
   defaut: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>',
 };
 // Toucher ou cliquer un rond prend l'outil.
+$('rappel').addEventListener('pointerdown', (e) => { E.rappel = true; e.stopPropagation(); e.preventDefault(); });
 hud.slots.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-outil]'); if (!b) return; changerOutil(b.dataset.outil); e.stopPropagation(); e.preventDefault(); });
 
 // --- Fin de secteur : vague de floraison qui traverse tout le secteur, nuée d'abeilles, le pourcentage pulse. ---

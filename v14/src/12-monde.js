@@ -76,7 +76,7 @@ function etatSauve() {
   const v = joueur.enVehicule, p = v ? surSol(new V3().copy(v.p).addScaledVector(new V3().crossVectors(v.f, joueur.haut), -(v.D.hw + 0.9))) : joueur.p;   // au volant : on reprendra à côté du véhicule
   return {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
-    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0 },
+    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
     balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),

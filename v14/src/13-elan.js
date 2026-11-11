@@ -124,20 +124,24 @@ MAJ.push((dt) => {
   $('contrats').innerHTML = lignes.join('');
 });
 
-// --- Le retour : ce que les ruches ont fait pendant l'absence (deux heures au plus), exactement comme en jeu : chacune
-//     pollinise ce qui reste dans son rayon à son rythme, puis remplit ses pots de miel et ses pains de cire (plafonnés). ---
+// --- Le retour : ce que les ruches et les pollinisateurs automatiques ont fait pendant l'absence (deux heures au
+//     plus), comme en jeu : les ruches pollinisent ce qui reste dans leur rayon et vendent leur miel et leur cire ; les
+//     pollinisateurs pollinisent puis récoltent, lot après lot, à leur cadence. ---
 function retourAbsence(date) {
-  if (!date || !RUCHES.length) return;
+  const autos = [...GRILLE.values()].filter((p) => PIECES[p.cle].auto);
+  if (!date || (!RUCHES.length && !autos.length)) return;
   const s = Math.min(7200, (Date.now() - date) / 1000); if (s < 300) return;
-  const cr0 = S.credits; let tuiles = 0;
+  const cr0 = S.credits; let tuiles = 0; const t0 = S.tuiles;
   for (const r of RUCHES) {
     if (r.partie) continue;
-    for (let n = Math.min(4000, Math.floor(s / DUREES_RUCHE[r.niveau])); n > 0; n--) { const k = tuileRuche(r); if (k < 0) break; S.credits += polliniser(k, 'ruche'); tuiles++; }
-    r.miel = Math.min(6, r.miel + Math.floor(s / 20)); if (r.niveau >= 1) r.cire = Math.min(4, r.cire + Math.floor(s / 40));
+    for (let n = Math.min(4000, Math.floor(s / DUREES_RUCHE[r.niveau])); n > 0; n--) { const k = tuileRuche(r); if (k < 0) break; S.credits += polliniser(k, 'ruche'); }
+    expedier(Math.floor(s / [20, 12, 6][r.niveau]) * PRIX_MIEL, 'miel'); if (r.niveau >= 1) expedier(Math.floor(s / [40, 24, 12][r.niveau]) * PRIX_CIRE, 'cire');
   }
+  for (const p of autos) for (let n = Math.min(4000, Math.floor(s / PIECES[p.cle].durees[p.niveau])); n > 0; n--) { const lot = recolteAuto(p); if (!lot) break; p.total = (p.total || 0) + expedier(lot.valeur, 'pollen'); }
+  tuiles = S.tuiles - t0;
   const cr = Math.round(S.credits - cr0), h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
-  montrerAnnonce(`Pendant ton absence (${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}), tes ruches ont pollinisé ${tuiles} parcelle${tuiles > 1 ? 's' : ''}${cr ? ` (+${fmtCr(cr)} cr)` : ''} et rempli leurs pots : passe les prendre à l'enfumoir.`);
-  if (tuiles) sauverBientot();
+  montrerAnnonce(`Pendant ton absence (${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}), tes ruches${autos.length ? ' et tes machines' : ''} ont rapporté ${fmtCr(cr)} cr${tuiles ? ` et pollinisé ${tuiles} parcelle${tuiles > 1 ? 's' : ''}` : ''}.`);
+  sauverBientot();
 }
 if (DEMARRAGE.repris) retourAbsence(DEMARRAGE.date);
 

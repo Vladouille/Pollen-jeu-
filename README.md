@@ -16,6 +16,8 @@ Puis : l'élan (parcelles enchaînées ×1 à ×3), fleurs dorées, bourrasques 
 toujours à l'écran, prochain achat, gains des ruches pendant l'absence.
 Puis : moissonneuse géante et aéroglisseur à rampe, vue extérieure au volant (C : cabine), mode Supprimer du marteau
 (X), ruches et pollinisateur automatique reliés par convoyeur à un réceptionnaire qui vend seul.
+Puis : les véhicules pollinisent à pleine vitesse, V fait venir son véhicule, ruches et pollinisateurs vendent seuls
+sans convoyeur ni courant.
 
 ## Version courante : v10 (`v10/index.html`)
 

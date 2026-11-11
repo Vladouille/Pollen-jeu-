@@ -57,6 +57,13 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   sur un convoyeur qui la touche (`sortieRuche`) ; nouveau pollinisateur automatique (3 000 cr) qui pollinise son
   rayon puis récolte le pollen à 40 % sans fin (`recolteAuto`) ; un réceptionnaire au bout vend seul. Miel toutes les
   20/12/6 s selon la ruche.
+  Puis : « ne jamais perdre les véhicules ; que l'automatique n'ait besoin ni de conduit ni de rien ; récolter à
+  vitesse maximale » → contact des véhicules compté aussi en distance (dt × (1 + 2|v|)) : à pleine vitesse tout ce qui
+  passe sous la brosse est pollinisé ; `rappeler` (touche V, bouton sous le marteau : le dernier véhicule conduit
+  vient près de soi ; borne du garage : « Rappeler » le renvoie à sa place), véhicules sur la carte, garde-fou qui
+  ramène un véhicule hors du sol. Ruches et pollinisateur automatique autonomes : sans convoyeur ils vendent eux-mêmes
+  (`venteDirecte`), le pollinisateur ne consomme plus de courant ; l'absence compte aussi le miel, la cire et les
+  pollinisateurs.
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

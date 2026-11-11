@@ -22,7 +22,7 @@ const PIECES = {
   empoteuse: { nom: 'Empoteuse', cat: 1, prix: 2500, entree: ['cru', 'bougie'], besoin: 1, sortie: 'pot', mult: 1.4, durees: [3, 2, 1.2], conso: 4 },
   trieuse: { nom: 'Trieuse', cat: 1, prix: 600, vitesse: 0.6, tapis: true, conso: 1 },
   raffineur: { nom: 'Raffineur de cire', cat: 1, prix: 1100, entree: ['cire'], besoin: 1, sortie: 'bougie', mult: 2, durees: [4, 2.5, 1.5], conso: 3 },
-  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 3000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], conso: 3, auto: true },   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
+  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 3000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], auto: true },   // autonome : ni courant ni convoyeur ; s'il a un convoyeur devant lui, il l'utilise   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
   ruche0: { nom: 'Ruche simple', cat: 1, prix: 400, ruche: 0 },
   ruche1: { nom: 'Ruche renforcée', cat: 1, prix: 1500, ruche: 1 },
   ruche2: { nom: 'Ruche mère', cat: 1, prix: 6000, ruche: 2 },
@@ -56,12 +56,12 @@ tapis.wrapT = THREE.RepeatWrapping; const M_TAPIS = new THREE.MeshStandardMateri
 const M_CELLULE = new THREE.MeshStandardMaterial({ color: 0x1b2a44, roughness: 0.08, metalness: 0.6 }), M_CELLULE_SALE = new THREE.MeshStandardMaterial({ color: 0x6b5a3e, roughness: 0.9 });
 const M_ROUGE = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xe0452f, emissiveIntensity: 2 });
 function ecranMachine() { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({ color: 0x0d0f11, roughness: 0.1, metalness: 0.2, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 1.3 }); }
-function cadence(p) { const d = PIECES[p.cle]; if (d.durees) return 60 / d.durees[p.niveau] * (p.courant ? 1 : 0.25); if (d.tapis) return d.vitesse * 60; if (d.ruche !== undefined) return 60 / DUREES_RUCHE[d.ruche]; return 0; }
+function cadence(p) { const d = PIECES[p.cle]; if (d.durees) return 60 / d.durees[p.niveau] * (!d.conso || p.courant ? 1 : 0.25); if (d.tapis) return d.vitesse * 60; if (d.ruche !== undefined) return 60 / DUREES_RUCHE[d.ruche]; return 0; }
 function dessinerEcran(p) {   // écran sombre : cadence en chiffres, avancement du lot, niveau ; rouge à l'arrêt
   const mat = p.ecran; if (!mat) return; const cv = mat.emissiveMap.image, g = cv.getContext('2d'), d = PIECES[p.cle], av = p.duree ? p.t / p.duree : 0, arret = p.panne || (d.conso && !p.courant);
   g.fillStyle = '#121518'; g.fillRect(0, 0, 128, 64); g.textBaseline = 'middle'; g.textAlign = 'left';
   g.fillStyle = arret ? '#e0452f' : '#f4b41a'; g.font = '800 26px system-ui, sans-serif';
-  const txt = d.prod ? `${(p.puissance || 0).toFixed(1).replace('.', ',')} kW` : d.reserve ? `${Math.round((p.charge || 0) / d.reserve * 100)} %` : d.stock ? `${p.stock.length}/${d.stock}` : p.cle === 'receptionnaire' ? `${Math.round(p.total || 0)} cr` : `${Math.round(cadence(p))}/min`;
+  const txt = d.prod ? `${(p.puissance || 0).toFixed(1).replace('.', ',')} kW` : d.reserve ? `${Math.round((p.charge || 0) / d.reserve * 100)} %` : d.stock ? `${p.stock.length}/${d.stock}` : p.cle === 'receptionnaire' || d.auto ? `${Math.round(p.total || 0)} cr` : `${Math.round(cadence(p))}/min`;
   g.fillText(txt, 8, 22);
   if (d.durees) { g.fillStyle = 'rgba(244,180,26,.2)'; g.fillRect(8, 42, 112, 10); g.fillStyle = arret ? '#e0452f' : '#f4b41a'; g.fillRect(8, 42, 112 * av, 10); for (let k = 0; k < 3; k++) { g.fillStyle = k <= p.niveau ? '#4fd6e3' : '#3a3f45'; g.fillRect(86 + k * 13, 8, 9, 9); } }
   mat.emissiveMap.needsUpdate = true;
@@ -254,6 +254,10 @@ function deposerDans(p) {   // E sur un dépôt de terrain : le sac (ou le colis
 //     elle regarde d'abord, sinon n'importe quel convoyeur voisin qui s'en éloigne). Le pollinisateur automatique
 //     pollinise les parcelles fanées de son rayon (7 m), puis, quand tout a fleuri, récolte le pollen des fleurs à 40 %
 //     de leur prix, sans fin ; il pose chaque lot sur la pièce vers laquelle il regarde. Au bout, un réceptionnaire vend. ---
+function venteDirecte(p, cap) {   // une machine autonome encaisse elle-même ; le chiffre s'envole au-dessus d'elle
+  const cr = expedier(cap.valeur, cap.type); p.total = (p.total || 0) + cr;
+  if (cr > 0 && p.pos.distanceTo(joueur.p) < 30 && gt - (p.tFlot || 0) > 0.6) { p.tFlot = gt; flotter(surSol(p.pos, 2.2), `+${cr}`, ''); }
+}
 function sortieRuche(p) {
   const a = GRILLE.get(p.avant); if (a && (estTapis(a) || a.cle === 'receptionnaire' || PIECES[a.cle].stock)) return a;
   for (const id of voisinsDe(p.id)) { const n = GRILLE.get(id); if (n && estTapis(n) && n.avant !== p.id) return n; }
@@ -308,18 +312,20 @@ MAJ.push((dt) => {
     const def = PIECES[p.cle], ud = p.g.userData;
     if (def.prod) { ud.cellule.material = p.sale >= 1 ? M_CELLULE_SALE : M_CELLULE; if (ud.cellule2) ud.cellule2.material = ud.cellule.material; if (ud.tete && pres(p)) { _vp.copy(SOLEIL).applyQuaternion(_q.copy(p.g.quaternion).invert()); ud.tete.rotation.set(-Math.atan2(Math.hypot(_vp.x, _vp.z), Math.max(0.2, _vp.y)), Math.atan2(-_vp.x, -_vp.z), 0, 'YXZ'); } }
     if (ud.barres && pres(p)) ud.barres.forEach((b, k) => { b.material = (p.charge || 0) / def.reserve > k / 4 + 0.02 ? M.seve : M.graphite; });
-    if (p.ruche) { p.t += dt; const r = p.ruche, type = r.miel >= 1 ? 'miel' : r.cire >= 1 ? 'cire' : null; if (type && p.t > 0.8) { const n = sortieRuche(p); if (n && accepter(n, { type, valeur: type === 'miel' ? PRIX_MIEL : PRIX_CIRE })) { r[type]--; p.t = 0; noter(type); } } }   // ruche reliée : miel et cire partent seuls
+    if (p.ruche) { p.t += dt; const r = p.ruche, type = r.miel >= 1 ? 'miel' : r.cire >= 1 ? 'cire' : null; if (type && p.t > 0.8) { const n = sortieRuche(p), cap = { type, valeur: type === 'miel' ? PRIX_MIEL : PRIX_CIRE }; if (n ? accepter(n, cap) : (venteDirecte(p, cap), true)) { r[type]--; p.t = 0; noter(type); } } }   // miel et cire partent seuls : par le convoyeur s'il y en a un, sinon vendus sur place
     if (def.emet) { p.t += dt; if (p.t > 0.7 && p.stock.length && accepter(GRILLE.get(p.avant), p.stock[0])) { p.stock.shift(); p.t = 0; } }
     if (def.durees) {
       if (p.sortie && accepter(GRILLE.get(p.avant), p.sortie)) p.sortie = null;
+      else if (p.sortie && def.auto && !GRILLE.get(p.avant)) { venteDirecte(p, p.sortie); p.sortie = null; }   // rien devant lui : il vend lui-même
       p.veut = !p.sortie && (def.auto || p.entrees.length >= def.besoin); p.travaille = p.veut && !p.panne;
-      if (p.panne || (p.veut && !p.courant)) ENERGIE.arretees.push(p);
+      const alim = !def.conso || p.courant;   // une machine sans consommation n'a pas besoin du réseau
+      if (p.panne || (p.veut && !alim)) ENERGIE.arretees.push(p);
       if (p.panne && pres(p) && Math.random() < dt * 6) bouffee(surSol(p.pos, 1.5), 2, 0x8a8d90);   // elle fume
       if (p.travaille) {
-        const v = p.courant ? 1 : 0.25; p.duree = def.durees[p.niveau]; p.t += dt * v; p.anim += dt * 9 * v;
+        const v = alim ? 1 : 0.25; p.duree = def.durees[p.niveau]; p.t += dt * v; p.anim += dt * 9 * v;
         if (p.t >= p.duree) { p.t = 0; if (def.auto) { p.sortie = recolteAuto(p); if (p.sortie) noter('pollen'); } else { const lot = p.entrees.splice(0, def.besoin); p.sortie = { type: def.sortie, valeur: lot.reduce((s, c) => s + c.valeur, 0) * def.mult }; noter(def.sortie); } }
       } else p.t = 0;
-      if (pres(p)) { if (ud.rotor && p.travaille) ud.rotor.rotation.y += dt * 8 * (p.courant ? 1 : 0.25); ud.voyant.material = p.panne || (p.veut && !p.courant) ? (Math.sin(gt * 20) > 0 ? M_ROUGE : M.graphite) : p.travaille ? (Math.sin(gt * 12) > 0 ? M.seve : M.graphite) : p.sortie ? M.lisere : M.graphite; }
+      if (pres(p)) { if (ud.rotor && p.travaille) ud.rotor.rotation.y += dt * 8 * (alim ? 1 : 0.25); ud.voyant.material = p.panne || (p.veut && !alim) ? (Math.sin(gt * 20) > 0 ? M_ROUGE : M.graphite) : p.travaille ? (Math.sin(gt * 12) > 0 ? M.seve : M.graphite) : p.sortie ? M.lisere : M.graphite; }
     }
     if (p.ecran && pres(p)) { p.tEcran += dt; if (p.tEcran > 0.25) { p.tEcran = 0; dessinerEcran(p); } }
   }

@@ -316,7 +316,7 @@ function travailler(v, dt) {   // la brosse pollinise ce qui passe dessous ; la 
   const dr = _dr.crossVectors(v.f, _d2.copy(v.p).normalize()), vues = new Set(), rythme = lerp(1, MULT_VEH.phares[v.niv.phares], nuit()), n = D.largeur === 1 ? 0 : Math.max(2, Math.floor(D.largeur / 2));   // une voie tous les 0,95 m
   for (let k = -n; k <= n; k++) {
     const i = tuileA(_vp.copy(v.p).addScaledVector(v.f, D.tete).addScaledVector(dr, k * 0.95)); if (i < 0 || !pollinisable(i) || vues.has(i)) continue; vues.add(i);
-    const t = (v.contact.get(i) || 0) + dt * rythme; v.contact.set(i, t);
+    const t = (v.contact.get(i) || 0) + dt * rythme * (1 + Math.abs(v.v) * 2); v.contact.set(i, t);   // le contact se compte aussi en distance : à pleine vitesse, tout ce qui passe sous la brosse est pollinisé
     if (t >= D.contact && v.charge + KG_TUILE <= capacite(v)) { const val = polliniser(i, 'vehicule'); if (val > 0) { v.charge += KG_TUILE; v.valeur += val; noter('pollen', KG_TUILE); sons.pop(); } }
   }
   for (const i of v.contact.keys()) if (!vues.has(i)) v.contact.delete(i);
@@ -359,7 +359,26 @@ function acheterVehicule(cle) {
   S.credits -= v.D.prix; v.possede = true; sons.achat(); sauverBientot();
   v.p.copy(surSol(monde(CONCESSION, -7.5, 0, 1.2))); v.f.copy(CONCESSION.userData.az); refaireVehicule(v); v.obs.inactif = true; SORTIE.v = v; SORTIE.t = 0; SORTIE.k = 0; return true;
 }
-function monter(v) { if (v.D.auto || v.D.remorque) return; joueur.enVehicule = v; for (const t in S.sac) { const r = S.sac[t]; if (r.kg > 0 && v.charge + r.kg <= capacite(v)) { v.charge += r.kg; v.valeur += r.v; S.sac[t] = { kg: 0, v: 0 }; } } if (FLOTTE.citerne.possede && !v.D.remorque && v.cle !== 'chariot') FLOTTE.citerne.attelee = v; }
+// --- Ne jamais perdre un véhicule. V (ou le bouton) fait venir près de soi le dernier conduit ; la borne du garage
+//     renvoie le sien à sa place ; la carte les montre tous ; un véhicule perdu (hors du sol, coincé) revient seul. ---
+function rappeler(v, presDeMoi = true) {
+  if (!v || !v.possede || joueur.enVehicule === v || SORTIE.v === v) { sons.refus(); return false; }
+  let p = null;
+  if (presDeMoi && !DEDANS.salle) {   // devant soi, sinon sur les côtés, sinon derrière : là où il tient
+    for (const a of [0, 1.2, -1.2, 2.4, -2.4, Math.PI]) { const f = joueur.f.clone().applyAxisAngle(joueur.haut, a), q = surSol(new V3().copy(joueur.p).addScaledVector(f, v.D.hd + v.D.hw + 1.5)); if (!penetre(q, v.D.hw + 0.3, v.obs) && !sondesDe(v, q, f).some(([s, r]) => penetre(s, r, v.obs))) { p = q; v.f.copy(f); break; } }
+  }
+  if (!p) { p = surSol(placeParvis(v.cle)); tangent(p, CONCESSION.userData.az.clone().negate(), v.f); }
+  if (FLOTTE.citerne.attelee === v) FLOTTE.citerne.attelee = null;
+  v.p.copy(p); v.v = 0; poserVehicule(v); bouffee(surSol(p, 0.6), 30, 0x4fd6e3); sons.achat(); sauverBientot(); return true;
+}
+let tGarde = 0;
+MAJ.push((dt) => {
+  if (E.rappel) { E.rappel = false; if (!joueur.enVehicule) rappeler(FLOTTE[S.dernierVeh] || ORDRE_VEHICULES.map((c) => FLOTTE[c]).find((w) => w.possede && !w.D.auto && !w.D.remorque)); }
+  tGarde += dt; if (tGarde < 2) return; tGarde = 0;
+  for (const c of ORDRE_VEHICULES) { const w = FLOTTE[c]; if (!w.possede || SORTIE.v === w) continue; const h = w.p.length() - sol(_d.copy(w.p).normalize()); if (!Number.isFinite(h) || Math.abs(h) > 3) { w.p.copy(surSol(placeParvis(c))); w.v = 0; poserVehicule(w); } }   // perdu : il revient à sa place
+});
+REPERES_CARTE.push(() => ORDRE_VEHICULES.map((c) => FLOTTE[c]).filter((w) => w.possede).map((w) => w.p));
+function monter(v) { if (v.D.auto || v.D.remorque) return; joueur.enVehicule = v; S.dernierVeh = v.cle; for (const t in S.sac) { const r = S.sac[t]; if (r.kg > 0 && v.charge + r.kg <= capacite(v)) { v.charge += r.kg; v.valeur += r.v; S.sac[t] = { kg: 0, v: 0 }; } } if (FLOTTE.citerne.possede && !v.D.remorque && v.cle !== 'chariot') FLOTTE.citerne.attelee = v; }
 function descendre() {
   const v = joueur.enVehicule, dr = new V3().crossVectors(v.f, _d.copy(v.p).normalize()); joueur.enVehicule = null; v.v = 0; v.obs.inactif = false; poserVehicule(v);
   let p = new V3().copy(v.p).addScaledVector(dr, -(v.D.hw + 0.9)); if (penetre(p, 0.35, v.obs)) p = new V3().copy(v.p).addScaledVector(dr, v.D.hw + 0.9);
@@ -430,7 +449,7 @@ const BORNES_VEH = [];
     placer(tete, boite(0.62, 0.78, 0.07, M.graphite, 0.03), 0, 0, 0); const ec = placer(tete, new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.66), e.mat), 0, 0.02, 0.04); ec.userData.garder = true;
     placer(g, bouton(), bx, F + 0.72, bz + 0.1).scale.setScalar(0.75);
     CLES_AMELIO.forEach((a, k) => { const b = placer(g, bouton(), bx - 0.3 + k * 0.2, F + 0.52, bz + 0.08); b.scale.setScalar(0.32); INTER.push({ p: monde(g, bx - 0.3 + k * 0.2, F + 0.52, bz + 0.14), r: 1.9, cache: () => !FLOTTE[cle].possede, agir() { const v = FLOTTE[cle], prix = prixAmelioVeh(cle, v.niv[a]); if (!prix || S.credits < prix) { sons.refus(); return; } S.credits -= prix; v.niv[a]++; sons.achat(); refaireVehicule(v); sauverBientot(); } }); });
-    INTER.push({ p: monde(g, bx, F + 1.25, bz + 0.1), r: 2.4, agir: () => acheterVehicule(cle) });
+    INTER.push({ p: monde(g, bx, F + 1.25, bz + 0.1), r: 2.4, get etiquette() { return FLOTTE[cle].possede ? 'Rappeler' : null; }, agir: () => (FLOTTE[cle].possede ? rappeler(FLOTTE[cle], false) : acheterVehicule(cle)) });   // acquis : la borne le fait revenir à sa place
     OBSTACLES.push({ p: monde(g, bx, 0, bz), r: 0.25 });
     BORNES_VEH.push({ cle, e, pl, modele, sig: '' });
   });
