@@ -120,7 +120,7 @@ const local = (x, z, h = 0) => surSol(new V3().copy(BASE).addScaledVector(REP_BA
 const versBase = (p) => tangent(p, new V3().subVectors(BASE, p));   // le vecteur « face à la place » pour un bâtiment posé en p
 
 // --- Les parcelles : toute la planète, sauf l'esplanade de la base (≈ 655 000). Tableaux compacts, jamais un objet par
-//     parcelle. Sortes : 0 normale, 1 chardons, 2 aride, 3 mère sauvage, 4 nue. Aucune n'est fleurie au départ. ---
+//     parcelle. Sortes : 0 normale, 1 chardons, (2 aride : retirée avec l'eau), 3 mère sauvage, 4 nue. Aucune n'est fleurie au départ. ---
 const NTOT = 20 * N1 * N1;
 const IDXT = new Int32Array(NTOT).fill(-1);
 const IDX = { get: (id) => { const k = IDXT[id]; return k < 0 ? undefined : k; }, has: (id) => IDXT[id] >= 0 };   // id canonique → rang
@@ -145,8 +145,7 @@ const SECTEURS = [];
   for (let k = 0; k < NT; k++) {
     IDXT[T.id[k]] = k; const sk = rang.get(cles[k]); T.sect[k] = sk;
     const R = mulberry(T.id[k] * 7 + 13), v = SECTEURS[sk].variete, x = T.P[k * 3] / RP, y = T.P[k * 3 + 1] / RP, z = T.P[k * 3 + 2] / RP;
-    const aride = (v === 3 || v === 4) && bruit3(x * 60 + 3, y * 60, z * 60) > 0.6;
-    T.sorte[k] = aride ? 2 : (sk < 40 && R() < 0.06) ? 1 : (sk > 0 && sk < 300 && R() < 0.004) ? 3 : 0;   // chardons et mères sauvages près de la base seulement
+    T.sorte[k] = (sk < 40 && R() < 0.06) ? 1 : (sk > 0 && sk < 300 && R() < 0.004) ? 3 : 0;   // chardons et mères sauvages près de la base seulement
   }
 }
 // T.pos[k] et T.dir[k] restent lisibles comme avant (un vecteur neuf à chaque lecture).

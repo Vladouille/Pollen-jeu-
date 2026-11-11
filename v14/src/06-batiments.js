@@ -27,8 +27,69 @@ function ecranDyn(w, h) {   // un écran dont on redessine le contenu : { mat, g
 const fond = (e) => { e.g.fillStyle = '#121518'; e.g.fillRect(0, 0, e.w, e.h); e.g.textBaseline = 'middle'; };
 const INTER = [];      // ce qu'on utilise avec E : { p (point visé, dans le monde), r, agir(), cache() }
 const SALLES = [];     // les pièces où l'on entre
-// Une pièce : W de large, D de profond, porte au milieu de la façade (+z).
-function salle(W, D, enseigne, pos, Ht = 3) {
+// Poser un objet dans le repère plat d'un bâtiment (même plan que son plancher), décalé de (x, z), tourné de ry.
+function poserDans(obj, parent, x, z, ry = 0) {
+  obj.position.copy(parent.position).addScaledVector(parent.userData.ax, x).addScaledVector(parent.userData.az, z);
+  obj.quaternion.copy(parent.quaternion); if (ry) obj.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new V3(0, 1, 0), ry));
+  obj.updateMatrixWorld(true); obj.userData.ax = new V3(1, 0, 0).applyQuaternion(obj.quaternion); obj.userData.az = new V3(0, 0, 1).applyQuaternion(obj.quaternion);
+  return obj;
+}
+const M_VERRE = new THREE.MeshStandardMaterial({ color: 0xa8dbe8, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.2, depthWrite: false });
+const M_BETON = new THREE.MeshStandardMaterial({ color: 0xa9a8a3, roughness: 0.95 }); M_BETON.userData.sansReflet = true;
+
+// --- Le bâtiment unique : un grand hall vitré de 41 m sur 18 qui abrite tout. Au fond, quatre pièces côte à côte
+//     (comptoir, station, atelier, laboratoire), portes ouvertes sur le hall ; devant à l'est, le concessionnaire et sa
+//     porte sectionnelle ; devant à l'ouest, l'accueil. Une seule porte pour le public, une toiture, une enseigne.
+//     Le plancher est plat ; la planète s'arrondit dessous (r² / 2R, 0,5 m aux angles) : la plinthe descend jusqu'au sol. ---
+const HALL_W = 41, HALL_D = 18, HALL_H = 4.4, HALL_E = 0.3, BAIE = [0.7, 5.1], BAIE_H = 3.0, PORTE_X = -3;
+const HALL = (() => {
+  const W = HALL_W, D = HALL_D, Ht = HALL_H, F = 0.14, e = HALL_E, PW = 2.2, PH = 2.6, HV = 3.3, g = new THREE.Group(), pos = local(0, -8), yM = F + Ht / 2, zf = D / 2 - e / 2;
+  poserSur(g, pos, versBase(pos));
+  const creux = (W * W + D * D) / 4 / (2 * RP) + 0.3;
+  placer(g, boite(W - 0.02, F, D - 0.02, M_DALLE, 0.03), 0, F / 2 - 0.006, 0);                                     // dalles (6 mm sous celles des pièces)
+  placer(g, boite(W + 0.1, 0.12 + creux, D + 0.1, M.graphite, 0.04), 0, (0.12 - creux) / 2, 0);                    // plinthe charbon, jusqu'au sol
+  for (const [w, d, x, z] of [[W - 2 * e - 0.3, 0.07, 0, D / 2 - e - 0.4], [0.07, D - 2 * e - 0.3, -W / 2 + e + 0.12, 0], [0.07, D - 2 * e - 0.3, W / 2 - e - 0.12, 0]]) placer(g, boite(w, 0.012, d, M.lisere, 0.004), x, F + 0.006, z);
+  const murs = [[W, e, 0, -D / 2 + e / 2], [e, D, -W / 2 + e / 2, 0], [e, D, W / 2 - e / 2, 0]];
+  for (const [w, d, x, z] of murs) placer(g, boite(w, Ht, d, M.blanc, 0.03), x, yM, z);
+  // La façade vitrée : poteaux charbon, verre clair, bandeau blanc en haut ; la porte du public et la baie du garage.
+  const pleins = [[-W / 2 + e, PORTE_X - PW / 2], [PORTE_X + PW / 2, BAIE[0] - 0.15], [BAIE[1] + 0.15, W / 2 - e]];
+  for (const [a, b] of pleins) {
+    placer(g, boite(b - a, HV - 0.1, 0.06, M_VERRE, 0.01), (a + b) / 2, F + 0.05 + (HV - 0.1) / 2, zf); murs.push([b - a, 0.3, (a + b) / 2, zf]);
+    const n = Math.max(1, Math.round((b - a) / 2.3)); for (let k = 0; k <= n; k++) placer(g, boite(0.16, HV, 0.24, M.graphite, 0.03), a + (b - a) * k / n, F + HV / 2, zf);
+    placer(g, boite(b - a, 0.1, 0.26, M.graphite, 0.03), (a + b) / 2, F + 0.05, zf); placer(g, boite(b - a, 0.08, 0.26, M.graphite, 0.03), (a + b) / 2, F + 1.05, zf);   // traverse basse
+  }
+  placer(g, boite(W, Ht - HV, e, M.blanc, 0.03), 0, F + HV + (Ht - HV) / 2, zf); placer(g, boite(W + 0.04, 0.09, e + 0.06, M.lisere, 0.02), 0, F + HV + 0.05, zf);   // bandeau et liseré
+  placer(g, boite(PW, HV - PH, 0.06, M_VERRE, 0.01), PORTE_X, F + PH + (HV - PH) / 2, zf); placer(g, boite(PW + 0.2, 0.08, e + 0.06, M.lisere, 0.02), PORTE_X, F + PH + 0.04, zf);
+  for (const x of BAIE) placer(g, boite(0.3, HV, 0.32, M.graphite, 0.04), x, F + HV / 2, zf);
+  placer(g, boite(BAIE[1] - BAIE[0] + 0.3, HV - BAIE_H, 0.32, M.graphite, 0.04), (BAIE[0] + BAIE[1]) / 2, F + BAIE_H + (HV - BAIE_H) / 2, zf);
+  for (let k = 0; k < 7; k++) placer(g, boite(0.5, 0.06, 0.34, k % 2 ? M.graphite : M.lisere, 0.01), BAIE[0] + 0.45 + k * 0.58, F + BAIE_H + 0.12, zf + 0.01);   // chevrons du garage
+  // L'auvent de la porte du public, éclairé par-dessous, et le paillasson cyan.
+  placer(g, boite(4.4, 0.16, 1.9, M.graphite, 0.04), PORTE_X, F + 3.0, D / 2 + 0.95); placer(g, boite(4.44, 0.06, 1.94, M.lisere, 0.02), PORTE_X, F + 2.9, D / 2 + 0.95); placer(g, boite(3.4, 0.02, 1.0, M_LUM, 0.008), PORTE_X, F + 2.86, D / 2 + 1.0);
+  for (const s of [-1, 1]) placer(g, tube(0.03, 0.03, 1.4, M_CHROME), PORTE_X + s * 2.0, F + 3.6, D / 2 + 0.65).rotation.x = -0.75;
+  placer(g, boite(2.4, 0.015, 1.3, M.seve, 0.006), PORTE_X, 0.135, D / 2 + 0.75);
+  // Toit, corniche, liseré orange continu, édicule technique.
+  placer(g, boite(W + 0.6, 0.34, D + 0.6, M.blanc, 0.05), 0, F + Ht + 0.17, 0); placer(g, boite(W + 0.64, 0.07, D + 0.64, M.lisere, 0.02), 0, F + Ht - 0.02, 0);
+  placer(g, boite(W - 2, 0.4, D - 2, M.blanc, 0.05), 0, F + Ht + 0.54, 0);
+  for (const x of [-13, 13]) { placer(g, boite(3.2, 1.1, 2.4, M.panneau, 0.06), x, F + Ht + 1.25, -4.5); for (let k = 0; k < 2; k++) placer(g, cylindre(0.5, 0.5, 0.25, M.graphite, 20), x - 0.8 + k * 1.6, F + Ht + 1.9, -4.5); }
+  // Fenêtres hautes cyan sur les trois autres façades.
+  for (let x = -W / 2 + 1.4; x <= W / 2 - 1.4; x += 2.2) placer(g, boite(0.28, 2.2, 0.05, M.seve, 0.02), x, F + 2.0, -D / 2 - 0.01);
+  for (let z = -D / 2 + 1.4; z <= D / 2 - 1.4; z += 2.2) for (const s of [-1, 1]) placer(g, boite(0.05, 2.2, 0.28, M.seve, 0.02), s * (W / 2 + 0.01), F + 2.0, z);
+  // Dedans : plafond, bandeaux lumineux, conduits.
+  placer(g, boite(W - 2 * e, 0.06, D - 2 * e, M.blanc, 0.02), 0, F + Ht - 0.09, 0);
+  for (let x = -W / 2 + 2; x <= W / 2 - 2; x += 3.4) placer(g, boite(0.3, 0.05, D - 1.6, M_LUM, 0.02), x, F + Ht - 0.115, 0);
+  placer(g, tube(0.09, 0.09, W - 0.8, M.graphite), 0, F + Ht - 0.35, D / 2 - e - 0.6).rotation.z = Math.PI / 2;
+  // Les enseignes sur le toit : blanche au-dessus de l'accueil, orange au-dessus du garage.
+  const enseigne = (texte, x, l, fond, encre, cadre) => { placer(g, boite(l, 1.3, 0.25, cadre, 0.06), x, F + Ht + 1.3, D / 2 - 0.6); for (const s of [-1, 1]) placer(g, boite(0.16, 0.5, 0.16, M.graphite, 0.03), x + s * (l / 2 - 0.8), F + Ht + 0.6, D / 2 - 0.6); placer(g, boite(l - 0.4, 1.0, 0.03, new THREE.MeshStandardMaterial({ map: texteTex([[texte, 80]], 1024, 128, fond, encre), roughness: 0.5 }), 0.01), x, F + Ht + 1.3, D / 2 - 0.46); };
+  enseigne('STATION POLLEN', -8.5, 10, '#edeae4', '#2e343a', M.graphite); enseigne('CONCESSIONNAIRE', 10.4, 9.2, '#f08a24', '#fffdf7', M.lisere);
+  const vantaux = [-1, 1].map((s) => { const v = placer(g, boite(PW / 2, PH, 0.07, M_VITRE, 0.02), PORTE_X + s * PW / 4, F + PH / 2, zf); v.userData.garder = true; v.userData.s = s; return v; });
+  scene.add(g); ombreContact(g, 1).scale.set(W / 2 + 0.8, 1, D / 2 + 0.8);
+  for (const [w, d, x, z] of murs) OBSTACLES.push(boiteDe(g, w / 2 + 0.05, d / 2 + 0.05, {}, x, z));
+  SURCOTES.push({ p: g.position.clone(), ax: g.userData.ax, az: g.userData.az, hw: W / 2 + 0.4, hd: D / 2 + 0.4, h: F, bord: 0.5 });
+  const S = { g, W, D, Ht, F, vantaux, PW, porteX: PORTE_X, dedans: false, ouverture: 0, hall: true }; SALLES.push(S); g.userData.salle = S;
+  return g;
+})();
+// Une pièce : W de large, D de profond, porte au milieu de la façade (+z). Dans le hall : dans = [x, z] (repère du hall).
+function salle(W, D, enseigne, pos, Ht = 3, dans = null) {
   const g = new THREE.Group(), e = 0.25, PW = 1.9, PH = 2.4, F = 0.14, yM = F + Ht / 2;
   placer(g, boite(W, F, D, M_DALLE, 0.03), 0, F / 2, 0);                                                           // dalles
   for (const [w, d, x, z] of [[W - 2 * e - 0.3, 0.07, 0, -D / 2 + e + 0.12], [W - 2 * e - 0.3, 0.07, 0, D / 2 - e - 0.12], [0.07, D - 2 * e - 0.3, -W / 2 + e + 0.12, 0], [0.07, D - 2 * e - 0.3, W / 2 - e - 0.12, 0]]) placer(g, boite(w, 0.012, d, M.lisere, 0.004), x, F + 0.006, z);   // liseré orange le long des murs
@@ -52,10 +113,9 @@ function salle(W, D, enseigne, pos, Ht = 3) {
   const le = Math.min(W - 1, 4.4); placer(g, boite(le, 0.7, 0.12, M.graphite, 0.03), 0, F + Ht + 0.72, D / 2 + 0.1);
   placer(g, boite(le - 0.12, 0.58, 0.03, new THREE.MeshStandardMaterial({ map: texteTex([[enseigne, 76]]), roughness: 0.5 }), 0.01), 0, F + Ht + 0.72, D / 2 + 0.17);
   const vantaux = [-1, 1].map((s) => { const v = placer(g, boite(PW / 2, PH, 0.07, M_VITRE, 0.02), s * PW / 4, F + PH / 2, D / 2 - e / 2); v.userData.garder = true; v.userData.s = s; return v; });
-  fusionner(g); poserSur(g, pos, versBase(pos)); scene.add(g);
-  const ombre = ombreContact(g, 1); ombre.scale.set(W / 2 + 0.7, 1, D / 2 + 0.7);
+  fusionner(g); if (dans) poserDans(g, HALL, dans[0], dans[1]); else poserSur(g, pos, versBase(pos)); scene.add(g);
+  if (!dans) { const ombre = ombreContact(g, 1); ombre.scale.set(W / 2 + 0.7, 1, D / 2 + 0.7); SURCOTES.push({ p: g.position.clone(), ax: g.userData.ax, az: g.userData.az, hw: W / 2 + 0.4, hd: D / 2 + 0.4, h: F, bord: 0.5 }); }
   for (const [w, d, x, z] of murs) OBSTACLES.push(boiteDe(g, w / 2 + 0.05, d / 2 + 0.05, {}, x, z));
-  SURCOTES.push({ p: g.position.clone(), ax: g.userData.ax, az: g.userData.az, hw: W / 2 + 0.4, hd: D / 2 + 0.4, h: F, bord: 0.5 });
   const S = { g, W, D, Ht, F, vantaux, PW, dedans: false, ouverture: 0 }; SALLES.push(S); g.userData.salle = S;
   return g;
 }
@@ -74,7 +134,7 @@ function comptoirMeuble(w, d, h = 1.0) { const g = new THREE.Group(); placer(g, 
 
 // --- La station : le bâtiment central. Comptoir d'accueil en îlot, grand écran de progression du secteur, mur des
 //     succès avec ses médaillons, tableau de supervision, et un lit pour passer la nuit. ---
-const STATION = salle(11, 8, 'STATION POLLEN', local(0, -12));
+const STATION = salle(11, 8, 'STATION', null, 3, [-3.5, -HALL_D / 2 + HALL_E + 4]);
 const ECRAN_SECTEUR = ecranDyn(768, 320), ECRAN_SUPERVISION = ecranDyn(1024, 512), MEDAILLONS = [];
 {
   const g = STATION, F = g.userData.salle.F;
@@ -91,7 +151,7 @@ const ECRAN_SECTEUR = ecranDyn(768, 320), ECRAN_SUPERVISION = ecranDyn(1024, 512
 }
 // --- Le comptoir : la vente et les outils. Long établi contre le mur du fond avec tous les outils exposés (ceux qu'on ne
 //     peut pas s'offrir en gris translucide), borne de vente face à l'entrée, cageots qui se remplissent des fleurs vendues. ---
-const COMPTOIR = salle(11, 7, 'COMPTOIR', local(-12, -2));
+const COMPTOIR = salle(11, 7, 'COMPTOIR', null, 3, [-14.5, -HALL_D / 2 + HALL_E + 3.5]);
 const ETAL = [], CAGEOTS = [];
 const BORNE_VENTE = { mat: null };
 {
@@ -107,7 +167,7 @@ const BORNE_VENTE = { mat: null };
 }
 // --- L'atelier : les améliorations. Établi central avec un outil démonté, tiroirs à outils sur roulettes, tableau
 //     perforé couvert de clés et de pinces, terminal mural à cinq catégories. ---
-const ATELIER = salle(9, 7, 'ATELIER', local(-10, 10));
+const ATELIER = salle(9, 7, 'ATELIER', null, 3, [6.5, -HALL_D / 2 + HALL_E + 3.5]);
 const TERMINAL_ATELIER = [];
 {
   const g = ATELIER, F = g.userData.salle.F;
@@ -121,7 +181,7 @@ const TERMINAL_ATELIER = [];
 }
 // --- Le laboratoire : les variétés d'Azurelle. Paillasses blanches avec plateaux de semis sous lampes violettes, bocaux de
 //     graines étiquetés, microscope, tableau vitré des six variétés (valeur, état de déblocage). ---
-const LABO = salle(9, 7, 'LABORATOIRE', local(10, 10));
+const LABO = salle(9, 7, 'LABORATOIRE', null, 3, [15.5, -HALL_D / 2 + HALL_E + 3.5]);
 const ECRAN_VARIETES = ecranDyn(1024, 512);
 {
   const g = LABO, F = g.userData.salle.F;
@@ -138,30 +198,36 @@ const ECRAN_VARIETES = ecranDyn(1024, 512);
   decor(g, [['caisses', 3.6, 2.6, 0.2], ['chariot', -3.2, 2.5, 2.2], ['escabeau', 2.2, -1.0, 0.6], ['extincteur', -1.4, 3.05, Math.PI], ['affiche', 2.6, -3.21, 0, F + 1.7], ['plante', 1.6, 2.9], ['plante', -3.7, -2.8]]);
   fusionner(g);
 }
-// Le collecteur dehors (on y vide les véhicules et les lignes en partent), et le point d'eau.
+// Le collecteur dehors (on y vide les véhicules et les lignes en partent).
 { const o = boiteDe(COLLECTEUR, 1.55, 1.25, { machine: true }); OBSTACLES.push(o); cadreSol(o.p, o.ax, o.az, o.hw + ZONE_APPROCHE, o.hd + ZONE_APPROCHE, M_ZONE); ombreContact(COLLECTEUR, 1).scale.set(1.9, 1, 1.6); }
-const POMPE = (() => {
-  const g = new THREE.Group(), base = socle(g, 1.2, 1.2);
-  placer(g, tube(0.55, 0.6, 1.6, M.panneau, 24), 0, base + 0.8, 0); placer(g, tube(0.62, 0.62, 0.12, M.graphite, 24), 0, base + 1.66, 0); placer(g, tube(0.4, 0.5, 0.3, M.blanc, 24), 0, base + 1.86, 0);
-  placer(g, cylindre(0.22, 0.22, 0.03, new THREE.MeshStandardMaterial({ color: 0x3a8fd0, emissive: 0x2a6fb0, emissiveIntensity: 0.4, roughness: 0.1 }), 24), 0, base + 1.0, 0.585).rotation.x = Math.PI / 2;
-  placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.035, 8, 24), M.graphite), 0, base + 1.0, 0.59);
-  placer(g, tube(0.06, 0.06, 0.5, M.graphite), 0.55, base + 0.5, 0.3).rotation.z = Math.PI / 2; placer(g, bouton(), 0.82, base + 0.5, 0.3).rotation.y = Math.PI / 2;
-  fusionner(g); const p = local(-22, -2); poserSur(g, p, versBase(p)); scene.add(g); ombreContact(g, 1.3); OBSTACLES.push({ p: p.clone(), r: 1.1 });
-  return g;
-})();
+// L'accueil (l'ouest du hall, devant le comptoir et la station) : un globe de la planète sur son socle, des bancs, des
+// plantes ; puis le hall est fusionné en quelques maillages.
+{
+  const g = HALL, F = g.userData.salle.F;
+  const globe = new THREE.Group(); placer(globe, cylindre(0.9, 1.05, 0.5, M.graphite, 32), 0, 0.25, 0); placer(globe, cylindre(0.95, 0.95, 0.05, M.seve, 32), 0, 0.5, 0);
+  placer(globe, new THREE.Mesh(new THREE.SphereGeometry(0.75, 32, 20), new THREE.MeshStandardMaterial({ roughness: 0.7, map: texture(512, 256, (c, w, h) => { c.fillStyle = '#c9b98a'; c.fillRect(0, 0, w, h); for (let k = 0; k < 900; k++) { c.fillStyle = k % 3 ? '#e8458b' : '#7da35a'; c.beginPath(); c.arc((k * 97.3) % w, (k * 41.7 + (k % 7) * 13) % h, 2 + (k % 4), 0, 6.3); c.fill(); } }) })), 0, 1.3, 0);
+  placer(globe, new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.025, 8, 48), M_CHROME), 0, 1.3, 0).rotation.x = 1.2;
+  meuble(g, globe, -11, F, 3.4, 1.0, 1.0);
+  const banc = () => { const b = new THREE.Group(); placer(b, boite(2.0, 0.1, 0.55, M.blanc, 0.04), 0, 0.45, 0); placer(b, boite(2.02, 0.04, 0.57, M.lisere, 0.015), 0, 0.39, 0); for (const s of [-1, 1]) placer(b, boite(0.1, 0.4, 0.5, M.graphite, 0.03), s * 0.8, 0.2, 0); return b; };
+  for (const [x, z, r] of [[-15.5, 3.4, Math.PI / 2], [-6.5, 3.4, -Math.PI / 2], [-11, 6.8, Math.PI]]) meuble(g, banc(), x, F, z, r ? 0.35 : 1.0, r ? 1.0 : 0.35, r);
+  decor(g, [['plante', -19.2, 8.2], ['plante', -19.2, -0.6], ['plante', -0.8, 7.9], ['caisses', -19.3, 4.0, 0.3], ['extincteur', -5.0, 8.62, Math.PI], ['affiche', -19.82, 2.0, Math.PI / 2, F + 1.8]]);
+  fusionner(g);
+}
 // Les portes s'ouvrent à l'approche ; dedans, la lampe de la pièce s'allume et l'ambiance sonore devient plus sourde.
 const DEDANS = { salle: null }, VITRINE = { salle: null };   // la vitrine du concessionnaire reste éclairée quand on passe devant
 MAJ.push((dt) => {
-  DEDANS.salle = null;
+  DEDANS.salle = null; let rang = 0;   // la pièce l'emporte sur le garage, le garage sur le hall
   for (const S of SALLES) {
     const d = _c.subVectors(joueur.p, S.g.position), lx = d.dot(S.g.userData.ax), lz = d.dot(S.g.userData.az), dedans = Math.abs(lx) < S.W / 2 && Math.abs(lz) < S.D / 2;
-    const pres = Math.abs(lx) < 2.6 && Math.abs(lz - S.D / 2) < 3.4;
+    const px = S.porteX || 0, pres = Math.abs(lx - px) < 2.6 && Math.abs(lz - S.D / 2) < 3.4;
     S.ouverture = lerp(S.ouverture, pres && !joueur.enVehicule ? 1 : 0, 1 - Math.exp(-dt * 7));
-    for (const v of S.vantaux) v.position.x = v.userData.s * (S.PW / 4 + S.ouverture * S.PW * 0.48);
-    S.dedans = dedans; if (dedans && !joueur.enVehicule) DEDANS.salle = S;
+    for (const v of S.vantaux) v.position.x = px + v.userData.s * (S.PW / 4 + S.ouverture * S.PW * 0.48);
+    S.dedans = dedans; const r = S.hall ? 1 : S.zone ? 2 : 3;
+    if (dedans && !joueur.enVehicule && r > rang) { DEDANS.salle = S; rang = r; S.lx = lx; S.lz = lz; }
   }
   const S = DEDANS.salle || (VITRINE.salle && joueur.p.distanceTo(VITRINE.salle.g.position) < 45 ? VITRINE.salle : null);
-  if (S) lampeSalle.position.copy(monde(S.g, 0, S.F + S.Ht - 0.6, 0));
+  if (S && S.hall) lampeSalle.position.copy(monde(S.g, clamp(S.lx, -S.W / 2 + 3, S.W / 2 - 3), S.F + S.Ht - 0.6, clamp(S.lz, -S.D / 2 + 3, S.D / 2 - 3)));   // le hall est grand : la lampe suit le joueur
+  else if (S) lampeSalle.position.copy(monde(S.g, 0, S.F + S.Ht - 0.6, 0));
   lampeSalle.intensity = lerp(lampeSalle.intensity, S ? 13 : 0, 1 - Math.exp(-dt * 6));
 });
 

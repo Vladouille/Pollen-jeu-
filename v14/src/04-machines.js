@@ -23,6 +23,6 @@ function collecteur() {
   return g;
 }
 const COLLECTEUR = collecteur();
-poserSur(COLLECTEUR, local(2, 3), new V3().subVectors(local(6, 12), local(2, 3))); scene.add(COLLECTEUR);   // façade tournée vers l'arrivée du joueur
+poserSur(COLLECTEUR, local(-12, 10), new V3().subVectors(local(-8, 19), local(-12, 10))); scene.add(COLLECTEUR);   // façade tournée vers l'arrivée du joueur
 machines.push(COLLECTEUR); ombreContact(COLLECTEUR, 1.9);
 

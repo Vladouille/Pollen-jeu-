@@ -18,7 +18,7 @@ const AMELIOS = {
 };
 const S = { credits: 0, sac: sacVide(), outils: ['pinceau'], tuiles: 0, ventes: 0, silo: sacVide(), expedie: 0, temps: 0, amelio: { sac: 0, jambes: 0, geste: 0, negoce: 0, portee: 0 }, succes: {}, recolte: 0, pieces: 0 };   // l'état du joueur (sauvegardé)
 const amelio = (c) => AMELIOS[c].valeurs[S.amelio[c]];
-const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'rateau', 'collecteur', 'enfumoir', 'tuyau', 'marteau'];
+const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'rateau', 'collecteur', 'enfumoir', 'marteau'];
 const outilDef = () => OUTILS_DEF[outilEnMain];
 const chargeMax = () => amelio('sac');
 const kgSac = (sac = S.sac) => Object.values(sac).reduce((s, r) => s + r.kg, 0);
@@ -85,7 +85,7 @@ function viser(portee = amelio('portee') + 0.6) {
   return null;
 }
 const ouvert = (k) => k >= 0 && T.sect[k] < OUVERTS.value;
-const pollinisable = (k) => ouvert(k) && !T.vert[k] && (T.sorte[k] === 0 || (T.sorte[k] === 2 && T.irrigue[k]));
+const pollinisable = (k) => ouvert(k) && !T.vert[k] && T.sorte[k] === 0;
 const prixTuile = (k) => VARIETES[SECTEURS[T.sect[k]].variete].prix;
 function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'axe perpendiculaire au regard
   if (!v || v.k < 0) return [];
@@ -179,7 +179,7 @@ INTER.push({ p: new V3().copy(COLLECTEUR.position).addScaledVector(COLLECTEUR.us
 INTER.push({ p: monde(COMPTOIR, 0, 1.3, 0.6), r: 2.6, vente: true, agir: () => vendre() });
 
 // --- L'établi du comptoir : tous les outils y sont exposés. Possédé : blanc et orange ; trop cher : gris translucide. ---
-const VENTE_COMPTOIR = [['pinceau', 0], ['brosse', 250], ['rateau', 200], ['collecteur', 400], ['enfumoir', 300], ['tuyau', 150], ['marteau', 600], ['large', 1200], ['xl', 3200], ['souffleur', 8000]];
+const VENTE_COMPTOIR = [['pinceau', 0], ['brosse', 250], ['rateau', 200], ['collecteur', 400], ['enfumoir', 300], ['marteau', 600], ['large', 1200], ['xl', 3200], ['souffleur', 8000]];
 VENTE_COMPTOIR.forEach(([cle, prix], n) => {
   const g = COMPTOIR, F = g.userData.salle.F, x = -4.4 + n * 0.975, objet = fusionner(fabriquerOutil(cle)), l = { pinceau: 0.42, brosse: 1.05, large: 1.2, xl: 1.35, rateau: 1.1, souffleur: 0.8 }[cle] || 0.6;
   objet.scale.setScalar(Math.min(1, 0.85 / l) * (cle === 'xl' || cle === 'large' ? 0.5 : 1)); objet.userData.garder = true; placer(g, objet, x, F + 0.9, -2.85);
@@ -223,7 +223,7 @@ MAJ.push(() => {
 });
 
 // --- Interagir (E) : ce qu'on regarde, parmi ce qui est à portée. ---
-const INTER_HORS = [];   // E sans rien devant soi (descendre du véhicule, couper le tuyau, emballer le sac…)
+const INTER_HORS = [];   // E sans rien devant soi (descendre du véhicule, emballer le sac…)
 let interVise = null;
 MAJ.push(() => {
   interVise = null; let best = 0.55;

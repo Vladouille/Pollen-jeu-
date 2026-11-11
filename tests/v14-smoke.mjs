@@ -71,7 +71,7 @@ try {
   const it = await page.evaluate(() => {
     const P = pollen, out = {};
     out.salles = ['STATION', 'COMPTOIR', 'ATELIER', 'LABO'].map((n) => { const g = P[n], S = g.userData.salle; U.aller(U.dans(g, 0.3, 0, S.D / 2 + 1.5)); P.step(0.05, 30); const porte = S.ouverture; U.aller(U.dans(g, 0.3, 0, S.D / 2 - 1.2)); P.step(0.05, 30); return { n, porte, dedans: P.DEDANS.salle === S, lampe: P.lampeSalle.intensity, decor: S.decor, sur: P.joueur.sur }; });
-    // l'établi du comptoir : dix outils, gris translucides quand on ne peut pas se les offrir
+    // l'établi du comptoir : neuf outils (le tuyau d'irrigation a disparu avec l'eau), gris translucides quand on ne peut pas se les offrir
     const g = P.COMPTOIR; U.aller(U.dans(g, -3.9, 0, -1.4)); P.S.credits = 0; P.step(0.05, 10);
     out.etal = P.ETAL.map((e) => e.etat); P.S.credits = 300; P.step(0.05, 10); out.etal2 = P.ETAL.map((e) => e.etat);
     const brosse = P.ETAL.find((e) => e.cle === 'brosse'), ib = U.interPres(U.dans(g, brosse.objet.position.x, 1.4, -2.85)); out.vuBrosse = U.utiliser(ib); out.outils = P.S.outils.slice(); out.crApres = P.S.credits; out.enMain = P.outil;
@@ -81,7 +81,7 @@ try {
     return out;
   });
   check(it.salles.every((s) => s.dedans && s.porte > 0.8 && s.lampe > 5 && s.decor >= 6 && s.sur > 0.1), `quatre bâtiments où l'on entre : portes ouvertes à l'approche, pièce éclairée, ${it.salles.map((s) => s.decor).join('/')} objets de décor`);
-  check(it.etal.length === 10 && it.etal[0] === 'acquis' && it.etal.slice(1).every((e) => e === 'cher') && it.etal2.filter((e) => e === 'abordable').length === 4, `établi du comptoir : dix outils exposés, gris translucides sans argent, ${it.etal2.filter((e) => e === 'abordable').length} abordables à 300 cr`);
+  check(it.etal.length === 9 && it.etal[0] === 'acquis' && it.etal.slice(1).every((e) => e === 'cher') && it.etal2.filter((e) => e === 'abordable').length === 3, `établi du comptoir : neuf outils exposés, gris translucides sans argent, ${it.etal2.filter((e) => e === 'abordable').length} abordables à 300 cr`);
   check(it.vuBrosse && it.outils.includes('brosse') && it.crApres === 50 && it.enMain === 'brosse', 'achat immédiat de la brosse sur l’établi (250 cr), elle est en main');
   check(it.vuAtelier && it.terminaux === 5 && it.sac === 18 && it.crAtelier === 600, `atelier : cinq catégories (${it.cats.join(', ')}), le sac passe à ${it.sac} kg`);
   check(it.medaillons === 8 && it.succes >= 1, `station : huit médaillons, ${it.succes} succès obtenu(s)`);
@@ -90,12 +90,12 @@ try {
     const P = pollen, g = P.CONCESSION, S = g.userData.salle, out = {};
     U.aller(U.dans(g, 0.3, 0, S.D / 2 - 1.5)); P.step(0.05, 20); out.dedans = P.DEDANS.salle === S; out.modeles = Object.keys(P.VEHICULES); out.prix = out.modeles.map((c) => P.VEHICULES[c].prix);
     P.S.credits = 100; out.refus = P.acheterVehicule('chariot');
-    P.S.credits = 5000; const ib = U.interPres(U.dans(g, -4.4, 1.4, 0.35), (i) => !i.cache); U.aller(U.dans(g, -4.4, 0, 1.9)); out.vuBorne = U.utiliser(ib); out.possede = P.FLOTTE.chariot.possede; out.cr = P.S.credits;
+    P.S.credits = 5000; const ib = U.interPres(U.dans(g, -4.4, 1.4, 1.15), (i) => !i.cache); U.aller(U.dans(g, -4.4, 0, 2.7)); out.vuBorne = U.utiliser(ib); out.possede = P.FLOTTE.chariot.possede; out.cr = P.S.credits;
     let porte = 0, n = 0; while (P.SORTIE.v && n++ < 900) { P.step(0.05, 1); porte = Math.max(porte, S.porte); }
     out.porte = porte; out.sorti = !P.SORTIE.v; out.auVolant = P.joueur.enVehicule === P.FLOTTE.chariot; out.distParvis = P.FLOTTE.chariot.p.distanceTo(g.position); P.step(0.05, 60); out.referme = S.porte;
     // améliorer le moteur : le modèle change
     const v = P.FLOTTE.chariot, compte = () => { let c = 0; v.g.traverse((o) => { if (o.isMesh) c += o.geometry.attributes.position.count; }); return c; }; const avant = compte(); P.descendre();
-    const im = P.INTER.filter((i) => i.cache && i.p.distanceTo(U.dans(g, -4.7, 0.66, 0.39)) < 0.05)[0]; U.aller(U.dans(g, -4.4, 0, 1.6)); out.vuAmelio = U.utiliser(im); out.moteur = v.niv.moteur; out.plus = compte() > avant; out.crAmelio = P.S.credits;
+    const im = P.INTER.filter((i) => i.cache && i.p.distanceTo(U.dans(g, -4.7, 0.66, 1.19)) < 0.05)[0]; U.aller(U.dans(g, -4.4, 0, 2.4)); out.vuAmelio = U.utiliser(im); out.moteur = v.niv.moteur; out.plus = compte() > avant; out.crAmelio = P.S.credits;
     // au volant du chariot : il pollinise la tuile qu'il pousse
     v.p.copy(P.local(0, 37)); v.f.copy(P.tangent(v.p, new P.V3().subVectors(P.local(0, 60), v.p))); P.monter(v); const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 240); P.E.mz = 0; P.step(0.05, 10);
     out.tuiles = P.S.tuiles - t0; out.charge = v.charge; out.avance = v.p.distanceTo(P.local(0, 37)); out.pastille = document.getElementById('nomOutil').textContent;
@@ -122,7 +122,7 @@ try {
     // raisons de refus
     const az = C.userData.az, id0 = P.tuileDe(C.position.clone().addScaledVector(az, 3.3).normalize()), suite = [id0]; for (let k = 0; k < 7; k++) suite.push(P.voisineVers(suite[k], az));
     const mer = suite[2];   // plus de mer : toute la planète est en parcelles
-    out.raisons = { pied: P.raisonRefus('pied', suite[0], suite[1]) };
+    out.raisons = { batiment: P.raisonRefus('convoyeur', P.tuileDe(U.dans(P.HALL, -16, 0, 6).normalize()), suite[1]) };
     P.S.credits = 5; out.raisons.argent = P.raisonRefus('convoyeur', suite[0], suite[1]); P.S.credits = 20000;
     P.E.construire = true; P.step(0.05, 2); out.ferme = !P.CONS.actif && document.getElementById('barreCons').hidden && P.SOL_U.uCons.value === 0;
     // une ligne : collecteur → 3 convoyeurs → extracteur → convoyeur → réceptionnaire
@@ -142,10 +142,10 @@ try {
     return out;
   });
   check(co.sansMarteau === false && co.actif && co.barre && co.bleu === 1, 'mode construction : une touche (B), le monde bleuit, la barre apparaît (il faut l’outil de construction)');
-  check(co.cats.length === 5 && co.parCat.join() === '7,8,5,4,5', `cinq catégories (${co.cats.join(', ')}) : ${co.parCat.join(' + ')} pièces`);
+  check(co.cats.length === 5 && co.parCat.join() === '7,8,5,4,6', `cinq catégories (${co.cats.join(', ')}) : ${co.parCat.join(' + ')} pièces`);
   check(co.cat3 === 2 && co.suivante === 'double' && co.cible && co.tourne, 'chiffres pour la catégorie, E pour la pièce suivante, molette pour tourner, fantôme vert sur une tuile libre');
   check(co.pose === 1 && co.demonte === 0 && co.cr1 === 19980 && co.cr2 === 20000, 'clic : pose (−20 cr) ; clic sur la pièce : démontage remboursé entièrement');
-  check(/eau/.test(co.raisons.pied) && /Crédits/.test(co.raisons.argent) && /occupé/.test(co.raisons.occupe), `raisons du refus : « ${co.raisons.pied} », « ${co.raisons.argent} », « ${co.raisons.occupe} »`);
+  check(/bâtiment/.test(co.raisons.batiment) && /Crédits/.test(co.raisons.argent) && /occupé/.test(co.raisons.occupe), `raisons du refus : « ${co.raisons.batiment} », « ${co.raisons.argent} », « ${co.raisons.occupe} »`);
   if (!(co.departs === 1 && co.vuColl && co.silo >= 5 && co.sacVide === 0)) console.log(JSON.stringify([co.departs, co.vuColl, co.silo, co.sacVide]));
   check(co.departs === 1 && co.vuColl && co.silo >= 5 && co.sacVide === 0, 'le collecteur verse le sac dans son silo quand un convoyeur en part');
   check(co.sansCourant === false && co.exp1 > 0, `sans électricité l'extracteur tourne au quart de sa vitesse (${co.exp1} cr expédiés en 25 s)`);

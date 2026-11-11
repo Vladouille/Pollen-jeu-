@@ -36,7 +36,6 @@ const ICONES = {   // pictogrammes des ronds, dessinés au trait
   large: '<svg viewBox="0 0 24 24"><path d="M12 3v9"/><rect x="4" y="12" width="16" height="3" rx="1"/><path d="M5 15v4m3-4v4m3-4v4m3-4v4m3-4v4m2-4v4"/></svg>',
   xl: '<svg viewBox="0 0 24 24"><path d="M12 3v8"/><rect x="2" y="11" width="20" height="3" rx="1"/><path d="M3 14v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5"/></svg>',
   souffleur: '<svg viewBox="0 0 24 24"><path d="M4 17l10-10"/><path d="M14 7l2-2 3 3-2 2z"/><path d="M18 12c2 0 3 1 3 3m-5-1c1 0 2 1 2 2"/></svg>',
-  tuyau: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M18 12h4"/></svg>',
   marteau: '<svg viewBox="0 0 24 24"><path d="M6 20l8-8"/><rect x="11" y="4" width="9" height="5" rx="1" transform="rotate(45 15 7)"/></svg>',
   rateau: '<svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M5 14h14M6 14v5m4-5v5m4-5v5m4-5v5"/></svg>',
   collecteur: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-2 12H8z"/><path d="M9 8V5h6v3"/></svg>',
@@ -87,7 +86,7 @@ MAJ.push(() => { if (gt - dernierHUD > 1 / 30 || (window.pollen && window.pollen
 // --- La carte : le globe. ---
 const rondTex = (couleur, plein) => texture(64, 64, (g) => { g.clearRect(0, 0, 64, 64); g.strokeStyle = couleur; g.fillStyle = couleur; g.lineWidth = 7; g.beginPath(); g.arc(32, 32, 24, 0, 7); g.stroke(); if (plein) { g.beginPath(); g.arc(32, 32, 11, 0, 7); g.fill(); } });
 const M_VOYAGE = new THREE.SpriteMaterial({ map: rondTex('#4fd6e3', true), depthTest: false, transparent: true }), M_VOYAGE_VISE = new THREE.SpriteMaterial({ map: rondTex('#f08a24', true), depthTest: false, transparent: true }), M_ICI = new THREE.SpriteMaterial({ map: rondTex('#f4b41a', false), depthTest: false, transparent: true });
-const VOYAGES = [() => [{ p: local(3, 9), nom: 'Station' }, ]];   // les huit derniers secteurs ouverts   // les modules ajoutent leurs points (dépôts de terrain)
+const VOYAGES = [() => [{ p: local(-2, 7), nom: 'Station' }, ]];   // les huit derniers secteurs ouverts   // les modules ajoutent leurs points (dépôts de terrain)
 const REPERES_CARTE = [];   // fonctions qui donnent les positions des machines posées
 const CARTE = {
   ouverte: false, dir: new V3(0, 0, 1), haut: new V3(0, 1, 0), points: [], vise: null, groupe: new THREE.Group(), ici: new THREE.Sprite(M_ICI),

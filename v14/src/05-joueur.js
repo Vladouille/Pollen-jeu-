@@ -18,7 +18,6 @@ const OUTILS_DEF = {
   rateau: { nom: 'Râteau à graines', prix: 200, special: true },      // graines sur les tuiles fanées, ou replanter une tuile nue
   collecteur: { nom: 'Collecteur à main', prix: 400, special: true },  // nectar sur les fleurs déjà ouvertes
   enfumoir: { nom: 'Enfumoir', prix: 300, special: true },             // miel et cire aux ruches
-  tuyau: { nom: 'Tuyau d’irrigation', prix: 150, special: true },
   marteau: { nom: 'Outil de construction', prix: 600, special: true },
 };
 function fabriquerOutil(cle) {
@@ -74,12 +73,6 @@ function fabriquerOutil(cle) {
     placer(g, tube(0.08, 0.08, 0.24, M.blanc, 16), 0, 0.32, 0); placer(g, tube(0.082, 0.082, 0.03, M.pollen, 16), 0, 0.42, 0);
     placer(g, tube(0.03, 0.06, 0.1, M.graphite, 12), 0, 0.49, 0);
     placer(g, boite(0.1, 0.18, 0.03, M.graphite, 0.01), 0.1, 0.3, 0);
-  } else if (cle === 'tuyau') {
-    placer(g, tube(0.02, 0.02, 0.3, M.graphite), 0, 0.15, 0);
-    const rouleau = placer(g, cylindre(0.11, 0.11, 0.09, M.blanc, 24), 0, 0.36, 0); rouleau.rotation.z = Math.PI / 2;
-    rouleau.castShadow = true;
-    for (let k = 0; k < 4; k++) placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.085 - k * 0.012, 0.008, 6, 24).rotateY(Math.PI / 2), M.graphite), 0, 0.36, 0);
-    placer(g, tube(0.112, 0.112, 0.012, M.pollen, 24).rotateZ(Math.PI / 2), 0.05, 0.36, 0);
   }
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
@@ -201,9 +194,9 @@ function repousser(pos, rayon, sauf) {   // sort un disque de tous les obstacles
 const penetre = (pos, rayon, sauf) => OBSTACLES.some((o) => o !== sauf && !o.inactif && pos.distanceTo(o.p) < o.r + rayon + 0.01 && ecartObstacle(o, pos).d < rayon);
 // Les surcotes : là où le sol praticable est plus haut que le terrain (plancher d'un bâtiment, passerelle, rampe).
 const SURCOTES = [];   // { p, ax, az, hw, hd, h, bord }
-function surcote(pos) { let h = 0; for (const s of SURCOTES) { _c.subVectors(pos, s.p); if (_c.lengthSq() > (s.hw + s.hd) ** 2) continue; const dx = s.hw - Math.abs(_c.dot(s.ax)), dz = s.hd - Math.abs(_c.dot(s.az)); if (dx > 0 && dz > 0) h = Math.max(h, s.h * lisse(0, s.bord || 0.5, Math.min(dx, dz))); } return h; }
+function surcote(pos) { let h = 0; for (const s of SURCOTES) { _c.subVectors(pos, s.p); if (_c.lengthSq() > (s.hw + s.hd) ** 2) continue; const dx = s.hw - Math.abs(_c.dot(s.ax)), dz = s.hd - Math.abs(_c.dot(s.az)); if (dx > 0 && dz > 0) h = Math.max(h, s.incline ? s.h * clamp((s.hd - _c.dot(s.az)) / (2 * s.hd), 0, 1) * lisse(0, s.bord, dx) : (s.h + _c.lengthSq() / (2 * RP)) * lisse(0, s.bord || 0.5, Math.min(dx, dz))); } return h; }   // + r²/2R : le plancher est plat, la planète s'arrondit dessous
 let secousse = 0;   // petite secousse de caméra (choc du véhicule)
-const joueur = { p: local(3, 9), f: new V3(), haut: new V3(), v: new V3(), pitch: -0.18, pas: 0, vitesse: 0, lent: 1, sur: 0, enVehicule: null };
+const joueur = { p: local(-2, 7), f: new V3(), haut: new V3(), v: new V3(), pitch: -0.18, pas: 0, vitesse: 0, lent: 1, sur: 0, enVehicule: null };
 joueur.f.copy(versBase(joueur.p));
 let retardRegard = 0, retardRegardV = 0;
 const _dr = new V3(), _cb = new V3(), _np = new V3();
@@ -266,7 +259,6 @@ const POSE_OUTIL = {   // position et orientation de chaque outil dans la camér
   xl: { p: [0.45, -0.8, -0.7], r: [-1.28, 1.05, 0.1], s: 0.72 },
   souffleur: { p: [0.26, -0.42, -0.55], r: [-1.25, 0.7, 0.1], s: 0.85 },
   marteau: { p: [0.24, -0.34, -0.5], r: [-0.7, 0.4, 0.2], s: 1.1 },
-  tuyau: { p: [0.22, -0.32, -0.5], r: [-0.5, 0.3, 0.1], s: 1.0 },
   rateau: { p: [0.36, -0.62, -0.6], r: [-1.2, 1.05, 0.12], s: 0.9 },
   collecteur: { p: [0.24, -0.36, -0.5], r: [-1.1, 0.5, 0.1], s: 1.1 },
   enfumoir: { p: [0.24, -0.34, -0.5], r: [-0.6, 0.4, 0.1], s: 1.1 },

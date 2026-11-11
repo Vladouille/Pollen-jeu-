@@ -30,6 +30,17 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   pollinisatrice, camion à calandre et caisse nervurée…), pas de copie ; aucune parcelle à moins de RB + 1,3 m et une
   bordure basse autour de l'esplanade (ouverte au sud) ; quai de déchargement couvert au sud (local(0, 20)) : on s'y
   arrête au volant, la hotte aspire 40 kg/s et vend aussitôt ; la pompe passe en local(-22, -2).
+  Puis : « sauvegarde automatique pour reprendre là où j'en étais ; des véhicules sans éléments qui flottent ; tout
+  en un seul bâtiment ; enlève le système d'eau ; garde et améliore les rampes » → sauvegarde : en plus du localStorage,
+  copie dans la base privée de l'artefact (`data/users/<id>/pollen-v14-emplacement-N`, capacités db et user) toutes les
+  60 s et en quittant la page ; au démarrage, la plus récente gagne (rechargement si une partie locale tournait déjà) ;
+  `?horsligne` la coupe. Un seul bâtiment : HALL (41 × 18 m, local(0, -8), façade vitrée au sud, une porte du public en
+  x = -3, baie du garage) ; les quatre pièces sont posées dedans par `poserDans` (repère plat du hall), le garage
+  (CONCESSION) est une zone sans murs, son parvis est posé à part sur le sol. Le plancher du hall est plat : `surcote`
+  ajoute r²/2R. Collecteur en local(-12, 10), départ en local(-2, 7). Eau retirée : outil tuyau, pompe, tuiles arides,
+  champ `tuyaux` (une tuile aride d'une vieille sauvegarde redevient normale). Véhicules : essieux, berceaux, bras,
+  pattes ; améliorations fixées à un endroit qui les porte (`equiper(c, niv, { pot, cof, av })`). Rampe (0,31 m, coin
+  plein) et escalier (0,95 m, jusqu'au tablier d'une passerelle) en pente réelle (surcote `incline`).
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

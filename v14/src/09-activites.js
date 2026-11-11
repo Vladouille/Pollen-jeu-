@@ -7,7 +7,7 @@
 //     - nectar : au collecteur à main, sur une tuile déjà en fleurs (une fois par tuile) ;
 //     - miel et cire : à l'enfumoir, sur une ruche (la cire seulement à partir de la ruche renforcée) ;
 //     - Azurelles mères : isolées et luisantes, cueillies avec une brosse en 3 s ;
-//     - irrigation : tuyau déroulé depuis la pompe. Balises : E, +100 cr.
+//     - balises : E, +100 cr.
 // =====================================================================
 const brosseEnMain = () => !!OUTILS_DEF[outilEnMain].largeur;
 const PRIX_RES = { nectar: 1.2, graines: 0.6 };   // en multiples du prix de la tuile
@@ -36,40 +36,6 @@ ACTIONS.push({   // aspirer le nectar d'une tuile en fleurs
 });
 // Une cible « objet » : ce qu'on vise de près (ruche, panneau, machine, essaim), à moins de 1,6 m du point visé.
 function objetVise(v, liste, r = 1.6) { if (!v) return null; let best = null, bd = r; for (const o of liste) { const d = o.p.distanceTo(v.p); if (d < bd && o.p.distanceTo(joueur.p) < 4.5) { bd = d; best = o; } } return best; }
-
-// --- Irriguer : tuyau en main, E à la pompe le branche ; on marche et il se déroule derrière soi (45 m au plus),
-//     arrosant les tuiles arides qu'il longe. E ailleurs le coupe ; il reste posé. ---
-const SEG_MAX = 600, LONG_TUYAU = 45;
-const segTuyau = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.055, 0.055, 1, 8).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: CHARTE.graphite, roughness: 0.6 }), SEG_MAX);
-segTuyau.count = 0; segTuyau.receiveShadow = true; segTuyau.frustumCulled = false; scene.add(segTuyau);
-const bagues = new THREE.InstancedMesh(new THREE.TorusGeometry(0.065, 0.018, 6, 12).rotateY(Math.PI / 2), M.pollen, SEG_MAX); bagues.count = 0; bagues.frustumCulled = false; scene.add(bagues);
-const TUYAUX = [];   // { pts: [V3...] } : les tuyaux posés (sauvegardés)
-let tuyauCourant = null;
-const SORTIE_POMPE = surSol(monde(POMPE, 0.82, 0, 0.3), 0.06);
-const _bx = new V3(), _by = new V3(), _bz = new V3();
-function segment(a, b) {   // un tronçon posé au sol entre deux points, bague jaune à chaque jonction
-  if (segTuyau.count >= SEG_MAX) return;
-  _bx.subVectors(b, a); const l = _bx.length(); _bx.multiplyScalar(1 / l); _by.copy(a).normalize(); _bz.crossVectors(_bx, _by).normalize(); _by.crossVectors(_bz, _bx);
-  _q.setFromRotationMatrix(_m.makeBasis(_bx, _by, _bz));
-  _m.compose(_p.addVectors(a, b).multiplyScalar(0.5), _q, _s.set(l, 1, 1)); segTuyau.setMatrixAt(segTuyau.count++, _m); segTuyau.instanceMatrix.needsUpdate = true;
-  _m.compose(b, _q, _s.set(1, 1, 1)); bagues.setMatrixAt(bagues.count++, _m); bagues.instanceMatrix.needsUpdate = true;
-}
-function arroser(p) {   // les tuiles arides à moins de 1,8 m du tuyau deviennent humides et pollinisables
-  const k0 = tuileA(p); if (k0 < 0) return;
-  for (const id of [T.id[k0], ...voisinsDe(T.id[k0])]) { const k = IDX.get(id); if (k === undefined || T.irrigue[k] || T.sorte[k] !== 2 || T.pos[k].distanceTo(p) > 1.8) continue; T.irrigue[k] = 1; ecrireTuile(k); bouffee(T.pos[k], 10, 0x6fb6ea); }
-}
-const longueur = (t) => { let l = 0; for (let k = 1; k < t.pts.length; k++) l += t.pts[k].distanceTo(t.pts[k - 1]); return l; };
-INTER.push({ p: monde(POMPE, 0.82, 1.0, 0.3), r: 3.2,
-  agir() { if (outilEnMain !== 'tuyau') { sons.refus(); return; } if (tuyauCourant) { tuyauCourant = null; return; } tuyauCourant = { pts: [SORTIE_POMPE.clone()] }; TUYAUX.push(tuyauCourant); sons.achat(); } });
-INTER_HORS.push(() => { if (!tuyauCourant) return false; tuyauCourant = null; return true; });
-MAJ.push(() => {
-  if (!tuyauCourant) return;
-  if (outilEnMain !== 'tuyau') { tuyauCourant = null; return; }
-  const t = tuyauCourant, d = t.pts[t.pts.length - 1], l = joueur.p.distanceTo(d);
-  if (l < 1) return;
-  if (longueur(t) + l > LONG_TUYAU) { tuyauCourant = null; sons.refus(); return; }
-  const p = surSol(joueur.p, 0.06); segment(d, p); t.pts.push(p); arroser(p); arroser(new V3().addVectors(p, d).multiplyScalar(0.5));
-});
 
 // --- Les ruches autonomes (posées en mode construction, déplaçables). Trois niveaux : simple (rayon d'une tuile),
 //     renforcée (trois tuiles), mère (tout le secteur). Une ruche pollinise seule une tuile de son rayon toutes les

@@ -15,7 +15,7 @@ const PIECES = {
   montant: { nom: 'Convoyeur montant', cat: 0, prix: 40, vitesse: 0.5, tapis: true, pente: true },
   aiguillage: { nom: 'Aiguillage', cat: 0, prix: 120, vitesse: 0.6, tapis: true },
   fusionneur: { nom: 'Fusionneur', cat: 0, prix: 120, vitesse: 1.4, tapis: true },
-  pied: { nom: 'Pied de support', cat: 0, prix: 60, vitesse: 0.6, tapis: true, eau: true },
+  pied: { nom: 'Pied de support', cat: 0, prix: 60, vitesse: 0.6, tapis: true },
   passerelle: { nom: 'Passerelle', cat: 0, prix: 80, vitesse: 0.6, tapis: true, marche: 0.95 },
   extracteur: { nom: 'Extracteur', cat: 1, prix: 800, entree: ['pollen', 'nectar', 'graines', 'mere'], besoin: 1, sortie: 'extrait', mult: 1.5, durees: [3, 2, 1.2], conso: 2 },
   maturateur: { nom: 'Maturateur', cat: 1, prix: 1500, entree: ['miel', 'extrait'], besoin: 2, sortie: 'cru', mult: 1.8, durees: [6, 4, 2.5], conso: 3 },
@@ -34,8 +34,9 @@ const PIECES = {
   depot: { nom: 'Dépôt de terrain', cat: 3, prix: 700, stock: 200, emet: true },
   quai: { nom: 'Quai de chargement', cat: 3, prix: 400, stock: 200 },
   receptionnaire: { nom: 'Réceptionnaire', cat: 3, prix: 1200 },
-  fondation: { nom: 'Fondation', cat: 4, prix: 30, marche: 0.3, eauOk: true },
-  rampe: { nom: 'Rampe', cat: 4, prix: 40, marche: 0.5 },
+  fondation: { nom: 'Fondation', cat: 4, prix: 30, marche: 0.3 },
+  rampe: { nom: 'Rampe', cat: 4, prix: 40, marche: 0.31, incline: true },        // du sol au dessus d'une fondation
+  escalier: { nom: 'Escalier', cat: 4, prix: 50, marche: 0.95, incline: true },   // du sol au tablier d'une passerelle
   plancher: { nom: 'Plancher', cat: 4, prix: 20, marche: 0.12 },
   gardecorps: { nom: 'Garde-corps', cat: 4, prix: 15 },
   eclairage: { nom: 'Éclairage', cat: 4, prix: 60 },
@@ -85,6 +86,11 @@ function tapisBase(g, y = 0.5, mat = M.graphite) {
   placer(g, boite(1.12, 0.03, 0.06, M.seve, 0.01), 0, y - 0.24, -PAS / 2 + 0.06);
 }
 function panneauSolaire(parent, w, d) { placer(parent, boite(w + 0.1, 0.06, d + 0.1, M.graphite, 0.02), 0, 0, 0); const c = placer(parent, boite(w, 0.02, d, M_CELLULE, 0.008), 0, 0.035, 0); placer(parent, boite(w + 0.12, 0.04, 0.05, M.lisere, 0.01), 0, 0.02, d / 2 + 0.05); return c; }
+// Un coin : un profil triangulaire extrudé, haut côté -z. Le corps plein de la rampe, les limons de l'escalier.
+function coin(l, h, ep, mat) {
+  const s = new THREE.Shape(); s.moveTo(-l / 2, 0); s.lineTo(l / 2, 0); s.lineTo(l / 2, h); s.lineTo(-l / 2, 0);
+  const geo = new THREE.ExtrudeGeometry(s, { depth: ep, bevelEnabled: false }); geo.rotateY(Math.PI / 2); geo.translate(-ep / 2, 0, 0); return new THREE.Mesh(geo, mat);
+}
 function modelePiece(cle) {
   const g = new THREE.Group(), d = PIECES[cle];
   if (d.tapis) {
@@ -96,7 +102,8 @@ function modelePiece(cle) {
     if (cle === 'montant') for (let k = -2; k <= 2; k++) placer(g, boite(0.8, 0.04, 0.06, M.graphite, 0.015), 0, 0.52, k * 0.38);
     if (cle === 'aiguillage') { for (const s of [-1, 1]) placer(g, boite(0.5, 0.05, 0.14, M.lisere, 0.02), s * 0.3, 0.55, -0.55, s * 0.9); placer(g, cylindre(0.16, 0.16, 0.1, M.graphite, 12), 0, 0.56, -0.1); }
     if (cle === 'fusionneur') for (const s of [-1, 1]) placer(g, boite(0.5, 0.05, 0.14, M.seve, 0.02), s * 0.3, 0.55, 0.55, -s * 0.9);
-    if (cle === 'passerelle') { placer(g, boite(1.95, 0.08, 1.95, M.blanc, 0.03), 0, 0.93, 0); placer(g, boite(1.97, 0.04, 1.97, M.lisere, 0.015), 0, 0.87, 0); for (const [x, z] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) placer(g, boite(0.1, 0.9, 0.1, M.graphite, 0.02), x, 0.45, z); }
+    if (cle === 'passerelle') { placer(g, boite(1.95, 0.08, 1.95, M.blanc, 0.03), 0, 0.93, 0); placer(g, boite(1.97, 0.04, 1.97, M.lisere, 0.015), 0, 0.87, 0); for (const [x, z] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) { placer(g, boite(0.1, 0.9, 0.1, M.graphite, 0.02), x, 0.45, z); placer(g, boite(0.24, 0.05, 0.24, M.graphite, 0.015), x, 0.025, z); }
+      for (const s of [-1, 1]) for (const r of [-1, 1]) placer(g, boite(0.04, Math.hypot(1.8, 0.78), 0.04, M.graphite, 0.01), s * 0.9, 0.45, 0).rotation.x = r * Math.atan2(1.8, 0.78); }   // pieds sur platines, croix de contreventement
     if (cle === 'trieuse') { for (const s of [-1, 1]) placer(g, boite(0.12, 1.2, 0.5, M.blanc, 0.03), s * 0.62, 0.6, 0); placer(g, boite(1.36, 0.3, 0.6, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.04), 0, 1.3, 0); pupitre(g, -0.1, 1.3, -0.31); placer(g, boite(0.4, 0.05, 0.14, M.lisere, 0.02), -0.62, 0.9, -0.4, 0.9); }
   } else if (d.durees) {
     const b = corpsMachine(g);
@@ -131,9 +138,23 @@ function modelePiece(cle) {
     for (const s of [-1, 1]) placer(g, boite(0.1, 1.4, 0.1, M.graphite, 0.02), s * 0.75, b + 0.8, 0.7); placer(g, boite(1.6, 0.26, 0.1, M.lisere, 0.03), 0, b + 1.5, 0.7); pupitre(g, 0, b + 1.05, 0.64);
   } else if (cle === 'receptionnaire') {
     const b = corpsMachine(g, 1.7); placer(g, boite(1.0, 0.5, 0.1, M.graphite, 0.03), 0, b + 0.5, 0.78); placer(g, boite(1.5, 0.3, 0.1, M.lisere, 0.03), 0, b + 1.9, 0.1); placer(g, cylindre(0.2, 0.2, 0.5, M.blanc, 16), 0.4, b + 1.95, 0.1); g.userData.rotor = placer(g, boite(0.3, 0.05, 0.05, M.pollen, 0.02), 0.4, b + 2.25, 0.1);
-  } else if (cle === 'fondation') { placer(g, cylindre(1.17, 1.19, 0.5, M.blanc, 6), 0, 0.05, 0, Math.PI / 6); placer(g, cylindre(1.2, 1.2, 0.05, M.seve, 6), 0, 0.02, 0, Math.PI / 6); placer(g, cylindre(1.0, 1.0, 0.02, M.graphite, 6), 0, 0.305, 0, Math.PI / 6); }
+  } else if (cle === 'fondation') { placer(g, cylindre(1.17, 1.19, 0.5, M.blanc, 6), 0, 0.05, 0, Math.PI / 6); placer(g, cylindre(1.2, 1.2, 0.05, M.seve, 6), 0, 0.02, 0, Math.PI / 6); placer(g, cylindre(1.0, 1.0, 0.02, M.graphite, 6), 0, 0.305, 0, Math.PI / 6); placer(g, cylindre(1.185, 1.185, 0.04, M.lisere, 6), 0, 0.28, 0, Math.PI / 6); for (let k = 0; k < 6; k++) placer(g, cylindre(0.04, 0.04, 0.03, M_CHROME, 8), Math.cos(k * Math.PI / 3) * 0.85, 0.315, Math.sin(k * Math.PI / 3) * 0.85); }
   else if (cle === 'plancher') { placer(g, cylindre(1.17, 1.19, 0.12, M.blanc, 6), 0, 0.06, 0, Math.PI / 6); placer(g, cylindre(0.9, 0.9, 0.012, M.lisere, 6), 0, 0.122, 0, Math.PI / 6); }
-  else if (cle === 'rampe') { const r = placer(g, boite(1.8, 0.1, 2.1, M.blanc, 0.03), 0, 0.26, 0); r.rotation.x = 0.24; for (let k = -2; k <= 2; k++) placer(g, boite(1.6, 0.03, 0.06, M.graphite, 0.01), 0, 0.32 - k * 0.095, k * 0.38).rotation.x = 0.24; placer(g, boite(1.84, 0.05, 0.08, M.lisere, 0.02), 0, 0.5, -1.0); }
+  else if (cle === 'rampe') {   // un coin plein (rien ne flotte) : stries antidérapantes, bords orange, nez cyan au pied
+    const L = 2.1, H = 0.31, a = Math.atan2(H, L);
+    placer(g, coin(L, H, 1.8, M.blanc), 0, 0, 0);
+    for (let k = 0; k < 6; k++) { const z = 0.82 - k * 0.33; placer(g, boite(1.5, 0.025, 0.08, M.graphite, 0.008), 0, H * (L / 2 - z) / L + 0.01, z).rotation.x = a; }
+    for (const s of [-1, 1]) placer(g, boite(0.06, 0.04, Math.hypot(L, H), M.lisere, 0.01), s * 0.87, H / 2 + 0.015, 0).rotation.x = a;
+    placer(g, boite(1.8, 0.025, 0.06, M.seve, 0.008), 0, 0.012, L / 2 - 0.04); placer(g, boite(1.8, 0.05, 0.06, M.graphite, 0.01), 0, H - 0.025, -L / 2 + 0.03);
+  } else if (cle === 'escalier') {   // marches pleines à nez orange, limons charbon, deux mains courantes sur leurs poteaux
+    const L = 2.1, H = 0.95, n = 5, a = Math.atan2(H, L), yb = (z) => H * (L / 2 - z) / L;
+    for (let k = 0; k < n; k++) { const z = L / 2 - (k + 0.5) * L / n, y = (k + 1) * H / n; placer(g, boite(1.6, y, L / n + 0.01, M.blanc, 0.02), 0, y / 2, z); placer(g, boite(1.62, 0.025, 0.06, M.lisere, 0.008), 0, y - 0.01, z + L / n / 2 - 0.03); placer(g, boite(1.3, 0.012, L / n - 0.12, M.graphite, 0.004), 0, y + 0.006, z - 0.02); }
+    for (const s of [-1, 1]) {
+      placer(g, coin(L, H + 0.12, 0.08, M.graphite), s * 0.84, 0, 0);
+      for (const z of [L / 2 - 0.2, 0, -L / 2 + 0.2]) placer(g, boite(0.05, 0.9, 0.05, M.graphite, 0.012), s * 0.84, yb(z) + 0.12 + 0.45, z);
+      placer(g, boite(0.07, 0.06, Math.hypot(L, H), M.lisere, 0.02), s * 0.84, H / 2 + 1.04, 0).rotation.x = a;
+    }
+  }
   else if (cle === 'gardecorps') { for (const s of [-1, 1]) placer(g, boite(0.08, 1.0, 0.08, M.graphite, 0.02), s * 0.9, 0.5, 0); placer(g, boite(1.9, 0.07, 0.07, M.blanc, 0.025), 0, 1.0, 0); placer(g, boite(1.9, 0.05, 0.05, M.lisere, 0.02), 0, 0.55, 0); }
   else if (cle === 'eclairage') { placer(g, cylindre(0.16, 0.2, 0.16, M.graphite, 12), 0, 0.08, 0); placer(g, tube(0.045, 0.06, 3, M.blanc), 0, 1.6, 0); placer(g, boite(0.6, 0.07, 0.16, M.graphite, 0.03), 0, 3.1, -0.22); placer(g, boite(0.44, 0.04, 0.12, M_LUM, 0.015), 0, 3.05, -0.26); placer(g, cylindre(0.065, 0.065, 0.05, M.lisere, 12), 0, 1.0, 0); }
   for (const o of [g.userData.rotor, g.userData.voyant, g.userData.cellule, g.userData.cellule2]) if (o) o.userData.garder = true;
@@ -142,18 +163,13 @@ function modelePiece(cle) {
 // --- Les directions : six voisines par tuile. La pièce garde la tuile vers laquelle elle sort. ---
 const dirVers = (id, v) => tangent(dirDe(id, _d2), new V3().subVectors(dirDe(v), dirDe(id, _d2)));
 function voisineVers(id, vec) { let best = -2, out = id; for (const v of voisinsDe(id)) { const sc = dirVers(id, v).dot(vec); if (sc > best) { best = sc; out = v; } } return out; }   // la voisine la mieux alignée sur un vecteur
-const HAUT_EAU = RP + NIVEAU_MER + 0.45;
-const sousEau = (id) => sol(dirDe(id, _d2)) < RP + NIVEAU_MER + 0.1;
-const posTuile = (id) => { const d = dirDe(id), r = sol(d); return d.multiplyScalar(Math.max(r, sousEau(id) ? HAUT_EAU : 0)); };
+const posTuile = (id) => { const d = dirDe(id); return d.multiplyScalar(sol(d)); };
 // --- Poser, démonter, améliorer. ---
 function raisonRefus(cle, id, avant) {   // pourquoi on ne peut pas poser ici (ou '' si l'on peut)
   const d = PIECES[cle], p = posTuile(id);
   if (GRILLE.has(id)) return 'Emplacement occupé';
   if (S.credits < d.prix) return 'Crédits insuffisants';
-  const eau = sousEau(id);
-  if (d.eau && !eau) return 'Se pose sur l’eau';
-  if (eau && !d.eau && !d.eauOk) return 'Sous l’eau : pied de support ou fondation';
-  if (d.tapis && !d.pente && !eau && Math.abs(sol(dirDe(avant, _d2)) - sol(dirDe(id, _d)) ) > 0.45 && !sousEau(avant)) return 'Pente trop forte : convoyeur montant';
+  if (d.tapis && !d.pente && Math.abs(sol(dirDe(avant, _d2)) - sol(dirDe(id, _d))) > 0.45) return 'Pente trop forte : convoyeur montant';
   for (const o of OBSTACLES) if (!o.piece && !o.inactif && !o.ruche && p.distanceTo(o.p) < o.r + 1.1 && ecartObstacle(o, p).d < 1.0) return 'Trop près d’un obstacle';
   for (const s of SALLES) { _c.subVectors(p, s.g.position); if (Math.abs(_c.dot(s.g.userData.ax)) < s.W / 2 + 0.8 && Math.abs(_c.dot(s.g.userData.az)) < s.D / 2 + 0.8) return 'Trop près d’un bâtiment'; }
   if (!d.marche && joueur.p.distanceTo(p) < 1.2) return 'Tu es dessus';
@@ -168,7 +184,7 @@ function poserPiece(cle, id, avant, gratuit = false, niveau = 0) {
   if (def.ruche !== undefined) { p.ruche = installerRuche(pos, def.ruche, dv.clone().negate()); p.ruche.obs.ruche = true; p.g = p.ruche.g; }
   else {
     const g = modelePiece(cle); poserSur(g, pos, dv.clone().negate()); scene.add(g); p.g = g; p.ecran = g.userData.ecran;
-    if (def.marche) { p.surcote = { p: pos.clone(), ax: g.userData.ax, az: g.userData.az, hw: 1.12, hd: 1.12, h: def.marche + pos.length() - sol(up), bord: cle === 'rampe' ? 1.6 : cle === 'passerelle' ? 0.5 : 0.22 }; SURCOTES.push(p.surcote); }
+    if (def.marche) { p.surcote = { p: pos.clone(), ax: g.userData.ax, az: g.userData.az, hw: 1.12, hd: 1.12, h: def.marche + pos.length() - sol(up), bord: cle === 'passerelle' ? 0.5 : 0.22, incline: !!def.incline }; SURCOTES.push(p.surcote); }
     else if (def.tapis) p.obstacle = boiteDe(g, 0.62, 1.0, { piece: p });
     else if (cle === 'gardecorps') p.obstacle = boiteDe(g, 1.0, 0.12, { piece: p });
     else if (cle === 'eclairage' || cle === 'poteau') p.obstacle = { p: pos.clone(), r: 0.3, piece: p };

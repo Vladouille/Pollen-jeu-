@@ -78,7 +78,7 @@ function etatSauve() {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
     S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte) },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
-    tuyaux: TUYAUX.map((t) => t.pts.map(v3)), balises: BALISES.map((b) => b.active),
+    balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),
     capsules: CAPSULES.map((c) => [c.p.id, +c.t.toFixed(2), c.type, +c.valeur.toFixed(2)]),
     flotte: Object.fromEntries(ORDRE_VEHICULES.map((c) => { const w = FLOTTE[c]; return [c, { possede: w.possede, p: v3(w.p), f: v3(w.f), charge: w.charge, valeur: +w.valeur.toFixed(2), niv: w.niv, attelee: w.attelee ? w.attelee.cle : undefined }]; })),
@@ -105,18 +105,17 @@ function charger(d) {
   d = convertir(d);
   const sac = sacVide(), silo = sacVide(); for (const k in sac) { if (d.S.sac && d.S.sac[k]) Object.assign(sac[k], d.S.sac[k]); if (d.S.silo && d.S.silo[k]) Object.assign(silo[k], d.S.silo[k]); }
   PLANETE_PROG.vert = 0; Object.assign(S, d.S, { sac, silo, temps: d.temps || 0, amelio: { ...S.amelio, ...(d.S.amelio || {}) }, succes: d.S.succes || {}, recolte: d.S.recolte || 0 }); OUVERTS.value = clamp(d.ouverts || 1, 1, NSECT);
-  if (!S.outils.includes('pinceau')) S.outils.unshift('pinceau');
+  S.outils = (S.outils || []).filter((o) => OUTILS_DEF[o]); if (!S.outils.includes('pinceau')) S.outils.unshift('pinceau');
   if (typeof d.jour === 'number') { JOUR.angle = d.jour; placerSoleil(); }
   const o = octetsDesTuiles(d.tuiles);
   for (let i = 0; i < NT && i < o.length; i++) {
-    const c = o[i], vert = c & 1, sorte = (c >> 1) & 7, irr = (c >> 4) & 1;
+    const c = o[i], vert = c & 1, sorte = (c >> 1) & 7;
     if (T.sorte[i] === 1 && sorte !== 1) desherber(i);
     if (T.sorte[i] === 3 && sorte !== 3) cueillirMere(i);
-    T.sorte[i] = sorte; T.irrigue[i] = irr; T.nectar[i] = (c >> 5) & 1;
+    T.sorte[i] = sorte === 2 ? 0 : sorte; T.irrigue[i] = 0; T.nectar[i] = (c >> 5) & 1;
     if (vert && !T.vert[i]) fleurirTuile(i, -1000); else if (!vert && T.vert[i]) fanerTuile(i); else ecrireTuile(i);
   }
   for (const s of secteurs) s.vert = 0; PLANETE_PROG.vert = 0; for (let i = 0; i < NT; i++) { secteurs[T.sect[i]].vert += T.vert[i]; PLANETE_PROG.vert += T.vert[i]; } majProgres(); OUVERTS.value = NSECT;
-  for (const pts of d.tuyaux || []) { const t = { pts: [dev3(pts[0])] }; for (let k = 1; k < pts.length; k++) { const q = dev3(pts[k]); segment(t.pts[k - 1], q); t.pts.push(q); } TUYAUX.push(t); }
   (d.balises || []).forEach((a, k) => { if (a && BALISES[k]) activerBalise(BALISES[k], false); });
   for (const [cle, id, avant, niveau, paye, charge, st, ent] of d.pieces || []) if (PIECES[cle] && !GRILLE.has(id)) { const q = poserPiece(cle, id, avant, true, niveau || 0); q.paye = paye || PIECES[cle].prix; q.charge = charge || 0; q.stock = capsDepuis(st); q.entrees = capsDepuis(ent); }
   for (const [id, t, type, valeur] of d.capsules || []) { const q = GRILLE.get(id); if (q && estTapis(q)) CAPSULES.push({ p: q, t, type, valeur, bloque: 0 }); }
@@ -133,10 +132,11 @@ function charger(d) {
 function sauver() {
   if (SUPPRIME.v) return false;   // emplacement effacé ou partie importée : rien à réécrire avant le rechargement
   let texte; try { texte = JSON.stringify(etatSauve()); } catch (e) { return false; }
+  DERNIER.texte = texte; DERNIER.empl = EMPL;   // la copie en mémoire part aussi vers la sauvegarde en ligne
   const avant = stock.lire(cleEmpl(EMPL)); if (avant && avant !== texte) stock.ecrire(cleSecours(EMPL), avant);
   return stock.ecrire(cleEmpl(EMPL), texte);   // l'emplacement actif ne s'écrit qu'au moment où on le choisit
 }
-let aSauver = false; const SUPPRIME = { v: false };
+let aSauver = false; const SUPPRIME = { v: false }, DERNIER = { texte: '', empl: 0 }, DEMARRAGE = { date: 0, repris: false };
 function sauverBientot() { aSauver = true; }   // achat, vente, machine posée, secteur fini : écrit à l'image suivante (une fois)
 FIN_SECTEUR.push(() => sauverBientot());
 let tSauve = 0;
@@ -144,15 +144,15 @@ MAJ.push((dt) => {
   S.temps = (S.temps || 0) + dt;
   tSauve += dt; if (tSauve >= 30 || aSauver) { tSauve = 0; aSauver = false; sauver(); }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) sauver(); });
-addEventListener('pagehide', sauver);
-addEventListener('beforeunload', sauver);
+document.addEventListener('visibilitychange', () => { if (document.hidden) { sauver(); envoyerNuage(); } });   // on quitte l'onglet : tout part, en local et en ligne
+addEventListener('pagehide', () => { sauver(); envoyerNuage(); });
+addEventListener('beforeunload', () => { sauver(); envoyerNuage(); });
 
 // --- Au démarrage : on reprend l'emplacement en cours. Sans partie v10, une partie de la v9 est reprise (argent, outils, temps). ---
 const ANNONCE = { texte: '' };
 {
   if (!params.has('neuf')) {
-    const essayer = (cle) => { const t = stock.lire(cle); if (!t) return 'vide'; try { const d = charger(JSON.parse(t)); return d.monde === 'neuf' ? 'ancien' : 'ok'; } catch (e) { return e.message || 'illisible'; } };
+    const essayer = (cle) => { const t = stock.lire(cle); if (!t) return 'vide'; try { const d = charger(JSON.parse(t)); DEMARRAGE.date = d.date || 1; DEMARRAGE.repris = true; return d.monde === 'neuf' ? 'ancien' : 'ok'; } catch (e) { return e.message || 'illisible'; } };
     let r = essayer(cleEmpl(EMPL));
     if (r === 'vide') { const a = essayer(`pollen-v10-emplacement-${EMPL}`); if (a === 'ancien') ANNONCE.texte = 'Partie de la version précédente reprise : ton argent, tes outils et ton temps de jeu sont là. Le monde est une planète neuve.'; }
     else if (r !== 'ok') {
@@ -164,6 +164,57 @@ const ANNONCE = { texte: '' };
     }
   }
 }
+
+// --- La sauvegarde en ligne. Dans la page publiée sur claude.ai, le stockage local n'est pas sûr : la visionneuse peut
+//     le vider entre deux visites. Chaque emplacement est donc aussi copié dans la base privée du joueur
+//     (data/users/<id>/…, que lui seul peut lire), toutes les minutes et dès qu'on quitte la page. Au démarrage on lit
+//     la copie en ligne : si elle est plus récente que la partie locale (ou s'il n'y a rien en local), on la reprend.
+//     Hors de claude.ai (fichier ouvert tel quel), use() répond null et rien ne change. ---
+const NUAGE = { db: null, uid: null, pret: false, occupe: false, envoye: '', t: 0, echecs: 0, pause: 0, etat: 'local' };
+const TRANCHE = 200000;   // un document fait 256 Kio au plus : une très longue sauvegarde est coupée en tranches
+const refNuage = (n, k) => NUAGE.db.doc(`data/users/${NUAGE.uid}/pollen-v14-emplacement-${n}${k === undefined ? '' : `-p${k}`}`);
+async function lireNuage(n) {
+  const s = await refNuage(n).get(); if (!s.exists) return null; const m = s.data();
+  if (typeof m.texte === 'string') return m;
+  const parts = []; for (let k = 0; k < (m.tranches || 0); k++) { const p = await refNuage(n, k).get(); if (!p.exists) return null; parts.push(p.data().texte); }
+  return { ...m, texte: parts.join('') };
+}
+async function envoyerNuage() {
+  if (!NUAGE.pret || NUAGE.occupe || SUPPRIME.v || performance.now() < NUAGE.pause) return false;
+  if (!DERNIER.texte) sauver();
+  const texte = DERNIER.texte, n = DERNIER.empl; if (!texte || texte === NUAGE.envoye) return false;
+  NUAGE.occupe = true;
+  try {
+    const d = JSON.parse(texte), tete = { date: d.date, temps: d.temps || 0, credits: d.S.credits, v: d.v };
+    if (texte.length <= TRANCHE) await refNuage(n).set({ ...tete, texte });
+    else { const k = Math.ceil(texte.length / TRANCHE); for (let i = 0; i < k; i++) await refNuage(n, i).set({ texte: texte.slice(i * TRANCHE, (i + 1) * TRANCHE) }); await refNuage(n).set({ ...tete, tranches: k }); }
+    NUAGE.envoye = texte; NUAGE.echecs = 0; NUAGE.etat = 'en ligne';
+  } catch (e) {
+    const code = e && e.code; NUAGE.echecs++;
+    if (['revoked', 'not_granted', 'capability_disabled', 'capability_removed', 'quota_exceeded', 'invalid_argument'].includes(code)) { NUAGE.pret = false; NUAGE.etat = 'local'; }
+    else NUAGE.pause = performance.now() + Math.min(300000, 5000 * 2 ** NUAGE.echecs);   // trop d'appels, panne passagère : on attend, de plus en plus
+  }
+  NUAGE.occupe = false; return true;
+}
+MAJ.push((dt) => { NUAGE.t += dt; if (NUAGE.t >= 60) { NUAGE.t = 0; envoyerNuage(); } });
+(async () => {
+  if (!window.claude || !window.claude.use || params.has('neuf') || params.has('horsligne')) return;
+  try {
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    const uid = user && await user.id(); if (!db || !uid) return;
+    NUAGE.db = db; NUAGE.uid = uid;
+    const m = await lireNuage(EMPL).catch(() => null);
+    if (m && m.texte && (m.date || 0) > DEMARRAGE.date) {   // la copie en ligne est plus récente : on la reprend
+      let d; try { d = convertir(JSON.parse(m.texte)); } catch (e) { d = null; }
+      if (d) {
+        const ecrit = stock.ecrire(cleEmpl(EMPL), m.texte) && stock.lire(cleEmpl(EMPL)) === m.texte;
+        if (DEMARRAGE.repris && ecrit) { SUPPRIME.v = true; location.reload(); return; }   // une partie locale tourne déjà : on recharge sur la copie en ligne
+        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); }
+      }
+    }
+    NUAGE.pret = true; NUAGE.etat = 'en ligne'; envoyerNuage();
+  } catch (e) { NUAGE.etat = 'local'; }
+})();
 
 // --- La petite icône en haut à droite : trois emplacements, exporter, importer. ---
 function resume(texte) {   // { temps, credits, secteur } d'une sauvegarde, ou null
@@ -198,7 +249,8 @@ panneauSauve.addEventListener('click', (e) => {
     const n = +b.dataset.suppr;
     if (confirmer !== n) { confirmer = n; afficherEmplacements(); return; }   // second clic : on supprime
     stock.effacer(cleEmpl(n)); stock.effacer(cleSecours(n)); confirmer = 0;
-    if (n === EMPL) { SUPPRIME.v = true; location.reload(); return; }   // l'emplacement en cours repart de zéro
+    const effaceEnLigne = NUAGE.db ? refNuage(n).delete().catch(() => {}) : Promise.resolve();   // sinon la copie en ligne reviendrait au démarrage
+    if (n === EMPL) { SUPPRIME.v = true; effaceEnLigne.finally(() => location.reload()); return; }   // l'emplacement en cours repart de zéro
     afficherEmplacements(); return;
   }
   if (b.id === 'exporter') exporter();
@@ -220,7 +272,9 @@ function importer(texte) {   // vérifie, garde l'ancien en secours, écrit dans
   let d; try { d = convertir(JSON.parse(texte)); } catch (e) { montrerAnnonce(`Fichier refusé : ${e.message || 'illisible'}. La partie en cours n'a pas changé.`); return false; }
   const avant = stock.lire(cleEmpl(EMPL)); if (avant) stock.ecrire(cleSecours(EMPL), avant);
   SUPPRIME.v = true;   // plus aucune écriture avant le rechargement : la partie en cours écraserait l'import en partant
-  stock.ecrire(cleEmpl(EMPL), JSON.stringify(d)); location.reload(); return true;
+  d.date = Date.now(); const neuf = JSON.stringify(d); stock.ecrire(cleEmpl(EMPL), neuf);   // daté de maintenant : il l'emporte sur la copie en ligne
+  const envoi = NUAGE.pret ? refNuage(EMPL).set({ date: d.date, temps: d.temps || 0, credits: d.S.credits, v: d.v, texte: neuf }).catch(() => {}) : Promise.resolve();
+  envoi.finally(() => location.reload()); return true;
 }
 document.getElementById('fichierSauve').addEventListener('change', (e) => { const f = e.target.files[0]; if (!f) return; f.text().then(importer); e.target.value = ''; });
 function montrerAnnonce(t) { annonce.textContent = t; annonce.hidden = false; clearTimeout(montrerAnnonce.t); montrerAnnonce.t = setTimeout(() => { annonce.hidden = true; }, 9000); }

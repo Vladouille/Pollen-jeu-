@@ -8,6 +8,10 @@ Plus de secteurs à débloquer : toute la planète est ouverte, le pourcentage e
 sont rose framboise.
 Véhicules remodelés (cabines vitrées, pneus à crampons, hublots de pollen, rabatteur), esplanade bordée sans parcelles
 qui débordent, et un quai de déchargement au sud de la base : on s'y arrête au volant, le pollen est aspiré et vendu.
+Puis : sauvegarde automatique qui survit à la fermeture de la page (copie locale + copie en ligne privée sur claude.ai),
+un seul bâtiment (hall vitré de 41 × 18 m : comptoir, station, atelier, laboratoire, garage et accueil), plus de
+système d'eau, véhicules sans pièces qui flottent (essieux, berceaux, bras, pattes), rampe pleine et escalier qui
+montent vraiment en pente.
 
 ## Version courante : v10 (`v10/index.html`)
 
