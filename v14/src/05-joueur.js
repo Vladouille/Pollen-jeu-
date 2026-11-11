@@ -131,7 +131,7 @@ if (!MOBILE) {
   agir.hidden = false; inter.hidden = false;
   const R = 56, SENS = 0.0056; let stick = null, regard = null, agirId = null, agirPos = null, essai = false;
   const majStick = (x, y) => { const l = Math.hypot(x, y); if (l < 0.12) { E.mx = 0; E.mz = 0; return; } const m = Math.max(0.18, Math.pow((Math.min(l, 1) - 0.12) / 0.88, 1.5)); E.mx = x / l * m; E.mz = -y / l * m; };
-  const premier = () => { sons.init(); if (essai) return; essai = true; try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (err) { /* refusé : la scène tourne */ } };
+  const premier = () => { sons.init(); if (essai) return; if (navigator.userActivation && !navigator.userActivation.isActive) return; essai = true; try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (err) { /* refusé : la scène tourne */ } };
   agir.addEventListener('touchstart', (e) => { premier(); const t = e.changedTouches[0]; agirId = t.identifier; agirPos = versJeu(t.clientX, t.clientY); E.action = true; E.presse = true; agir.classList.add('appui'); e.preventDefault(); e.stopPropagation(); }, { passive: false });
   inter.addEventListener('touchstart', (e) => { premier(); E.inter = true; e.preventDefault(); e.stopPropagation(); }, { passive: false });
   addEventListener('touchstart', (e) => {

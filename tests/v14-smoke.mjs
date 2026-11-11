@@ -85,17 +85,26 @@ try {
   check(it.vuBrosse && it.outils.includes('brosse') && it.crApres === 50 && it.enMain === 'brosse', 'achat immédiat de la brosse sur l’établi (250 cr), elle est en main');
   check(it.vuAtelier && it.terminaux === 5 && it.sac === 18 && it.crAtelier === 600, `atelier : cinq catégories (${it.cats.join(', ')}), le sac passe à ${it.sac} kg`);
   check(it.medaillons === 8 && it.succes >= 1, `station : huit médaillons, ${it.succes} succès obtenu(s)`);
+  // --- 3 bis. Dans le hall, on marche (vraie physique) jusqu'à chaque pièce, et entre les plateformes du garage ---
+  const mh = await page.evaluate(() => {
+    const P = pollen, H = P.HALL, V3 = P.V3, pt = (x, z) => U.dans(H, x, 0, z);
+    const marcher = (chemin) => { U.aller(pt(...chemin[0])); P.figer = false; let k = 1, n = 0; while (k < chemin.length && n++ < 1500) { const c = pt(...chemin[k]); P.tangent(P.joueur.p, new V3().subVectors(c, P.joueur.p), P.joueur.f); P.E.mz = 1; P.step(0.05, 1); const d = P.joueur.p.clone().sub(c); d.addScaledVector(P.joueur.haut, -d.dot(P.joueur.haut)); if (d.length() < 0.5) k++; } P.E.mz = 0; P.step(0.05, 2); return k >= chemin.length; };
+    const pieces = [['ATELIER', 6.5, -1.7], ['LABO', 15.5, -1.7], ['STATION', -3.5, -0.7], ['COMPTOIR', -14.5, -1.7]].map(([nom, x, zp]) => marcher([[-3, 11], [-3, 6.5], [-3, 1.3], [x, 1.3], [x, zp + 0.6], [x, zp - 2.2]]) && P.DEDANS.salle === P[nom].userData.salle);
+    const passages = [0, 1, 2, 3].map((n) => { const x = 10.4 - 4.6 + n * 3.3 + 1.65; return marcher([[x, 7], [x, 4], [x, 1.2], [x, 0.9]]); });
+    return { pieces, passages };
+  });
+  check(mh.pieces.every(Boolean) && mh.passages.every(Boolean), `à pied depuis la porte du hall : les quatre pièces atteintes (${mh.pieces}) ; on passe entre les plateformes du garage (${mh.passages})`);
   // --- 4. Le concessionnaire et les véhicules ---
   const ve = await page.evaluate(() => {
     const P = pollen, g = P.CONCESSION, S = g.userData.salle, out = {};
     U.aller(U.dans(g, 0.3, 0, S.D / 2 - 1.5)); P.step(0.05, 20); out.dedans = P.DEDANS.salle === S; out.modeles = Object.keys(P.VEHICULES); out.prix = out.modeles.map((c) => P.VEHICULES[c].prix);
     P.S.credits = 100; out.refus = P.acheterVehicule('chariot');
-    P.S.credits = 5000; const ib = U.interPres(U.dans(g, -4.4, 1.4, 1.15), (i) => !i.cache); U.aller(U.dans(g, -4.4, 0, 2.7)); out.vuBorne = U.utiliser(ib); out.possede = P.FLOTTE.chariot.possede; out.cr = P.S.credits;
+    P.S.credits = 5000; const ib = U.interPres(U.dans(g, -4.6, 1.4, 2.35), (i) => !i.cache); U.aller(U.dans(g, -4.6, 0, 3.9)); out.vuBorne = U.utiliser(ib); out.possede = P.FLOTTE.chariot.possede; out.cr = P.S.credits;
     let porte = 0, n = 0; while (P.SORTIE.v && n++ < 900) { P.step(0.05, 1); porte = Math.max(porte, S.porte); }
     out.porte = porte; out.sorti = !P.SORTIE.v; out.auVolant = P.joueur.enVehicule === P.FLOTTE.chariot; out.distParvis = P.FLOTTE.chariot.p.distanceTo(g.position); P.step(0.05, 60); out.referme = S.porte;
     // améliorer le moteur : le modèle change
     const v = P.FLOTTE.chariot, compte = () => { let c = 0; v.g.traverse((o) => { if (o.isMesh) c += o.geometry.attributes.position.count; }); return c; }; const avant = compte(); P.descendre();
-    const im = P.INTER.filter((i) => i.cache && i.p.distanceTo(U.dans(g, -4.7, 0.66, 1.19)) < 0.05)[0]; U.aller(U.dans(g, -4.4, 0, 2.4)); out.vuAmelio = U.utiliser(im); out.moteur = v.niv.moteur; out.plus = compte() > avant; out.crAmelio = P.S.credits;
+    const im = P.INTER.filter((i) => i.cache && i.p.distanceTo(U.dans(g, -4.9, 0.66, 2.39)) < 0.05)[0]; U.aller(U.dans(g, -4.6, 0, 3.6)); out.vuAmelio = U.utiliser(im); out.moteur = v.niv.moteur; out.plus = compte() > avant; out.crAmelio = P.S.credits;
     // au volant du chariot : il pollinise la tuile qu'il pousse
     v.p.copy(P.local(0, 37)); v.f.copy(P.tangent(v.p, new P.V3().subVectors(P.local(0, 60), v.p))); P.monter(v); const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 240); P.E.mz = 0; P.step(0.05, 10);
     out.tuiles = P.S.tuiles - t0; out.charge = v.charge; out.avance = v.p.distanceTo(P.local(0, 37)); out.pastille = document.getElementById('nomOutil').textContent;

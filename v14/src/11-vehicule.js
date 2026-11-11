@@ -339,13 +339,13 @@ const BORNES_VEH = [];
 {
   const g = CONCESSION, F = g.userData.salle.F;
   ORDRE_VEHICULES.forEach((cle, n) => {
-    const x = -4.4 + n * 3.1, z = -1.2, D = VEHICULES[cle];
-    placer(g, cylindre(1.35, 1.4, 0.14, M.graphite, 32), x, F + 0.07, z); placer(g, cylindre(1.42, 1.42, 0.03, M.seve, 32), x, F + 0.03, z);
-    const pl = new THREE.Group(); pl.userData.garder = true; placer(g, pl, x, F + 0.14, z); placer(pl, cylindre(1.25, 1.25, 0.1, M.blanc, 32), 0, 0.05, 0); placer(pl, cylindre(1.27, 1.27, 0.025, M.seve, 32), 0, 0.085, 0);
-    const modele = fabriquerVehicule(cle); modele.scale.setScalar(Math.min(0.62, 1.15 / D.hd)); modele.position.y = 0.1; pl.add(modele); modele.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
-    OBSTACLES.push({ p: monde(g, x, 0, z), r: 1.4 });
+    const x = -4.6 + n * 3.3, z = 0.0, D = VEHICULES[cle];   // allée de 3 m devant l'atelier et le laboratoire, 1 m de passage entre deux plateformes
+    placer(g, cylindre(1.1, 1.15, 0.14, M.graphite, 32), x, F + 0.07, z); placer(g, cylindre(1.17, 1.17, 0.03, M.seve, 32), x, F + 0.03, z);
+    const pl = new THREE.Group(); pl.userData.garder = true; placer(g, pl, x, F + 0.14, z); placer(pl, cylindre(1.02, 1.02, 0.1, M.blanc, 32), 0, 0.05, 0); placer(pl, cylindre(1.04, 1.04, 0.025, M.seve, 32), 0, 0.085, 0);
+    const modele = fabriquerVehicule(cle); modele.scale.setScalar(Math.min(0.55, 0.95 / D.hd)); modele.position.y = 0.1; pl.add(modele); modele.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
+    OBSTACLES.push({ p: monde(g, x, 0, z), r: 1.15 });
     // La borne sur pied : écran (nom, prix, trois barres), bouton d'achat, quatre boutons d'amélioration.
-    const e = ecranDyn(256, 320), bx = x, bz = 1.05;
+    const e = ecranDyn(256, 320), bx = x, bz = 2.25;
     placer(g, tube(0.05, 0.07, 1.0, M.graphite), bx, F + 0.5, bz); placer(g, cylindre(0.2, 0.24, 0.06, M.graphite, 16), bx, F + 0.03, bz);
     const tete = new THREE.Group(); placer(g, tete, bx, F + 1.25, bz); tete.rotation.x = -0.35;
     placer(tete, boite(0.62, 0.78, 0.07, M.graphite, 0.03), 0, 0, 0); const ec = placer(tete, new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.66), e.mat), 0, 0.02, 0.04); ec.userData.garder = true;
