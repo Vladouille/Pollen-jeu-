@@ -126,7 +126,8 @@ try {
     let porte = 0, n = 0; while (P.SORTIE.v && n++ < 900) { P.step(0.05, 1); porte = Math.max(porte, S.porte); }
     out.porte = porte; out.sorti = !P.SORTIE.v; out.auVolant = P.joueur.enVehicule === P.FLOTTE.chariot; out.distParvis = P.FLOTTE.chariot.p.distanceTo(g.position); P.step(0.05, 60); out.referme = S.porte;
     // améliorer le moteur : le modèle change
-    const v = P.FLOTTE.chariot, compte = () => { let c = 0; v.g.traverse((o) => { if (o.isMesh) c += o.geometry.attributes.position.count; }); return c; }; const avant = compte(); P.descendre();
+    const v = P.FLOTTE.chariot, compte = () => { let c = 0; v.g.traverse((o) => { if (o.isMesh) c += o.geometry.attributes.position.count; }); return c; }; P.descendre(); P.step(0.05, 1); const avant = compte();   // sans le pilote, qui descend avec nous
+   
     const im = P.INTER.filter((i) => i.cache && i.p.distanceTo(U.dans(g, -4.9, 0.66, 2.39)) < 0.05)[0]; U.aller(U.dans(g, -4.6, 0, 3.6)); out.vuAmelio = U.utiliser(im); out.moteur = v.niv.moteur; out.plus = compte() > avant; out.crAmelio = P.S.credits;
     // au volant du chariot : il pollinise la tuile qu'il pousse
     v.p.copy(P.local(0, 37)); v.f.copy(P.tangent(v.p, new P.V3().subVectors(P.local(0, 60), v.p))); P.monter(v); const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 240); P.E.mz = 0; P.step(0.05, 10);
@@ -146,7 +147,7 @@ try {
     const P = pollen, V3 = P.V3, out = {}; P.S.credits = 1e6; P.figer = false;
     out.achat = P.acheterVehicule('aeroglisseur'); let n = 0; while (P.SORTIE.v && n++ < 1200) P.step(0.05, 1);
     const v = P.FLOTTE.aeroglisseur; out.auVolant = P.joueur.enVehicule === v; out.parc = v.p.distanceTo(P.placeParvis('aeroglisseur'));
-    v.p.copy(P.surSol(P.local(40, 60))); v.f.copy(P.tangent(v.p, new V3().subVectors(P.local(40, 120), v.p))); P.joueur.f.copy(v.f); P.poserVehicule(v); P.step(0.05, 20);
+    v.p.copy(P.surSol(P.local(30, 60))); v.f.copy(P.tangent(v.p, new V3().subVectors(P.local(30, 120), v.p))); P.joueur.f.copy(v.f); P.poserVehicule(v); P.step(0.05, 20);
     const up = v.p.clone().normalize(), d = P.camera.position.clone().sub(v.p); out.derriere = d.dot(v.f); out.hauteur = d.dot(up);
     out.pilote = v.g.userData.caisse.children.some((o) => o.children.length > 8); out.ext = document.getElementById('jeu').classList.contains('ext');
     P.E.vueVeh = true; P.step(0.05, 2); out.cabine = P.camera.position.distanceTo(P.joueur.p) < 2.2; P.E.vueVeh = true; P.step(0.05, 2);
@@ -169,7 +170,7 @@ try {
     // raisons de refus
     const az = C.userData.az, id0 = P.tuileDe(C.position.clone().addScaledVector(az, 3.3).normalize()), suite = [id0]; for (let k = 0; k < 7; k++) suite.push(P.voisineVers(suite[k], az));
     const mer = suite[2];   // plus de mer : toute la planète est en parcelles
-    out.raisons = { batiment: P.raisonRefus('convoyeur', P.tuileDe(U.dans(P.HALL, -16, 0, 6).normalize()), suite[1]) };
+    out.raisons = { batiment: P.raisonRefus('convoyeur', P.tuileDe(U.dans(P.HALL, -12, 0, 0.5).normalize()), suite[1]) };
     P.S.credits = 5; out.raisons.argent = P.raisonRefus('convoyeur', suite[0], suite[1]); P.S.credits = 20000;
     P.E.construire = true; P.step(0.05, 2); out.ferme = !P.CONS.actif && document.getElementById('barreCons').hidden && P.SOL_U.uCons.value === 0;
     // une ligne : collecteur → 3 convoyeurs → extracteur → convoyeur → réceptionnaire
@@ -222,7 +223,7 @@ try {
   await page.goto(`http://localhost:${srv.address().port}/?mode=pc`, { timeout: 180000 }); await page.waitForFunction(() => window.pollen, null, { timeout: 180000 }); await page.waitForTimeout(1500);
   const rs = await page.evaluate(() => { const P = pollen; return { cr: P.S.credits, pieces: P.GRILLE.size, chariot: P.FLOTTE.chariot.possede && !!P.FLOTTE.chariot.g, moteur: P.FLOTTE.chariot.niv.moteur, vertes: P.T.vert.reduce((s, v) => s + v, 0), outils: P.S.outils.length, amelio: P.S.amelio.sac, ruches: P.RUCHES.length, alt: P.altitude(P.joueur.p), succes: Object.keys(P.S.succes).length }; });
   check(sv.v === 8 && sv.ok && sv.octets < 60000, `sauvegarde au format ${sv.v} (${(sv.octets / 1024).toFixed(1)} Ko)`);
-  check(rs.cr === 4321 && rs.pieces === sv.pieces && rs.chariot && rs.moteur === 1 && rs.outils === sv.outils && rs.amelio === 1 && rs.ruches === 1 && rs.alt > 0, `rechargée : argent, ${rs.pieces} pièces, ruche, chariot amélioré, outils et améliorations retrouvés`);
+  check(rs.cr === 4321 && rs.pieces === sv.pieces && rs.chariot && rs.moteur === 1 && rs.outils === sv.outils && rs.amelio === 1 && rs.ruches === 2 && rs.alt > 0, `rechargée : argent, ${rs.pieces} pièces, ruche, chariot amélioré, outils et améliorations retrouvés`);
   const perf = await page.evaluate(() => { const P = pollen; P.figer = false; return new Promise((res) => setTimeout(() => res({ tri: P.renderer.info.render.triangles, appels: P.renderer.info.render.calls }), 1500)); });
   console.log(`     (pc : ${(perf.tri / 1000).toFixed(0)} k triangles, ${perf.appels} appels de dessin par image, toutes passes comprises)`);
   check(erreurs.length === 0, `pc : console sans erreur${erreurs.length ? ' : ' + erreurs.slice(0, 3).join(' | ') : ''}`);
