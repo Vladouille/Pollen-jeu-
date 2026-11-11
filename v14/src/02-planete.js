@@ -131,7 +131,7 @@ const SECTEURS = [];
   const ids = [], cles = [], P = [];
   for (let f = 0; f < 20; f++) for (let i = 0; i <= NSUB; i++) for (let j = 0; j <= NSUB - i; j++) {
     const id = idDe(f, i, j); if (canon(f, i, j) !== id) continue;   // chaque parcelle une seule fois, sous son nom canonique
-    const d = dirTuile(f, i, j, _d2); if (RP * d.distanceTo(BASE_DIR) < RB) continue;
+    const d = dirTuile(f, i, j, _d2); if (RP * d.distanceTo(BASE_DIR) < RB + 1.3) continue;   // aucune parcelle ne déborde sur l'esplanade
     const r = sol(d); ids.push(id); cles.push(cleSecteur(d)); P.push(d.x * r, d.y * r, d.z * r);
   }
   NT = T.n = ids.length;
@@ -322,7 +322,7 @@ function construirePaquet(P) {
       for (let c = Math.ceil((X0 - s * 0.7 - dx) / px); c * px + dx <= X0 + s * 0.7; c++) {
         const X = c * px + dx, u = X / s - (v + j) / 2 - i;
         if (2 * Math.max(Math.abs(u + v / 2), Math.abs(v + u / 2), Math.abs(u - v) / 2) > 0.84) continue;   // un liseré nu entre les tuiles
-        _d.copy(F.A).addScaledVector(e1, X).addScaledVector(e2, Y).normalize(); const r = sol(_d);
+        _d.copy(F.A).addScaledVector(e1, X).addScaledVector(e2, Y).normalize(); if (RP * _d.distanceTo(BASE_DIR) < RB + 0.5) continue; const r = sol(_d);
         pts.push(_d.x * r, _d.y * r, _d.z * r, R(), k);
       }
     }

@@ -24,6 +24,12 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   le prix et la ruche mère) ; le pourcentage affiché est celui de la planète au centième ; une fête toutes les 500
   parcelles. Fleurs en rose framboise #E8458B (cœur jaune #F5C518) : contraste maximal sur le beige fané et le vert,
   distinct de l'orange et du cyan des machines et du halo bleu. Le nom « Azurelle » est gardé (à rediscuter).
+  Puis : « les véhicules et les graphismes font effet IA ; les parcelles débordent sur la base ; un endroit pour
+  décharger et vendre ; des designs mieux inspirés de Moon Sweepers » → véhicules remodelés avec des designs propres à
+  POLLEN (pneus à crampons et jantes, cabines vitrées, hublots où monte le pollen, barre de coupe à rabatteur pour la
+  pollinisatrice, camion à calandre et caisse nervurée…), pas de copie ; aucune parcelle à moins de RB + 1,3 m et une
+  bordure basse autour de l'esplanade (ouverte au sud) ; quai de déchargement couvert au sud (local(0, 20)) : on s'y
+  arrête au volant, la hotte aspire 40 kg/s et vend aussitôt ; la pompe passe en local(-22, -2).
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

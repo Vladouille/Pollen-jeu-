@@ -146,7 +146,7 @@ const POMPE = (() => {
   placer(g, cylindre(0.22, 0.22, 0.03, new THREE.MeshStandardMaterial({ color: 0x3a8fd0, emissive: 0x2a6fb0, emissiveIntensity: 0.4, roughness: 0.1 }), 24), 0, base + 1.0, 0.585).rotation.x = Math.PI / 2;
   placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.035, 8, 24), M.graphite), 0, base + 1.0, 0.59);
   placer(g, tube(0.06, 0.06, 0.5, M.graphite), 0.55, base + 0.5, 0.3).rotation.z = Math.PI / 2; placer(g, bouton(), 0.82, base + 0.5, 0.3).rotation.y = Math.PI / 2;
-  fusionner(g); const p = local(0, 17); poserSur(g, p, versBase(p)); scene.add(g); ombreContact(g, 1.3); OBSTACLES.push({ p: p.clone(), r: 1.1 });
+  fusionner(g); const p = local(-22, -2); poserSur(g, p, versBase(p)); scene.add(g); ombreContact(g, 1.3); OBSTACLES.push({ p: p.clone(), r: 1.1 });
   return g;
 })();
 // Les portes s'ouvrent à l'approche ; dedans, la lampe de la pièce s'allume et l'ambiance sonore devient plus sourde.
@@ -164,3 +164,15 @@ MAJ.push((dt) => {
   if (S) lampeSalle.position.copy(monde(S.g, 0, S.F + S.Ht - 0.6, 0));
   lampeSalle.intensity = lerp(lampeSalle.intensity, S ? 13 : 0, 1 - Math.exp(-dt * 6));
 });
+
+// La bordure de l'esplanade : un muret bas blanc à liseré orange, une bande cyan au pied, ouvert au sud vers les champs.
+{
+  const g = new THREE.Group(), n = Math.round(2 * Math.PI * (RB + 0.3) / 1.2);
+  for (let k = 0; k < n; k++) {
+    const a = k / n * Math.PI * 2, x = Math.sin(a) * (RB + 0.3), z = -Math.cos(a) * (RB + 0.3);
+    if (Math.abs(x) < 4.5 && z > 0) continue;   // l'entrée du quai de déchargement
+    const m = new THREE.Group(); placer(m, boite(1.22, 0.22, 0.35, M.blanc, 0.05), 0, 0.11, 0); placer(m, boite(1.24, 0.035, 0.37, M.lisere, 0.012), 0, 0.235, 0); placer(m, boite(1.24, 0.03, 0.04, M.seve, 0.01), 0, 0.02, 0.19);
+    const p = local(x, z); poserSur(m, p, tangent(p, new V3().subVectors(p, BASE))); g.add(m);
+  }
+  fusionner(g); scene.add(g);
+}

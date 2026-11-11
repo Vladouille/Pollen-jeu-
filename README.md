@@ -6,6 +6,8 @@ redessinés et animés (poils qui s'écrasent, réservoir qui se remplit, hélic
 roulis, suspension, poussière). Test : `npm run smoke:v14`.
 Plus de secteurs à débloquer : toute la planète est ouverte, le pourcentage est celui de la planète entière. Les fleurs
 sont rose framboise.
+Véhicules remodelés (cabines vitrées, pneus à crampons, hublots de pollen, rabatteur), esplanade bordée sans parcelles
+qui débordent, et un quai de déchargement au sud de la base : on s'y arrête au volant, le pollen est aspiré et vendu.
 
 ## Version courante : v10 (`v10/index.html`)
 
