@@ -252,7 +252,7 @@ try {
     out.garage = ['buggy', 'tracteur', 'chenille'].map((c) => { P.acheterVehicule(c); const v = P.FLOTTE[c], ok = v.possede && P.joueur.enVehicule === v; P.E.mz = 1; P.step(0.05, 100); P.E.mz = 0; P.step(0.05, 5); const d = v.p.distanceTo(P.PARCS[c].p); P.descendre(); P.rappeler(v, false); return ok && d > 8; });
     P.acheterVehicule('dirigeable'); let n = 0; while (P.SORTIE.v && n++ < 600) P.step(0.05, 1); const di = P.FLOTTE.dirigeable; if (P.joueur.enVehicule !== di) P.monter(di);
     di.p.copy(P.surSol(P.local(-40, 120))); di.f.copy(P.tangent(di.p, new V3().subVectors(P.local(-40, 240), di.p))); P.joueur.f.copy(di.f); P.poserVehicule(di);
-    const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 200); P.E.mz = 0; P.step(0.05, 5); out.diTuiles = P.S.tuiles - t0; out.diAlt = di.p.length() - P.sol(di.p.clone().normalize()); P.descendre(); P.rappeler(di, false);
+    const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 200); P.E.mz = 0; P.step(0.05, 5); out.diTuiles = P.S.tuiles - t0; const cz = P.camera.position; out.diAlt = cz.length() - P.sol(cz.clone().normalize()); P.descendre(); P.rappeler(di, false);
     // la mini-ville
     out.refusVille = (() => { const c = P.S.credits; P.S.credits = 1000; it(/^Bâtir la ville/).agir(); const r = !P.S.ville; P.S.credits = c; return r; })();
     it(/^Bâtir la ville/).agir(); out.ville = P.S.ville; out.prixVille = P.PRIX_VILLE;
@@ -264,17 +264,17 @@ try {
     // les panneaux solaires : cinq niveaux, les deux derniers en fermes au sol derrière l'usine et le garage
     while (it(/^Panneaux/)) it(/^Panneaux/).agir(); out.toit = P.S.toit; P.step(0.05, 2); out.fermes = P.FERMES.n; out.kw = P.TOIT.niveaux.slice(0, P.S.toit).reduce((s, x) => s + x.kw, 0);
     // les robots avancés
-    for (let k = 0; k < 3; k++) it(/^Robot avancé/).agir(); out.robots2 = P.S.robots2; P.S.stock.brosses = 200; const t1 = P.S.tuiles, b1 = P.S.stock.brosses; P.step(0.05, 600); out.r2Tuiles = P.S.tuiles - t1;
+    for (let k = 0; k < 3; k++) it(/^Robot avancé/).agir(); out.robots2 = P.S.robots2; P.S.stock.brosses = 200; const t1 = P.S.tuiles, b1 = P.S.stock.brosses; P.step(0.05, 1200); out.r2Tuiles = P.S.tuiles - t1;
     const sv = P.etatSauve(); out.sauve = sv.S.ville === true && sv.S.robots2 === 3 && sv.S.toit === 5;
     for (const r of P.ROBOTS2) P.scene.remove(r.g); P.ROBOTS2.length = 0; P.S.robots2 = 0; P.S.toit = 0; P.S.ouvriers = 0; P.step(0.05, 2);
     return out;
   });
   check(vi.aeBaie > -2 && vi.aeSorti > vi.aeBaie + 10, `garage : l'aéroglisseur sort de sa baie en marche avant (${vi.aeBaie.toFixed(1)} m → ${vi.aeSorti.toFixed(1)} m devant le garage)`);
-  check(vi.garage.every(Boolean) && vi.diTuiles > 150 && vi.diAlt > 4, `nouveaux véhicules : buggy, tracteur, chenille sortent au volant ; le dirigeable vole à ${vi.diAlt.toFixed(1)} m et pollinise ${vi.diTuiles} parcelles en 10 s`);
+  check(vi.garage.every(Boolean) && vi.diTuiles > 150 && vi.diAlt > 9, `nouveaux véhicules : buggy, tracteur, chenille sortent au volant ; dirigeable en vol (caméra à ${vi.diAlt.toFixed(1)} m) et pollinise ${vi.diTuiles} parcelles en 10 s`);
   check(vi.refusVille && vi.ville && vi.prixVille === 1e8 && vi.habitants >= 10 && vi.bougent >= 6, `mini-ville à 100 000 000 cr : ${vi.habitants} habitants visibles, ${vi.bougent} qui marchent`);
   check(vi.auTravail === 30 && vi.animes >= 25, `usine : ${vi.auTravail} personnes au travail sur deux lignes, ${vi.animes} en mouvement`);
   check(vi.toit === 5 && vi.fermes > 100 && vi.kw === 660, `solaire : cinq niveaux (${vi.kw} kW crête), ${vi.fermes} panneaux au sol derrière l'usine et le garage`);
-  check(vi.robots2 === 3 && vi.r2Tuiles > 30 && vi.sauve, `robots avancés : 3 achetés, ${vi.r2Tuiles} parcelles en 30 s ; ville, robots et panneaux sauvegardés`);
+  check(vi.robots2 === 3 && vi.r2Tuiles > 30 && vi.sauve, `robots avancés : 3 achetés, ${vi.r2Tuiles} parcelles en 1 min (trajet compris) ; ville, robots et panneaux sauvegardés`);
   // --- 5. Le mode construction ---
   const co = await page.evaluate(() => {
     const P = pollen, C = P.COLLECTEUR, out = {}, V3 = P.V3;

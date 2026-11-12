@@ -22,6 +22,10 @@ Puis : repère de la base sur la boussole, camion conduisible, esplanade de 50 m
 robots ouvriers, pilotes automatiques, recherche sans fin, saisons (la 30e sauve la planète).
 Puis : usine et ouvriers (brosses et pièces), charges (salaires, électricité), primes de secteur, désherbeurs et
 mauvaises herbes qui gagnent du terrain, fleurs rares, tour d'épandage, nid de drones, moto des champs, canon à pollen.
+Puis : esplanade de 72 m ; grand garage de 49 m où chaque véhicule se gare nez dehors (l'aéroglisseur ressort) ;
+buggy, tracteur, chenille et dirigeable (12 M cr, vole, mât d'amarrage) ; usine à deux lignes où l'on voit 30 personnes
+travailler (monteurs, porteurs, presse, tapis, tableau) ; mini-ville à 100 000 000 cr dont les 24 habitants travaillent
+à l'usine ; fermes solaires au sol derrière l'usine et le garage (niveaux 4 et 5) ; robots avancés.
 
 ## Version courante : v10 (`v10/index.html`)
 

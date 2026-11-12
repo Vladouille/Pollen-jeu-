@@ -95,6 +95,22 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   Fleurs rares (sorte 5, 24 sur la planète, colonne violette) : seul le joueur les pollinise, ×25. Sauvegarde : S.stock,
   ouvriers, desherbeurs, finis, rares. `CHARGES.off` et `HERBES.off` pour les tests. Durée estimée : ~67 h pour un joueur
   qui optimise tout (`tools/sim-duree.py`).
+  Puis : « je ne peux pas sortir l'aéroglisseur du garage ; une usine qui fasse un vrai truc, où l'on voit les gens
+  travailler ; les panneaux solaires derrière les granges ou dessus ; une mini-ville à 100 millions dont la population
+  travaille à l'usine ; plein de véhicules ; des robots encore plus efficaces » → esplanade de 72 m (RB ; sauvegarde
+  format 10, `RB_FORMAT` et `CONVERSIONS[8|9]`). HANGAR de 49 × 14 m à local(52, -4), piliers seulement au fond et aux
+  bouts : baies (`BAIES`) larges, véhicules garés nez dehors (`PARCS[c].f`), tous sortent en marche avant (vérifié,
+  aéroglisseur compris). Véhicules `vitrine: false` vendus à une borne de leur baie (`BORNES_GARAGE`) : buggy 12 000,
+  tracteur 120 000 (rampes repliables), chenille 800 000 (13 voies), dirigeable 12 M (`vol` : modèle à 7 m, ni pente ni
+  obstacle ; mât d'amarrage MAT à local(52, -40)). Usine refaite (`15-usine.js`, 30 × 16 m à local(-52, -2)) : deux lignes
+  de 15 postes (12 monteurs, 2 porteurs, une presse), ouvriers articulés (`fabriquerOuvrier`), brosses qui défilent sur
+  les tapis, caisses empilées, tableau mural (`dessinerTableau`). La ligne A suit les ouvriers embauchés, la ligne B
+  les 24 habitants de la ville (`effectifs()`, stock voulu doublé, salaire 0,3 cr/s). `16-ville.js` : mini-ville à
+  local(0, -52) (100 000 000 cr ; chantier clôturé avant), dix maisons, mairie à horloge, fontaine, arbres, réverbères ;
+  14 habitants visibles (flâneurs, navetteurs vers l'usine). Toiture : niveaux 4 (600 000, +150 kW) et 5 (2,5 M,
+  +250 kW) = fermes au sol derrière l'usine puis le garage (`FERMES`). Robots avancés (`ROBOTS2`, 60 000 × 1,3^n,
+  20 au plus, 3,2 m/s, trois parcelles en 1,2 s, une brosse pour 60 parcelles, borne devant l'usine). Sauvegarde :
+  `ville`, `robots2` ; l'absence compte les robots avancés.
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;
