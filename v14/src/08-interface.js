@@ -42,6 +42,7 @@ const ICONES = {   // pictogrammes des ronds, dessinés au trait
   large: '<svg viewBox="0 0 24 24"><path d="M12 3v9"/><rect x="4" y="12" width="16" height="3" rx="1"/><path d="M5 15v4m3-4v4m3-4v4m3-4v4m3-4v4m2-4v4"/></svg>',
   xl: '<svg viewBox="0 0 24 24"><path d="M12 3v8"/><rect x="2" y="11" width="20" height="3" rx="1"/><path d="M3 14v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5"/></svg>',
   souffleur: '<svg viewBox="0 0 24 24"><path d="M4 17l10-10"/><path d="M14 7l2-2 3 3-2 2z"/><path d="M18 12c2 0 3 1 3 3m-5-1c1 0 2 1 2 2"/></svg>',
+  canon: '<svg viewBox="0 0 24 24"><path d="M4 14h10l6-4v8l-6-4"/><path d="M7 14v5"/></svg>',
   marteau: '<svg viewBox="0 0 24 24"><path d="M6 20l8-8"/><rect x="11" y="4" width="9" height="5" rx="1" transform="rotate(45 15 7)"/></svg>',
   rateau: '<svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M5 14h14M6 14v5m4-5v5m4-5v5m4-5v5"/></svg>',
   collecteur: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-2 12H8z"/><path d="M9 8V5h6v3"/></svg>',

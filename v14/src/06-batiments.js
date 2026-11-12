@@ -207,9 +207,9 @@ const ECRAN_VARIETES = ecranDyn(1024, 512);
   const globe = new THREE.Group(); placer(globe, cylindre(0.9, 1.05, 0.5, M.graphite, 32), 0, 0.25, 0); placer(globe, cylindre(0.95, 0.95, 0.05, M.seve, 32), 0, 0.5, 0);
   placer(globe, new THREE.Mesh(new THREE.SphereGeometry(0.75, 32, 20), new THREE.MeshStandardMaterial({ roughness: 0.7, map: texture(512, 256, (c, w, h) => { c.fillStyle = '#c9b98a'; c.fillRect(0, 0, w, h); for (let k = 0; k < 900; k++) { c.fillStyle = k % 3 ? '#e8458b' : '#7da35a'; c.beginPath(); c.arc((k * 97.3) % w, (k * 41.7 + (k % 7) * 13) % h, 2 + (k % 4), 0, 6.3); c.fill(); } }) })), 0, 1.3, 0);
   placer(globe, new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.025, 8, 48), M_CHROME), 0, 1.3, 0).rotation.x = 1.2;
-  meuble(g, globe, -6.0, F, 3.0, 1.0, 1.0);   // l'ouest de l'accueil expose le haut de gamme
+  meuble(g, globe, -1.2, F, 3.6, 1.0, 1.0);   // l'ouest de l'accueil expose le haut de gamme
   const banc = () => { const b = new THREE.Group(); placer(b, boite(2.0, 0.1, 0.55, M.blanc, 0.04), 0, 0.45, 0); placer(b, boite(2.02, 0.04, 0.57, M.lisere, 0.015), 0, 0.39, 0); for (const s of [-1, 1]) placer(b, boite(0.1, 0.4, 0.5, M.graphite, 0.03), s * 0.8, 0.2, 0); return b; };
-  for (const [x, z, r] of [[-14, 8.0, Math.PI], [-6.0, 6.3, Math.PI]]) meuble(g, banc(), x, F, z, 1.0, 0.35, r);
+  for (const [x, z, r] of [[-14, 8.0, Math.PI]]) meuble(g, banc(), x, F, z, 1.0, 0.35, r);
   decor(g, [['plante', -19.2, 8.2], ['plante', -0.8, 7.9], ['caisses', -19.3, 4.0, 0.3], ['extincteur', -5.0, 8.62, Math.PI], ['affiche', -19.82, 2.0, Math.PI / 2, F + 1.8]]);
   fusionner(g);
 }

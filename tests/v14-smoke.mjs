@@ -25,7 +25,7 @@ async function ouvrir(ctx, q) {
   await page.goto(`http://localhost:${srv.address().port}/${q}`, { timeout: 180000 });
   await page.waitForFunction(() => window.pollen, null, { timeout: 180000 }); await page.waitForTimeout(2500);
   await page.evaluate(OUTILS);
-  await page.evaluate(() => { window.pollen.ELAN.off = true; });   // les vérifications de crédits au centime se font sans élan ; la section « élan » le rallume
+  await page.evaluate(() => { const P = window.pollen; P.ELAN.off = true; P.CHARGES.off = true; P.HERBES.off = true; });   // élan, charges et herbes coupés : les vérifications au centime ; leurs sections les rallument   // les vérifications de crédits au centime se font sans élan ; la section « élan » le rallume
   return { page, erreurs };
 }
 try {
@@ -82,7 +82,7 @@ try {
     return out;
   });
   check(it.salles.every((s) => s.dedans && s.porte > 0.8 && s.lampe > 5 && s.decor >= 6 && s.sur > 0.1), `quatre bâtiments où l'on entre : portes ouvertes à l'approche, pièce éclairée, ${it.salles.map((s) => s.decor).join('/')} objets de décor`);
-  check(it.etal.length === 9 && it.etal[0] === 'acquis' && it.etal.slice(1).every((e) => e === 'cher') && it.etal2.filter((e) => e === 'abordable').length === 3, `établi du comptoir : neuf outils exposés, gris translucides sans argent, ${it.etal2.filter((e) => e === 'abordable').length} abordables à 300 cr`);
+  check(it.etal.length === 10 && it.etal[0] === 'acquis' && it.etal.slice(1).every((e) => e === 'cher') && it.etal2.filter((e) => e === 'abordable').length === 3, `établi du comptoir : neuf outils exposés, gris translucides sans argent, ${it.etal2.filter((e) => e === 'abordable').length} abordables à 300 cr`);
   check(it.vuBrosse && it.outils.includes('brosse') && it.crApres === 50 && it.enMain === 'brosse', 'achat immédiat de la brosse sur l’établi (250 cr), elle est en main');
   check(it.vuAtelier && it.terminaux === 5 && it.sac === 18 && it.crAtelier === 600, `atelier : cinq catégories (${it.cats.join(', ')}), le sac passe à ${it.sac} kg`);
   check(it.medaillons === 8 && it.succes >= 1, `station : huit médaillons, ${it.succes} succès obtenu(s)`);
@@ -136,7 +136,7 @@ try {
     v.p.copy(P.PARKING.p); P.step(0.05, 2); const cr0 = P.S.credits; out.vert = P.parkingVert(); P.E.inter = true; P.step(0.05, 1); out.vendu = P.S.credits - cr0; P.E.inter = true; P.step(0.05, 1); out.descendu = !P.joueur.enVehicule;
     return out;
   });
-  check(ve.dedans && ve.modeles.length === 7 && ve.prix.join() === '900,4000,18000,35000,90000,250000,750000', `concessionnaire : sept véhicules (${ve.prix.join(', ')} cr)`);
+  check(ve.dedans && ve.modeles.length === 8 && ve.prix.join() === '900,4000,45000,35000,300000,1500000,35000,5000000', `concessionnaire : huit véhicules (${ve.prix.join(', ')} cr)`);
   check(ve.refus === false && ve.vuBorne && ve.possede && ve.cr === 4100, 'achat à la borne : refusé sans argent, immédiat avec');
   check(ve.porte > 0.85 && ve.sorti && ve.auVolant && ve.distParvis < 16 && ve.referme < 0.2, `la porte sectionnelle s'ouvre, le véhicule sort se garer sur le parvis, on est au volant, la porte se referme`);
   check(ve.vuAmelio && ve.moteur === 1 && ve.plus && ve.crAmelio === 4100 - 135, 'amélioration du moteur : achetée à la borne, visible sur le véhicule');
@@ -187,7 +187,7 @@ try {
     for (let k = 0; k < 3; k++) it(/^Panneaux/).agir(); out.toit = P.S.toit; for (let a = 0; a < 6.3; a += 0.02) { P.JOUR.angle = a; P.placerSoleil(); if (P.BASE.clone().normalize().dot(P.SOLEIL) > 0.8) break; }
     const e0 = P.S.expedie || 0; P.step(0.05, 100); out.toitProd = P.TOIT.prod; out.toitVendu = (P.S.expedie || 0) - e0;
     // les robots : ils sortent du hall et vendent ce qu'ils pollinisent
-    for (let k = 0; k < 5; k++) it(/^Robot \(/).agir(); out.robots = P.S.robots; const rv0 = P.S.robotVendu || 0; P.step(0.05, 900); out.robotVendu = (P.S.robotVendu || 0) - rv0; out.robotsLoin = P.ROBOTS.filter((r) => r.p.distanceTo(P.BASE) > P.RB).length;
+    for (let k = 0; k < 5; k++) it(/^Robot \(/).agir(); out.robots = P.S.robots; const rv0 = P.S.robotVendu || 0; P.step(0.05, 1800); out.robotVendu = (P.S.robotVendu || 0) - rv0; out.robotsLoin = P.ROBOTS.filter((r) => r.p.distanceTo(P.BASE) > P.RB).length;
     // le pilote automatique : la pollinisatrice part seule et vend
     const po = P.FLOTTE.pollinisatrice; if (!po.possede) { P.acheterVehicule('pollinisatrice'); n = 0; while (P.SORTIE.v && n++ < 1200) P.step(0.05, 1); } if (P.joueur.enVehicule) P.descendre();
     const pi = P.INTER.find((i) => i.cache && !i.cache() && /Pilote auto/.test(i.etiquette || '') && i.p.distanceTo(P.CONCESSION.position) < 30 && Math.abs(i.p.distanceTo(P.monde(P.CONCESSION, -4.6 + 2 * 3.3, 0, 0))) < 4);
@@ -209,10 +209,37 @@ try {
   check(eq.camion && eq.camionTuiles > 20, `le camion : on monte dedans, sa rampe arrière pollinise (${eq.camionTuiles} parcelles en 8 s)`);
   check(eq.baie && eq.boussole, 'grand garage : « Rappeler » gare le véhicule dans sa baie ; la boussole montre la base et sa distance');
   check(eq.toit === 3 && eq.toitProd > 100 && eq.toitVendu > 0, `toiture solaire : trois niveaux, ${Math.round(eq.toitProd)} kW au soleil, ${eq.toitVendu} cr de surplus vendus en 5 s`);
-  check(eq.robots === 5 && eq.robotVendu > 0 && eq.robotsLoin > 0, `robots ouvriers : ${eq.robots} sortis du hall, ${eq.robotVendu} cr récoltés en 45 s`);
+  check(eq.robots === 5 && eq.robotVendu > 0 && eq.robotsLoin > 0, `robots ouvriers : ${eq.robots} sortis du hall, ${eq.robotVendu} cr récoltés en 90 s`);
   check(eq.pilote && eq.piloteTuiles > 50 && eq.piloteLoin, `pilote automatique : la pollinisatrice part seule (${eq.piloteTuiles} parcelles en 1 min)`);
   if (!(eq.rech && eq.refus && eq.saison)) console.log('saison', JSON.stringify([eq.rech, eq.refus, eq.saison]));
   check(eq.rech && eq.refus && eq.saison, 'recherche : +5 % par niveau, prix doublé ; saison close au seuil : la planète fane, ×1,5 pour toujours');
+  // --- 4 quinquies. L'usine, les charges, les primes, les herbes, les fleurs rares, les nouvelles machines ---
+  const us = await page.evaluate(() => {
+    const P = pollen, V3 = P.V3, out = {}; P.figer = false; P.S.credits = 1e7; P.CHARGES.off = false; P.HERBES.off = false;
+    const it = (re) => P.INTER.find((i) => { try { return re.test(i.etiquette || ''); } catch (e) { return false; } });
+    for (let k = 0; k < 4; k++) it(/^Embaucher/).agir(); out.ouvriers = P.S.ouvriers; P.S.stock.brosses = 10; P.S.stock.pieces = 5; const b0 = P.S.stock.brosses + P.S.stock.pieces;
+    const c0 = P.S.credits; P.step(0.05, 600); out.fabrique = P.S.stock.brosses + P.S.stock.pieces - b0; out.salaires = P.CHARGES.salaires; out.paye = P.CHARGES.paye; out.hud = document.getElementById('charges').textContent;
+    P.S.credits = 0; P.step(0.05, 60); out.impaye = P.CHARGES.impaye && /Impayé/.test(document.getElementById('charges').textContent); const s0 = P.S.stock.brosses; P.step(0.05, 200); out.greve = P.S.stock.brosses === s0; P.S.credits = 1e7; P.step(0.05, 60); out.repaye = !P.CHARGES.impaye;
+    const k = [...P.RARES.ens][0], prix = P.VARIETES[P.SECTEURS[P.T.sect[k]].variete].prix * P.multSaison(); out.rareBot = P.polliniser(k, 'bot'); out.rareJoueur = P.polliniser(k, 'joueur') / prix; out.rares = P.RARES.ens.size;
+    let sf = -1; for (let s = 0; s < P.SECTEURS.length && sf < 0; s++) if (P.secteurs[s].vert === 0 && P.secteurs[s].total > 100) sf = s;
+    const cp = P.S.credits; for (let i = 0; i < P.NT; i++) if (P.T.sect[i] === sf) { if (P.T.sorte[i] === 1) P.desherber(i); if (P.T.sorte[i] !== 0) P.T.sorte[i] = 0; P.polliniser(i, 'test'); } out.prime = P.S.credits - cp; out.finis = P.S.finis.includes(sf);
+    const h0 = P.HERBES.ens.size; P.step(0.05, 1200); out.propagation = P.HERBES.ens.size - h0;
+    for (let n = 0; n < 6; n++) it(/^Désherbeur/).agir(); out.desh = P.S.desherbeurs; let arr = 0; const k0 = [...P.HERBES.ens]; P.step(0.05, 2400); for (const kk of k0) if (P.T.sorte[kk] !== 1) arr++; out.arrachees = arr;
+    P.S.stock.brosses = 100; const t = P.tuileDe(P.local(-30, 90).normalize()), tour = P.poserPiece('tour', t, P.voisinsDe(t)[0]); const d = P.tuileDe(P.local(30, 110).normalize()), nid = P.poserPiece('drones', d, P.voisinsDe(d)[0]);
+    P.step(0.05, 400); out.tour = tour.total || 0; out.nid = nid.total || 0; P.demonter(tour); P.demonter(nid);
+    P.acheterVehicule('moto'); let n = 0; while (P.SORTIE.v && n++ < 1200) P.step(0.05, 1); const m = P.FLOTTE.moto; out.moto = P.joueur.enVehicule === m;
+    m.p.copy(P.surSol(P.local(-70, 80))); m.f.copy(P.tangent(m.p, new V3().subVectors(P.local(-70, 200), m.p))); P.joueur.f.copy(m.f); P.poserVehicule(m); const t1 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 300); P.E.mz = 0; P.step(0.05, 5); out.motoTuiles = P.S.tuiles - t1; P.descendre();
+    // tout s'arrête avant les vérifications au centime
+    P.S.ouvriers = 0; for (const r of P.DESHERBEURS) P.scene.remove(r.g); P.DESHERBEURS.length = 0; P.S.desherbeurs = 0; P.CHARGES.off = true; P.HERBES.off = true; P.CHARGES.du = 0; P.CHARGES.impaye = false; P.step(0.05, 2);
+    return out;
+  });
+  check(us.ouvriers === 4 && us.fabrique >= 6 && us.salaires > 2 && us.paye > 0 && /Charges/.test(us.hud), `usine : 4 ouvriers, ${us.fabrique} brosses et pièces en 30 s, salaires et électricité prélevés (${us.hud})`);
+  check(us.impaye && us.greve && us.repaye, 'sans argent : « Impayé », les ouvriers s’arrêtent ; payé, tout repart');
+  check(us.rareBot === 0 && us.rareJoueur === 25 && us.rares === 24, 'fleur rare : refusée au robot, ×25 pour le joueur, une autre repousse ailleurs');
+  check(us.prime > 1000 && us.finis, `secteur entièrement fleuri : prime de ${us.prime} cr`);
+  check(us.propagation > 0 && us.desh === 6 && us.arrachees > 0, `mauvaises herbes : +${us.propagation} en 1 min ; 6 désherbeurs en arrachent ${us.arrachees} en 2 min`);
+  check(us.tour > 0 && us.nid > 0, `tour d'épandage (${Math.round(us.tour)} cr) et nid de drones (${Math.round(us.nid)} cr) en 20 s`);
+  check(us.moto && us.motoTuiles > 60, `moto des champs : ${us.motoTuiles} parcelles en 15 s`);
   // --- 5. Le mode construction ---
   const co = await page.evaluate(() => {
     const P = pollen, C = P.COLLECTEUR, out = {}, V3 = P.V3;
@@ -252,7 +279,7 @@ try {
     return out;
   });
   check(co.sansMarteau === false && co.actif && co.barre && co.bleu === 1, 'mode construction : une touche (B), le monde bleuit, la barre apparaît (il faut l’outil de construction)');
-  check(co.cats.length === 5 && co.parCat.join() === '7,9,5,4,6', `cinq catégories (${co.cats.join(', ')}) : ${co.parCat.join(' + ')} pièces`);
+  check(co.cats.length === 5 && co.parCat.join() === '7,11,5,4,6', `cinq catégories (${co.cats.join(', ')}) : ${co.parCat.join(' + ')} pièces`);
   check(co.cat3 === 2 && co.suivante === 'double' && co.cible && co.tourne, 'chiffres pour la catégorie, E pour la pièce suivante, molette pour tourner, fantôme vert sur une tuile libre');
   if (co.pose !== 1 || co.demonte !== 0) console.log('pose', JSON.stringify([co.pose, co.resteSansSuppr, co.modeSuppr, co.demonte, co.cr1, co.cr2, co.cible]));
   check(co.pose === 1 && co.resteSansSuppr === 1 && co.modeSuppr && co.demonte === 0 && co.cr1 === 19980 && co.cr2 === 20000, 'clic : pose (−20 cr) ; un clic sur une pièce posée ne la casse plus ; mode Supprimer (X) : elle part, remboursée entièrement');

@@ -20,6 +20,8 @@ Puis : les véhicules pollinisent à pleine vitesse, V fait venir son véhicule,
 sans convoyeur ni courant.
 Puis : repère de la base sur la boussole, camion conduisible, esplanade de 50 m et grand garage, toiture solaire,
 robots ouvriers, pilotes automatiques, recherche sans fin, saisons (la 30e sauve la planète).
+Puis : usine et ouvriers (brosses et pièces), charges (salaires, électricité), primes de secteur, désherbeurs et
+mauvaises herbes qui gagnent du terrain, fleurs rares, tour d'épandage, nid de drones, moto des champs, canon à pollen.
 
 ## Version courante : v10 (`v10/index.html`)
 

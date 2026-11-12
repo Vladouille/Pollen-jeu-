@@ -368,7 +368,8 @@ let NCHARDONS = 0; for (let k = 0; k < NT; k++) if (T.sorte[k] === 1) NCHARDONS+
 const chardons = new THREE.InstancedMesh(chardonGeo, new THREE.MeshStandardMaterial({ color: 0x8c8794, roughness: 0.9, flatShading: true }), NCHARDONS * 2 + 2); chardons.material.userData.sansReflet = true;
 const slotsChardon = new Map();
 { let n = 0; for (let k = 0; k < NT; k++) if (T.sorte[k] === 1) { const R = mulberry(k * 17 + 3), l = [], { est, nord } = repere(T.pos[k]); for (let c = 0; c < 2; c++) { const a = R() * 6.28, d = R() * 0.6, sc = 0.9 + R() * 0.5; surSol(_p.copy(T.pos[k]).addScaledVector(est, Math.cos(a) * d).addScaledVector(nord, Math.sin(a) * d), 0, _p); chardons.setMatrixAt(n, _m.compose(_p, qHaut(T.dir[k], _q).multiply(_q2.setFromEuler(_e.set(0, R() * 6, 0))), _s.set(sc, sc, sc))); l.push(n++); } slotsChardon.set(k, l); } chardons.count = n; chardons.frustumCulled = false; scene.add(chardons); }
-function desherber(k) { for (const j of slotsChardon.get(k) || []) chardons.setMatrixAt(j, _m.makeScale(0, 0, 0)); chardons.instanceMatrix.needsUpdate = true; changerSorte(k, 0); }
+const APRES_DESHERBER = [];   // les mauvaises herbes qui se propagent ont leurs propres instances (15-usine)
+function desherber(k) { for (const j of slotsChardon.get(k) || []) chardons.setMatrixAt(j, _m.makeScale(0, 0, 0)); chardons.instanceMatrix.needsUpdate = true; changerSorte(k, 0); for (const f of APRES_DESHERBER) f(k); }
 const mereGeo = fleurGeo({ petales: 8, h: 0.75, rr: 0.26, pf: 0.16 });
 const meres = new THREE.InstancedMesh(mereGeo, new THREE.MeshStandardMaterial({ color: 0xf07bb0, emissive: 0xff5fa8, emissiveIntensity: 1.2, roughness: 0.4, side: THREE.DoubleSide }), 200);
 const rayons = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.22, 14, 8, 1, true).translate(0, 7, 0), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: UTEMPS },

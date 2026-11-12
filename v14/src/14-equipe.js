@@ -43,14 +43,12 @@ const kwToit = () => TOIT.niveaux.slice(0, S.toit).reduce((s, n) => s + n.kw, 0)
   TOIT.maj = () => { TOIT.niv = S.toit; const parNiv = [0, 52, 120, n], m = parNiv[S.toit]; for (const o of [cadre, verre, pied]) { o.count = m; o.instanceMatrix.needsUpdate = true; } TOIT.cellules = m; };
   TOIT.maj();
 }
-function toitureSolaire(dt) {   // appelée par le réseau électrique : alimente ce qui manque de courant, vend le surplus
-  const kw = kwToit(); if (!kw) { TOIT.prod = 0; return; }
-  TOIT.prod = kw * lisse(-0.05, 0.3, _c.copy(BASE).normalize().dot(SOLEIL));
+function toitureSolaire(dt) {   // appelée par le réseau électrique : ce qui manque de courant prend celui de la toiture, puis
+  // celui du réseau extérieur, payé (15-usine) ; tant qu'une facture reste impayée, le réseau extérieur est coupé
+  TOIT.prod = kwToit() * lisse(-0.05, 0.3, _c.copy(BASE).normalize().dot(SOLEIL));
   let besoin = 0; const sans = []; for (const p of GRILLE.values()) { const d = PIECES[p.cle]; if (d.conso && !p.courant && (p.veut || d.tapis)) { besoin += d.conso; sans.push(p); } }
-  if (TOIT.prod >= besoin) for (const p of sans) p.courant = true;
-  const surplus = Math.max(0, TOIT.prod - (TOIT.prod >= besoin ? besoin : 0));
-  TOIT.cumul += surplus * dt * 0.4;   // 0,4 cr par kW et par seconde
-  if (TOIT.cumul >= 25) { TOIT.vendu += expedier(TOIT.cumul, 'energie'); TOIT.cumul = 0; }
+  TOIT.besoin = besoin;
+  const couvert = TOIT.prod >= besoin || !CHARGES.impaye; for (const p of sans) p.courant = couvert;
 }
 const BORNE_TOIT = borneAccueil(-8.0, 0.1, 'TOITURE SOLAIRE');
 function dessinerToit() {
@@ -66,7 +64,7 @@ INTER.push({ p: BORNE_TOIT.p, r: 2.2, get etiquette() { const n = TOIT.niveaux[S
   agir() { const n = TOIT.niveaux[S.toit]; if (!n || S.credits < n.prix) { sons.refus(); return; } S.credits -= n.prix; S.toit++; TOIT.maj(); sons.achat(); dessinerToit(); sauverBientot(); } });
 
 // --- Les robots ouvriers. ---
-const ROBOTS = [], RESERVEES = new Set(), MAX_ROBOTS = 40, vitRobot = () => 2.4 * (1 + 0.05 * S.rech.robots), travailRobot = () => 1.6 / (1 + 0.05 * S.rech.robots);
+const ROBOTS = [], RESERVEES = new Set(), MAX_ROBOTS = 40, vitRobot = () => 1.5 * (1 + 0.05 * S.rech.robots), travailRobot = () => 3.2 / (1 + 0.05 * S.rech.robots);   // de petits robots lents : il en faut beaucoup
 const prixRobot = (n) => Math.round(2500 * Math.pow(1.35, n) / 50) * 50;
 S.robots = S.robots || 0;
 function fabriquerRobot() {   // un petit robot de champ : corps blanc à bande orange, tête à visière cyan, antenne, bras-pinceau
@@ -95,6 +93,7 @@ MAJ.push((dt) => {
   for (const r of ROBOTS) {
     r.phase += dt;
     if (r.k >= 0 && !pollinisable(r.k)) { RESERVEES.delete(r.k); r.k = -1; r.etat = 'cherche'; }
+    if (r.etat === 'cherche' && !brosseOk()) { r.attente = true; continue; } r.attente = false;   // plus de brosses à l'usine : il attend
     if (r.etat === 'cherche') { r.t += dt; if (r.t > 0.4) { r.t = 0; const k = chercherTuile(r.p); if (k >= 0) { r.k = k; RESERVEES.add(k); r.etat = 'va'; } else { r.etat = 'explore'; r.but = surSol(new V3().copy(r.p).addScaledVector(tangent(r.p, _rd.subVectors(r.p, BASE)), 60)); } } }
     let but = r.etat === 'va' ? T.pos[r.k] : r.etat === 'explore' ? r.but : null;
     if (but) {
@@ -140,7 +139,7 @@ function viderAuQuai(w) { if (w.valeur <= 0) return; const cr = encaisser(w.vale
 MAJ.push((dt) => {
   for (const c of ORDRE_VEHICULES) {
     const w = FLOTTE[c], P = w.pilote;
-    const pilote = P && P.achete && P.actif && w.possede && w.g && joueur.enVehicule !== w && SORTIE.v !== w && !w.D.remorque;
+    const pilote = P && P.achete && P.actif && w.possede && w.g && joueur.enVehicule !== w && SORTIE.v !== w && !w.D.remorque && piecesOk();   // sans pièces de rechange, il attend
     if (P) P.roule = !!pilote;
     if (!w.piloteModele && pilote) w.piloteModele = fabriquerPilote(c !== 'chariot');
     if (w.piloteModele) { const ca = w.g && w.g.userData.caisse; if (pilote && ca) { if (w.piloteModele.parent !== ca) ca.add(w.piloteModele); const a = w.D.assise || [0, 0]; w.piloteModele.position.set(0, a[0], a[1]); } else if (w.piloteModele.parent) w.piloteModele.parent.remove(w.piloteModele); }
@@ -153,7 +152,7 @@ MAJ.push((dt) => {
     } else {
       if (w.charge >= capacite(w) * 0.95) { P.etat = 'retour'; P.cible = null; }
       P.t += dt; if (!P.cible || w.p.distanceTo(P.cible) < 3.5 || P.t > 25) { P.cible = chercherCible(w); P.t = 0; }
-      if (!versCible(w, P.cible, dt)) P.bloque += dt; else P.bloque = Math.max(0, P.bloque - dt * 0.5);
+      if (!versCible(w, P.cible, dt, 0.55)) P.bloque += dt; else P.bloque = Math.max(0, P.bloque - dt * 0.5);   // un pilote prudent : à un peu plus de la moitié de la vitesse
       if (P.bloque > 5) { P.cible = null; P.bloque = 0; P.coince = (P.coince || 0) + 1; if (P.coince > 3) { P.coince = 0; w.f.applyAxisAngle(_d.copy(w.p).normalize(), Math.PI * 0.7); w.p.copy(surSol(new V3().copy(w.p).addScaledVector(w.f, 8))); } }
       travailler(w, dt);
     }

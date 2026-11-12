@@ -77,7 +77,7 @@ function etatSauve() {
   const v = joueur.enVehicule, p = v ? surSol(new V3().copy(v.p).addScaledVector(new V3().crossVectors(v.f, joueur.haut), -(v.D.hw + 0.9))) : joueur.p;   // au volant : on reprendra à côté du véhicule
   return {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
-    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh, toit: S.toit || 0, robots: S.robots || 0, robotVendu: Math.round(S.robotVendu || 0), saison: S.saison || 0, rech: S.rech },
+    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh, toit: S.toit || 0, robots: S.robots || 0, robotVendu: Math.round(S.robotVendu || 0), saison: S.saison || 0, rech: S.rech, stock: S.stock, ouvriers: S.ouvriers || 0, desherbeurs: S.desherbeurs || 0, finis: S.finis || [], rares: S.rares || 0 },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
     balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),
@@ -218,7 +218,7 @@ MAJ.push((dt) => { NUAGE.t += dt; if (NUAGE.t >= 60) { NUAGE.t = 0; envoyerNuage
       if (d) {
         const ecrit = stock.ecrire(cleEmpl(EMPL), m.texte) && stock.lire(cleEmpl(EMPL)) === m.texte;
         if (DEMARRAGE.repris && ecrit) { SUPPRIME.v = true; location.reload(); return; }   // une partie locale tourne déjà : on recharge sur la copie en ligne
-        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); retourAbsence(d.date); absenceEquipe(d.date); }
+        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); retourAbsence(d.date); absenceEquipe(d.date); chargesAbsence(d.date); reconcilierHerbes(); reconcilierRares(); }
       }
     }
     NUAGE.pret = true; NUAGE.etat = 'en ligne'; envoyerNuage();

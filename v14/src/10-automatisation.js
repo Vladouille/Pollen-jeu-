@@ -22,10 +22,12 @@ const PIECES = {
   empoteuse: { nom: 'Empoteuse', cat: 1, prix: 2500, entree: ['cru', 'bougie'], besoin: 1, sortie: 'pot', mult: 1.4, durees: [3, 2, 1.2], conso: 4 },
   trieuse: { nom: 'Trieuse', cat: 1, prix: 600, vitesse: 0.6, tapis: true, conso: 1 },
   raffineur: { nom: 'Raffineur de cire', cat: 1, prix: 1100, entree: ['cire'], besoin: 1, sortie: 'bougie', mult: 2, durees: [4, 2.5, 1.5], conso: 3 },
-  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 3000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], auto: true },   // autonome : ni courant ni convoyeur ; s'il a un convoyeur devant lui, il l'utilise   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
+  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 12000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], auto: true, brosses: 120 },
+  tour: { nom: 'Tour d’épandage', cat: 1, prix: 60000, sortie: 'pollen', durees: [0.6, 0.4, 0.25], conso: 6, auto: true, rayon: 22, brosses: 150 },        // un bras tournant de 22 m
+  drones: { nom: 'Nid de drones', cat: 1, prix: 250000, sortie: 'pollen', durees: [0.35, 0.22, 0.14], conso: 15, auto: true, rayon: 80, brosses: 100 },   // six drones, 80 m autour   // autonome : ni courant ni convoyeur ; s'il a un convoyeur devant lui, il l'utilise   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
   ruche0: { nom: 'Ruche simple', cat: 1, prix: 400, ruche: 0 },
   ruche1: { nom: 'Ruche renforcée', cat: 1, prix: 1500, ruche: 1 },
-  ruche2: { nom: 'Ruche mère', cat: 1, prix: 6000, ruche: 2 },
+  ruche2: { nom: 'Ruche mère', cat: 1, prix: 25000, ruche: 2 },
   solaire: { nom: 'Poste solaire', cat: 2, prix: 300, prod: 4, energie: true },
   double: { nom: 'Panneau double', cat: 2, prix: 700, prod: 9, energie: true },
   suiveur: { nom: 'Panneau suiveur', cat: 2, prix: 1600, prod: 16, energie: true },
@@ -110,7 +112,17 @@ function modelePiece(cle) {
     const b = corpsMachine(g);
     if (cle === 'extracteur') { placer(g, tube(0.42, 0.42, 0.7, M_VITRE, 24), 0, b + 1.85, 0.1); placer(g, tube(0.45, 0.45, 0.06, M.lisere, 24), 0, b + 2.2, 0.1); placer(g, tube(0.45, 0.45, 0.06, M.graphite, 24), 0, b + 1.5, 0.1); g.userData.rotor = placer(g, boite(0.6, 0.5, 0.06, M.pollen, 0.02), 0, b + 1.85, 0.1); }
     else if (cle === 'maturateur') { for (let k = -1; k <= 1; k++) { placer(g, cylindre(0.2, 0.2, 0.5, M.blanc, 16), k * 0.45, b + 1.75, 0.1); placer(g, cylindre(0.21, 0.21, 0.05, M.lisere, 16), k * 0.45, b + 1.9, 0.1); } g.userData.rotor = placer(g, boite(0.5, 0.06, 0.06, M.graphite, 0.02), 0, b + 2.1, 0.1); }
-    else if (cle === 'pollinisateur') {   // dôme vitré plein de pollen, mât, tête à trois bras-pinceaux qui tourne
+    else if (cle === 'tour') {   // un mât en treillis et un bras tournant de 4 m à buses, sur le corps de machine
+      for (const [x, z] of [[-0.3, -0.2], [0.3, -0.2], [-0.3, 0.4], [0.3, 0.4]]) placer(g, boite(0.08, 3.6, 0.08, M.graphite, 0.02), x, b + 3.3, z);
+      for (let y = 0; y < 6; y++) placer(g, boite(0.7, 0.05, 0.7, y % 2 ? M.lisere : M.graphite, 0.01), 0, b + 1.7 + y * 0.6, 0.1);
+      const t = new THREE.Group(); placer(g, t, 0, b + 5.2, 0.1); g.userData.rotor = t; placer(t, cylindre(0.3, 0.3, 0.25, M.lisere, 16), 0, 0, 0);
+      for (const s of [-1, 1]) { placer(t, tube(0.05, 0.05, 4.2, M.graphite), s * 2.1, -0.05, 0).rotation.z = Math.PI / 2; for (let x = 0.6; x <= 4.1; x += 0.7) { placer(t, new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 8), M.graphite), s * x, -0.17, 0).rotation.x = Math.PI; placer(t, cylindre(0.025, 0.025, 0.03, M.seve, 8), s * x, -0.26, 0); } placer(t, boite(0.2, 0.2, 0.2, M.lisere, 0.03), s * 4.2, -0.05, 0); }
+      placer(t, tube(0.02, 0.02, 4.4, M.lisere), 0, 0.7, 0).rotation.z = Math.PI / 2; placer(t, tube(0.04, 0.04, 0.8, M.graphite), 0, 0.35, 0);
+    } else if (cle === 'drones') {   // un toit-plateforme à six aires d'envol, antenne, voyants ; les drones volent à part
+      placer(g, cylindre(0.95, 0.95, 0.12, M.graphite, 6), 0, b + 1.56, 0.1, Math.PI / 6); placer(g, cylindre(0.97, 0.97, 0.03, M.lisere, 6), 0, b + 1.63, 0.1, Math.PI / 6);
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; placer(g, cylindre(0.2, 0.2, 0.02, M.seve, 12), Math.cos(a) * 0.62, b + 1.65, 0.1 + Math.sin(a) * 0.62); }
+      placer(g, tube(0.02, 0.02, 0.9, M.graphite), 0, b + 2.1, 0.1); placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), M.lisere), 0, b + 2.56, 0.1);
+    } else if (cle === 'pollinisateur') {   // dôme vitré plein de pollen, mât, tête à trois bras-pinceaux qui tourne
       placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.36, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), M_VITRE), 0, b + 1.5, 0.1); placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 8), M.pollen), 0, b + 1.52, 0.1);
       placer(g, tube(0.07, 0.09, 1.3, M.graphite), 0.5, b + 2.1, 0.1); placer(g, cylindre(0.12, 0.12, 0.06, M.lisere, 14), 0.5, b + 1.5, 0.1);
       const t = new THREE.Group(); placer(g, t, 0.5, b + 2.78, 0.1); g.userData.rotor = t; placer(t, cylindre(0.2, 0.2, 0.18, M.lisere, 16), 0, 0, 0);
@@ -263,11 +275,17 @@ function sortieRuche(p) {
   for (const id of voisinsDe(p.id)) { const n = GRILLE.get(id); if (n && estTapis(n) && n.avant !== p.id) return n; }
   return null;
 }
+function ciblesRayon(pos, r) {   // les parcelles à moins de r mètres, de voisine en voisine
+  const out = [], k0 = tuileA(pos); if (k0 < 0) { for (let d = 2; d < r; d += 2) { const k = tuileA(_vp.copy(pos).addScaledVector(tangent(pos, _c.subVectors(pos, BASE)), d)); if (k >= 0) return ciblesRayon(T.pos[k], r - d); } return out; }
+  const vus = new Set([k0]), file = [k0];
+  while (file.length) { const k = file.pop(); if (T.pos[k].distanceTo(pos) > r) continue; out.push(k); for (const id of voisinsDe(T.id[k])) { const v = IDX.get(id); if (v !== undefined && !vus.has(v)) { vus.add(v); file.push(v); } } }
+  return out.sort((a, b) => T.pos[a].distanceTo(pos) - T.pos[b].distanceTo(pos));   // du plus près au plus loin
+}
 function recolteAuto(p) {
-  if (!p.cibles) { p.cibles = ciblesRuche(p.pos, 1); p.ic = 0; }
+  if (!p.cibles) { p.cibles = PIECES[p.cle].rayon ? ciblesRayon(p.pos, PIECES[p.cle].rayon) : ciblesRuche(p.pos, 1); p.ic = 0; }
   const c = p.cibles; if (!c.length) return null;
-  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (pollinisable(k)) { p.ic = (p.ic + n + 1) % c.length; const v = polliniser(k, 'machine'); return { type: 'pollen', valeur: v }; } }
-  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (T.vert[k]) { p.ic = (p.ic + n + 1) % c.length; if (p.pos.distanceTo(joueur.p) < 45) bouffee(T.pos[k], 5, CHARTE.pollen); return { type: 'pollen', valeur: prixTuile(k) * 0.4 }; } }
+  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (pollinisable(k)) { p.ic = (p.ic + n + 1) % c.length; p.dernier = k; const v = polliniser(k, 'machine'); return { type: 'pollen', valeur: v }; } }
+  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (T.vert[k]) { p.ic = (p.ic + n + 1) % c.length; p.dernier = k; if (p.pos.distanceTo(joueur.p) < 45) bouffee(T.pos[k], 5, CHARTE.pollen); return { type: 'pollen', valeur: prixTuile(k) * 0.4 }; } }
   return null;
 }
 // --- L'électricité. ---
@@ -318,13 +336,13 @@ MAJ.push((dt) => {
     if (def.durees) {
       if (p.sortie && accepter(GRILLE.get(p.avant), p.sortie)) p.sortie = null;
       else if (p.sortie && def.auto && !GRILLE.get(p.avant)) { venteDirecte(p, p.sortie); p.sortie = null; }   // rien devant lui : il vend lui-même
-      p.veut = !p.sortie && (def.auto || p.entrees.length >= def.besoin); p.travaille = p.veut && !p.panne;
+      p.veut = !p.sortie && (def.auto ? (!def.brosses || brosseOk()) : p.entrees.length >= def.besoin); p.travaille = p.veut && !p.panne;   // une machine automatique use des brosses
       const alim = !def.conso || p.courant;   // une machine sans consommation n'a pas besoin du réseau
       if (p.panne || (p.veut && !alim)) ENERGIE.arretees.push(p);
       if (p.panne && pres(p) && Math.random() < dt * 6) bouffee(surSol(p.pos, 1.5), 2, 0x8a8d90);   // elle fume
       if (p.travaille) {
         const v = alim ? 1 : 0.25; p.duree = def.durees[p.niveau]; p.t += dt * v; p.anim += dt * 9 * v;
-        if (p.t >= p.duree) { p.t = 0; if (def.auto) { p.sortie = recolteAuto(p); if (p.sortie) noter('pollen'); } else { const lot = p.entrees.splice(0, def.besoin); p.sortie = { type: def.sortie, valeur: lot.reduce((s, c) => s + c.valeur, 0) * def.mult }; noter(def.sortie); } }
+        if (p.t >= p.duree) { p.t = 0; if (def.auto) { p.sortie = recolteAuto(p); if (p.sortie) { noter('pollen'); if (def.brosses) consommer('brosses', 1 / def.brosses); if (def.rayon > 50) lancerDrone(p); } } else { const lot = p.entrees.splice(0, def.besoin); p.sortie = { type: def.sortie, valeur: lot.reduce((s, c) => s + c.valeur, 0) * def.mult }; noter(def.sortie); } }
       } else p.t = 0;
       if (pres(p)) { if (ud.rotor && p.travaille) ud.rotor.rotation.y += dt * 8 * (alim ? 1 : 0.25); ud.voyant.material = p.panne || (p.veut && !alim) ? (Math.sin(gt * 20) > 0 ? M_ROUGE : M.graphite) : p.travaille ? (Math.sin(gt * 12) > 0 ? M.seve : M.graphite) : p.sortie ? M.lisere : M.graphite; }
     }

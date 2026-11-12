@@ -133,6 +133,9 @@
   #bandeau.vu { animation: bandeau 3.2s ease forwards; }
   @keyframes bandeau { 0% { opacity: 0; transform: translate(-50%, 12px) scale(.9); } 10%, 80% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; } }
   .bourrasque #hud { box-shadow: inset 0 0 140px rgba(244, 180, 26, .32); }
+  #charges { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); bottom: calc(var(--pad) + 52px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px; font-size: 12px; color: #f4b41a; }
+  #charges.impaye { color: #fffdf7; background: rgba(224, 69, 47, .85); }
+  .cons #charges { display: none; }
   #credits.gain { animation: gain .35s ease-out; } @keyframes gain { 40% { transform: scale(1.12); } }
   @media (prefers-reduced-motion: reduce) { #bandeau.vu, #credits.gain, #elan.palier #elanX, #contrats li.fait { animation: none; } }
   .mobile #progression { width: min(230px, 34vw); padding: 6px 9px 7px; } .mobile #contrats li { font-size: 11px; }
@@ -160,6 +163,7 @@
     <div id="pastille" class="plaque"><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div>
     <div id="slots"></div>
     <div id="credits" class="plaque"><span class="piece" aria-hidden="true"></span><strong id="cr">0</strong></div>
+    <small id="charges" class="plaque" hidden></small>
     <div id="progression" class="plaque"><div class="tete"><b id="niv">1</b><div class="xp"><i id="xpBar"></i></div></div><ul id="contrats"></ul></div>
     <div id="elan" aria-hidden="true"><b id="elanX">×1,0</b><span><i id="elanBar"></i></span></div>
     <div id="flottants" aria-hidden="true"></div>
@@ -675,7 +679,8 @@ let NCHARDONS = 0; for (let k = 0; k < NT; k++) if (T.sorte[k] === 1) NCHARDONS+
 const chardons = new THREE.InstancedMesh(chardonGeo, new THREE.MeshStandardMaterial({ color: 0x8c8794, roughness: 0.9, flatShading: true }), NCHARDONS * 2 + 2); chardons.material.userData.sansReflet = true;
 const slotsChardon = new Map();
 { let n = 0; for (let k = 0; k < NT; k++) if (T.sorte[k] === 1) { const R = mulberry(k * 17 + 3), l = [], { est, nord } = repere(T.pos[k]); for (let c = 0; c < 2; c++) { const a = R() * 6.28, d = R() * 0.6, sc = 0.9 + R() * 0.5; surSol(_p.copy(T.pos[k]).addScaledVector(est, Math.cos(a) * d).addScaledVector(nord, Math.sin(a) * d), 0, _p); chardons.setMatrixAt(n, _m.compose(_p, qHaut(T.dir[k], _q).multiply(_q2.setFromEuler(_e.set(0, R() * 6, 0))), _s.set(sc, sc, sc))); l.push(n++); } slotsChardon.set(k, l); } chardons.count = n; chardons.frustumCulled = false; scene.add(chardons); }
-function desherber(k) { for (const j of slotsChardon.get(k) || []) chardons.setMatrixAt(j, _m.makeScale(0, 0, 0)); chardons.instanceMatrix.needsUpdate = true; changerSorte(k, 0); }
+const APRES_DESHERBER = [];   // les mauvaises herbes qui se propagent ont leurs propres instances (15-usine)
+function desherber(k) { for (const j of slotsChardon.get(k) || []) chardons.setMatrixAt(j, _m.makeScale(0, 0, 0)); chardons.instanceMatrix.needsUpdate = true; changerSorte(k, 0); for (const f of APRES_DESHERBER) f(k); }
 const mereGeo = fleurGeo({ petales: 8, h: 0.75, rr: 0.26, pf: 0.16 });
 const meres = new THREE.InstancedMesh(mereGeo, new THREE.MeshStandardMaterial({ color: 0xf07bb0, emissive: 0xff5fa8, emissiveIntensity: 1.2, roughness: 0.4, side: THREE.DoubleSide }), 200);
 const rayons = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.22, 14, 8, 1, true).translate(0, 7, 0), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: UTEMPS },
@@ -856,6 +861,7 @@ const OUTILS_DEF = {
   large: { nom: 'Brosse large', prix: 1200, largeur: 2, duree: 1.2 },
   xl: { nom: 'Brosse extra-large', prix: 3200, largeur: 3, duree: 0.8 },
   souffleur: { nom: 'Souffleur à dos', prix: 8000, largeur: 5, duree: 0.5 },
+  canon: { nom: 'Canon à pollen', prix: 60000, largeur: 9, duree: 0.6 },   // neuf parcelles d'un coup, pour aller vite
   rateau: { nom: 'Râteau à graines', prix: 200, special: true },      // graines sur les tuiles fanées, ou replanter une tuile nue
   collecteur: { nom: 'Collecteur à main', prix: 400, special: true },  // nectar sur les fleurs déjà ouvertes
   enfumoir: { nom: 'Enfumoir', prix: 300, special: true },             // miel et cire aux ruches
@@ -884,6 +890,11 @@ function fabriquerOutil(cle) {
     if (cle === 'large' || cle === 'xl') for (let k = -3; k <= 3; k++) placer(tete, boite(W * 0.07, 0.012, 0.03, M.pollen, 0.005), k * W * 0.13, 0.068, 0);   // tirets jaunes sur le dessus
     if (cle === 'xl') { placer(tete, boite(W * 0.96, 0.06, 0.06, M_POILS, 0.02), 0, -0.04, 0.07); placer(tete, cylindre(0.05, 0.05, 0.04, M.graphite, 20), W / 2 + 0.04, 0.0, 0).rotation.z = Math.PI / 2; }   // deuxième rangée, roulette
     g.userData.tete = tete;
+  } else if (cle === 'canon') {   // réservoir vitré à dos, canon orange à évasement, poignée et gâchette
+    placer(g, tube(0.022, 0.022, 0.2, M.graphite), 0, 0.1, 0); placer(g, boite(0.05, 0.12, 0.05, M.graphite, 0.015), 0, 0.18, 0.06);
+    placer(g, tube(0.07, 0.07, 0.34, M_TUBE, 16), 0, 0.42, 0.12); placer(g, tube(0.072, 0.072, 0.03, M.lisere, 16), 0, 0.6, 0.12);
+    const c = placer(g, tube(0.05, 0.05, 0.55, M.lisere, 16), 0, 0.32, -0.25); c.rotation.x = Math.PI / 2;
+    const ev = placer(g, tube(0.06, 0.13, 0.16, M.graphite, 16), 0, 0.32, -0.58); ev.rotation.x = -Math.PI / 2; placer(g, boite(0.08, 0.05, 0.12, M.seve, 0.01), 0, 0.4, -0.15);
   } else if (cle === 'souffleur') {
     placer(g, tube(0.022, 0.022, 0.25, M.graphite), 0, 0.12, 0);                               // poignée
     placer(g, tube(0.05, 0.035, 0.55, M.blanc), 0, 0.5, 0);                                    // buse blanche
@@ -1115,6 +1126,7 @@ const POSE_OUTIL = {   // position et orientation de chaque outil dans la camér
   large: { p: [0.42, -0.72, -0.65], r: [-1.25, 1.05, 0.1], s: 0.85 },
   xl: { p: [0.45, -0.8, -0.7], r: [-1.28, 1.05, 0.1], s: 0.72 },
   souffleur: { p: [0.26, -0.42, -0.55], r: [-1.25, 0.7, 0.1], s: 0.85 },
+  canon: { p: [0.22, -0.36, -0.55], r: [-1.35, 0.55, 0.05], s: 0.85 },
   marteau: { p: [0.24, -0.34, -0.5], r: [-0.7, 0.4, 0.2], s: 1.1 },
   rateau: { p: [0.36, -0.62, -0.6], r: [-1.2, 1.05, 0.12], s: 0.9 },
   collecteur: { p: [0.24, -0.36, -0.5], r: [-1.1, 0.5, 0.1], s: 1.1 },
@@ -1362,9 +1374,9 @@ const ECRAN_VARIETES = ecranDyn(1024, 512);
   const globe = new THREE.Group(); placer(globe, cylindre(0.9, 1.05, 0.5, M.graphite, 32), 0, 0.25, 0); placer(globe, cylindre(0.95, 0.95, 0.05, M.seve, 32), 0, 0.5, 0);
   placer(globe, new THREE.Mesh(new THREE.SphereGeometry(0.75, 32, 20), new THREE.MeshStandardMaterial({ roughness: 0.7, map: texture(512, 256, (c, w, h) => { c.fillStyle = '#c9b98a'; c.fillRect(0, 0, w, h); for (let k = 0; k < 900; k++) { c.fillStyle = k % 3 ? '#e8458b' : '#7da35a'; c.beginPath(); c.arc((k * 97.3) % w, (k * 41.7 + (k % 7) * 13) % h, 2 + (k % 4), 0, 6.3); c.fill(); } }) })), 0, 1.3, 0);
   placer(globe, new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.025, 8, 48), M_CHROME), 0, 1.3, 0).rotation.x = 1.2;
-  meuble(g, globe, -6.0, F, 3.0, 1.0, 1.0);   // l'ouest de l'accueil expose le haut de gamme
+  meuble(g, globe, -1.2, F, 3.6, 1.0, 1.0);   // l'ouest de l'accueil expose le haut de gamme
   const banc = () => { const b = new THREE.Group(); placer(b, boite(2.0, 0.1, 0.55, M.blanc, 0.04), 0, 0.45, 0); placer(b, boite(2.02, 0.04, 0.57, M.lisere, 0.015), 0, 0.39, 0); for (const s of [-1, 1]) placer(b, boite(0.1, 0.4, 0.5, M.graphite, 0.03), s * 0.8, 0.2, 0); return b; };
-  for (const [x, z, r] of [[-14, 8.0, Math.PI], [-6.0, 6.3, Math.PI]]) meuble(g, banc(), x, F, z, 1.0, 0.35, r);
+  for (const [x, z, r] of [[-14, 8.0, Math.PI]]) meuble(g, banc(), x, F, z, 1.0, 0.35, r);
   decor(g, [['plante', -19.2, 8.2], ['plante', -0.8, 7.9], ['caisses', -19.3, 4.0, 0.3], ['extincteur', -5.0, 8.62, Math.PI], ['affiche', -19.82, 2.0, Math.PI / 2, F + 1.8]]);
   fusionner(g);
 }
@@ -1411,14 +1423,14 @@ const sacVide = () => Object.fromEntries(Object.keys(RESSOURCES).map((k) => [k, 
 // Les cinq améliorations de l'atelier (trois niveaux chacune).
 const AMELIOS = {
   sac: { nom: 'SAC', unite: 'kg', valeurs: [12, 18, 26, 36], prix: [400, 1500, 5000] },
-  jambes: { nom: 'MARCHE', unite: '%', valeurs: [100, 112, 125, 140], prix: [300, 1200, 4000] },
+  jambes: { nom: 'MARCHE', unite: '%', valeurs: [100, 112, 125, 140, 165, 195], prix: [300, 1200, 4000, 20000, 80000] },   // les deux derniers : bottes à ressort, pour aller plus vite
   geste: { nom: 'GESTE', unite: '%', valeurs: [100, 88, 76, 65], prix: [500, 2000, 6500] },
   negoce: { nom: 'VENTE', unite: '%', valeurs: [100, 110, 120, 135], prix: [800, 3000, 9000] },
   portee: { nom: 'PORTÉE', unite: 'm', valeurs: [4.6, 5.6, 6.8, 8], prix: [250, 900, 3000] },
 };
 const S = { credits: 0, sac: sacVide(), outils: ['pinceau'], tuiles: 0, ventes: 0, silo: sacVide(), expedie: 0, temps: 0, amelio: { sac: 0, jambes: 0, geste: 0, negoce: 0, portee: 0 }, succes: {}, recolte: 0, pieces: 0 };   // l'état du joueur (sauvegardé)
 const amelio = (c) => AMELIOS[c].valeurs[S.amelio[c]];
-const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'rateau', 'collecteur', 'enfumoir', 'marteau'];
+const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'canon', 'rateau', 'collecteur', 'enfumoir', 'marteau'];
 const outilDef = () => OUTILS_DEF[outilEnMain];
 const chargeMax = () => amelio('sac');
 const kgSac = (sac = S.sac) => Object.values(sac).reduce((s, r) => s + r.kg, 0);
@@ -1486,6 +1498,8 @@ function viser(portee = amelio('portee') + 0.6) {
 }
 const ouvert = (k) => k >= 0 && T.sect[k] < OUVERTS.value;
 const pollinisable = (k) => ouvert(k) && !T.vert[k] && T.sorte[k] === 0;
+const estRare = (k) => k >= 0 && T.sorte[k] === 5 && !T.vert[k];   // une fleur rare : seul le joueur (à pied ou au volant) la pollinise
+const pollinisableJoueur = (k) => pollinisable(k) || (ouvert(k) && estRare(k));
 const prixTuile = (k) => VARIETES[SECTEURS[T.sect[k]].variete].prix;
 function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'axe perpendiculaire au regard
   if (!v || v.k < 0) return [];
@@ -1497,15 +1511,20 @@ const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
 for (let k = 0; k < NT; k++) { secteurs[T.sect[k]].total++; secteurs[T.sect[k]].vert += T.vert[k]; PLANETE_PROG.vert += T.vert[k]; }
 const majProgres = (s) => { if (s === undefined) { for (let k = 0; k < NSECT; k++) PROG[k] = secteurs[k].vert / secteurs[k].total; } else PROG[s] = secteurs[s].vert / secteurs[s].total; PROG_TEX.needsUpdate = true; };
 const FIN_SECTEUR = [];   // la fête : toutes les 500 parcelles rendues à la vie
+const SECTEUR_FINI = [], RARE_CUEILLIE = [];   // (s) quand un secteur est entièrement fleuri ; (k, valeur) pour une fleur rare
 const APRES_POLLEN = [], APRES_VENTE = [];   // (k, par, valeur) → valeur, et (crédits) : l'élan s'y branche
 const multSaison = () => (1 + 0.5 * (S.saison || 0)) * (1 + 0.05 * ((S.rech && S.rech.valeur) || 0));   // multiplicateur permanent : +50 % par saison close, +5 % par niveau de recherche « valeur »
 function polliniser(k, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur de son pollen
-  if (!pollinisable(k)) return 0;
+  const rare = estRare(k) && (par === 'joueur' || par === 'vehicule');
+  if (!pollinisable(k) && !rare) return 0;
+  if (rare) T.sorte[k] = 0;
   fleurirTuile(k, gt); secteurs[T.sect[k]].vert++; S.tuiles++; majProgres(T.sect[k]);
+  if (secteurs[T.sect[k]].vert >= secteurs[T.sect[k]].total) for (const f of SECTEUR_FINI) f(T.sect[k]);
   bouffee(T.pos[k], par === 'joueur' ? 16 : 8, CHARTE.pollen);
   const s = T.sect[k];
   PLANETE_PROG.vert++; if (PLANETE_PROG.vert % 500 === 0) for (const f of FIN_SECTEUR) f(s);
-  let v = prixTuile(k) * multSaison(); for (const f of APRES_POLLEN) v = f(k, par, v);
+  let v = prixTuile(k) * multSaison() * (rare ? 25 : 1); for (const f of APRES_POLLEN) v = f(k, par, v);
+  if (rare) for (const f of RARE_CUEILLIE) f(k, v);
   return v;
 }
 // L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil. Relâcher, ou changer de cible,
@@ -1518,7 +1537,7 @@ function majAction(dt) {
   let cibleAction = null;
   if (visee) for (const a of ACTIONS) if (a.quand(visee)) { cibleAction = a; break; }
   if (cibleAction) groupe = cibleAction.objet ? [] : visee.k >= 0 ? [visee.k] : [];
-  else if (def.largeur && visee && place() >= KG_TUILE) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
+  else if (def.largeur && visee && place() >= KG_TUILE) groupe = groupeVise(visee, def.largeur).filter(pollinisableJoueur);
   else groupe = [];
   selectionner(groupe);
   gesteType = cibleAction && cibleAction.geste ? cibleAction.geste : 'brosser';
@@ -1582,7 +1601,7 @@ INTER.push({ p: new V3().copy(COLLECTEUR.position).addScaledVector(COLLECTEUR.us
 INTER.push({ p: monde(COMPTOIR, 0, 1.3, 0.6), r: 2.6, vente: true, agir: () => vendre() });
 
 // --- L'établi du comptoir : tous les outils y sont exposés. Possédé : blanc et orange ; trop cher : gris translucide. ---
-const VENTE_COMPTOIR = [['pinceau', 0], ['brosse', 250], ['rateau', 200], ['collecteur', 400], ['enfumoir', 300], ['marteau', 600], ['large', 1200], ['xl', 3200], ['souffleur', 8000]];
+const VENTE_COMPTOIR = [['pinceau', 0], ['brosse', 250], ['rateau', 200], ['collecteur', 400], ['enfumoir', 300], ['marteau', 600], ['large', 1200], ['xl', 3200], ['souffleur', 8000], ['canon', 60000]];
 VENTE_COMPTOIR.forEach(([cle, prix], n) => {
   const g = COMPTOIR, F = g.userData.salle.F, x = -4.4 + n * 0.975, objet = fusionner(fabriquerOutil(cle)), l = { pinceau: 0.42, brosse: 1.05, large: 1.2, xl: 1.35, rateau: 1.1, souffleur: 0.8 }[cle] || 0.6;
   objet.scale.setScalar(Math.min(1, 0.85 / l) * (cle === 'xl' || cle === 'large' ? 0.5 : 1)); objet.userData.garder = true; placer(g, objet, x, F + 0.9, -2.85);
@@ -1619,7 +1638,7 @@ MAJ.push(() => {
     const A = AMELIOS[t.c], niv = S.amelio[t.c], prix = A.prix[niv], ok = prix !== undefined && S.credits >= prix, sig = niv + ' ' + ok; if (sig === t.sig) continue; t.sig = sig;
     const g = t.e.g; fond(t.e); g.textAlign = 'center'; g.fillStyle = '#edeae4'; g.font = '800 26px system-ui'; g.fillText(A.nom, 80, 26);
     g.fillStyle = '#4fd6e3'; g.font = '800 34px system-ui'; g.fillText(`${A.valeurs[niv]} ${A.unite}`.replace('.', ','), 80, 72);
-    for (let k = 0; k < 3; k++) { g.fillStyle = k < niv ? '#4fd6e3' : '#3a3f45'; g.fillRect(26 + k * 38, 100, 30, 12); }
+    const nb = A.prix.length, w = 112 / nb; for (let k = 0; k < nb; k++) { g.fillStyle = k < niv ? '#4fd6e3' : '#3a3f45'; g.fillRect(24 + k * w, 100, w - 6, 12); }
     g.fillStyle = prix === undefined ? '#4fd6e3' : ok ? '#f08a24' : '#c0392b'; g.font = '800 26px system-ui'; g.fillText(prix === undefined ? 'MAX' : `${prix.toLocaleString('fr-FR')} cr`, 80, 160);
     t.e.maj();
   }
@@ -1682,6 +1701,7 @@ const ICONES = {   // pictogrammes des ronds, dessinés au trait
   large: '<svg viewBox="0 0 24 24"><path d="M12 3v9"/><rect x="4" y="12" width="16" height="3" rx="1"/><path d="M5 15v4m3-4v4m3-4v4m3-4v4m3-4v4m2-4v4"/></svg>',
   xl: '<svg viewBox="0 0 24 24"><path d="M12 3v8"/><rect x="2" y="11" width="20" height="3" rx="1"/><path d="M3 14v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5m3-5v5"/></svg>',
   souffleur: '<svg viewBox="0 0 24 24"><path d="M4 17l10-10"/><path d="M14 7l2-2 3 3-2 2z"/><path d="M18 12c2 0 3 1 3 3m-5-1c1 0 2 1 2 2"/></svg>',
+  canon: '<svg viewBox="0 0 24 24"><path d="M4 14h10l6-4v8l-6-4"/><path d="M7 14v5"/></svg>',
   marteau: '<svg viewBox="0 0 24 24"><path d="M6 20l8-8"/><rect x="11" y="4" width="9" height="5" rx="1" transform="rotate(45 15 7)"/></svg>',
   rateau: '<svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M5 14h14M6 14v5m4-5v5m4-5v5m4-5v5"/></svg>',
   collecteur: '<svg viewBox="0 0 24 24"><path d="M6 8h12l-2 12H8z"/><path d="M9 8V5h6v3"/></svg>',
@@ -1958,10 +1978,12 @@ const PIECES = {
   empoteuse: { nom: 'Empoteuse', cat: 1, prix: 2500, entree: ['cru', 'bougie'], besoin: 1, sortie: 'pot', mult: 1.4, durees: [3, 2, 1.2], conso: 4 },
   trieuse: { nom: 'Trieuse', cat: 1, prix: 600, vitesse: 0.6, tapis: true, conso: 1 },
   raffineur: { nom: 'Raffineur de cire', cat: 1, prix: 1100, entree: ['cire'], besoin: 1, sortie: 'bougie', mult: 2, durees: [4, 2.5, 1.5], conso: 3 },
-  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 3000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], auto: true },   // autonome : ni courant ni convoyeur ; s'il a un convoyeur devant lui, il l'utilise   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
+  pollinisateur: { nom: 'Pollinisateur automatique', cat: 1, prix: 12000, sortie: 'pollen', durees: [2.4, 1.4, 0.7], auto: true, brosses: 120 },
+  tour: { nom: 'Tour d’épandage', cat: 1, prix: 60000, sortie: 'pollen', durees: [0.6, 0.4, 0.25], conso: 6, auto: true, rayon: 22, brosses: 150 },        // un bras tournant de 22 m
+  drones: { nom: 'Nid de drones', cat: 1, prix: 250000, sortie: 'pollen', durees: [0.35, 0.22, 0.14], conso: 15, auto: true, rayon: 80, brosses: 100 },   // six drones, 80 m autour   // autonome : ni courant ni convoyeur ; s'il a un convoyeur devant lui, il l'utilise   // pollinise autour de lui, puis récolte le pollen des fleurs ; le pose sur son convoyeur
   ruche0: { nom: 'Ruche simple', cat: 1, prix: 400, ruche: 0 },
   ruche1: { nom: 'Ruche renforcée', cat: 1, prix: 1500, ruche: 1 },
-  ruche2: { nom: 'Ruche mère', cat: 1, prix: 6000, ruche: 2 },
+  ruche2: { nom: 'Ruche mère', cat: 1, prix: 25000, ruche: 2 },
   solaire: { nom: 'Poste solaire', cat: 2, prix: 300, prod: 4, energie: true },
   double: { nom: 'Panneau double', cat: 2, prix: 700, prod: 9, energie: true },
   suiveur: { nom: 'Panneau suiveur', cat: 2, prix: 1600, prod: 16, energie: true },
@@ -2046,7 +2068,17 @@ function modelePiece(cle) {
     const b = corpsMachine(g);
     if (cle === 'extracteur') { placer(g, tube(0.42, 0.42, 0.7, M_VITRE, 24), 0, b + 1.85, 0.1); placer(g, tube(0.45, 0.45, 0.06, M.lisere, 24), 0, b + 2.2, 0.1); placer(g, tube(0.45, 0.45, 0.06, M.graphite, 24), 0, b + 1.5, 0.1); g.userData.rotor = placer(g, boite(0.6, 0.5, 0.06, M.pollen, 0.02), 0, b + 1.85, 0.1); }
     else if (cle === 'maturateur') { for (let k = -1; k <= 1; k++) { placer(g, cylindre(0.2, 0.2, 0.5, M.blanc, 16), k * 0.45, b + 1.75, 0.1); placer(g, cylindre(0.21, 0.21, 0.05, M.lisere, 16), k * 0.45, b + 1.9, 0.1); } g.userData.rotor = placer(g, boite(0.5, 0.06, 0.06, M.graphite, 0.02), 0, b + 2.1, 0.1); }
-    else if (cle === 'pollinisateur') {   // dôme vitré plein de pollen, mât, tête à trois bras-pinceaux qui tourne
+    else if (cle === 'tour') {   // un mât en treillis et un bras tournant de 4 m à buses, sur le corps de machine
+      for (const [x, z] of [[-0.3, -0.2], [0.3, -0.2], [-0.3, 0.4], [0.3, 0.4]]) placer(g, boite(0.08, 3.6, 0.08, M.graphite, 0.02), x, b + 3.3, z);
+      for (let y = 0; y < 6; y++) placer(g, boite(0.7, 0.05, 0.7, y % 2 ? M.lisere : M.graphite, 0.01), 0, b + 1.7 + y * 0.6, 0.1);
+      const t = new THREE.Group(); placer(g, t, 0, b + 5.2, 0.1); g.userData.rotor = t; placer(t, cylindre(0.3, 0.3, 0.25, M.lisere, 16), 0, 0, 0);
+      for (const s of [-1, 1]) { placer(t, tube(0.05, 0.05, 4.2, M.graphite), s * 2.1, -0.05, 0).rotation.z = Math.PI / 2; for (let x = 0.6; x <= 4.1; x += 0.7) { placer(t, new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 8), M.graphite), s * x, -0.17, 0).rotation.x = Math.PI; placer(t, cylindre(0.025, 0.025, 0.03, M.seve, 8), s * x, -0.26, 0); } placer(t, boite(0.2, 0.2, 0.2, M.lisere, 0.03), s * 4.2, -0.05, 0); }
+      placer(t, tube(0.02, 0.02, 4.4, M.lisere), 0, 0.7, 0).rotation.z = Math.PI / 2; placer(t, tube(0.04, 0.04, 0.8, M.graphite), 0, 0.35, 0);
+    } else if (cle === 'drones') {   // un toit-plateforme à six aires d'envol, antenne, voyants ; les drones volent à part
+      placer(g, cylindre(0.95, 0.95, 0.12, M.graphite, 6), 0, b + 1.56, 0.1, Math.PI / 6); placer(g, cylindre(0.97, 0.97, 0.03, M.lisere, 6), 0, b + 1.63, 0.1, Math.PI / 6);
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; placer(g, cylindre(0.2, 0.2, 0.02, M.seve, 12), Math.cos(a) * 0.62, b + 1.65, 0.1 + Math.sin(a) * 0.62); }
+      placer(g, tube(0.02, 0.02, 0.9, M.graphite), 0, b + 2.1, 0.1); placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), M.lisere), 0, b + 2.56, 0.1);
+    } else if (cle === 'pollinisateur') {   // dôme vitré plein de pollen, mât, tête à trois bras-pinceaux qui tourne
       placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.36, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), M_VITRE), 0, b + 1.5, 0.1); placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 8), M.pollen), 0, b + 1.52, 0.1);
       placer(g, tube(0.07, 0.09, 1.3, M.graphite), 0.5, b + 2.1, 0.1); placer(g, cylindre(0.12, 0.12, 0.06, M.lisere, 14), 0.5, b + 1.5, 0.1);
       const t = new THREE.Group(); placer(g, t, 0.5, b + 2.78, 0.1); g.userData.rotor = t; placer(t, cylindre(0.2, 0.2, 0.18, M.lisere, 16), 0, 0, 0);
@@ -2199,11 +2231,17 @@ function sortieRuche(p) {
   for (const id of voisinsDe(p.id)) { const n = GRILLE.get(id); if (n && estTapis(n) && n.avant !== p.id) return n; }
   return null;
 }
+function ciblesRayon(pos, r) {   // les parcelles à moins de r mètres, de voisine en voisine
+  const out = [], k0 = tuileA(pos); if (k0 < 0) { for (let d = 2; d < r; d += 2) { const k = tuileA(_vp.copy(pos).addScaledVector(tangent(pos, _c.subVectors(pos, BASE)), d)); if (k >= 0) return ciblesRayon(T.pos[k], r - d); } return out; }
+  const vus = new Set([k0]), file = [k0];
+  while (file.length) { const k = file.pop(); if (T.pos[k].distanceTo(pos) > r) continue; out.push(k); for (const id of voisinsDe(T.id[k])) { const v = IDX.get(id); if (v !== undefined && !vus.has(v)) { vus.add(v); file.push(v); } } }
+  return out.sort((a, b) => T.pos[a].distanceTo(pos) - T.pos[b].distanceTo(pos));   // du plus près au plus loin
+}
 function recolteAuto(p) {
-  if (!p.cibles) { p.cibles = ciblesRuche(p.pos, 1); p.ic = 0; }
+  if (!p.cibles) { p.cibles = PIECES[p.cle].rayon ? ciblesRayon(p.pos, PIECES[p.cle].rayon) : ciblesRuche(p.pos, 1); p.ic = 0; }
   const c = p.cibles; if (!c.length) return null;
-  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (pollinisable(k)) { p.ic = (p.ic + n + 1) % c.length; const v = polliniser(k, 'machine'); return { type: 'pollen', valeur: v }; } }
-  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (T.vert[k]) { p.ic = (p.ic + n + 1) % c.length; if (p.pos.distanceTo(joueur.p) < 45) bouffee(T.pos[k], 5, CHARTE.pollen); return { type: 'pollen', valeur: prixTuile(k) * 0.4 }; } }
+  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (pollinisable(k)) { p.ic = (p.ic + n + 1) % c.length; p.dernier = k; const v = polliniser(k, 'machine'); return { type: 'pollen', valeur: v }; } }
+  for (let n = 0; n < c.length; n++) { const k = c[(p.ic + n) % c.length]; if (T.vert[k]) { p.ic = (p.ic + n + 1) % c.length; p.dernier = k; if (p.pos.distanceTo(joueur.p) < 45) bouffee(T.pos[k], 5, CHARTE.pollen); return { type: 'pollen', valeur: prixTuile(k) * 0.4 }; } }
   return null;
 }
 // --- L'électricité. ---
@@ -2254,13 +2292,13 @@ MAJ.push((dt) => {
     if (def.durees) {
       if (p.sortie && accepter(GRILLE.get(p.avant), p.sortie)) p.sortie = null;
       else if (p.sortie && def.auto && !GRILLE.get(p.avant)) { venteDirecte(p, p.sortie); p.sortie = null; }   // rien devant lui : il vend lui-même
-      p.veut = !p.sortie && (def.auto || p.entrees.length >= def.besoin); p.travaille = p.veut && !p.panne;
+      p.veut = !p.sortie && (def.auto ? (!def.brosses || brosseOk()) : p.entrees.length >= def.besoin); p.travaille = p.veut && !p.panne;   // une machine automatique use des brosses
       const alim = !def.conso || p.courant;   // une machine sans consommation n'a pas besoin du réseau
       if (p.panne || (p.veut && !alim)) ENERGIE.arretees.push(p);
       if (p.panne && pres(p) && Math.random() < dt * 6) bouffee(surSol(p.pos, 1.5), 2, 0x8a8d90);   // elle fume
       if (p.travaille) {
         const v = alim ? 1 : 0.25; p.duree = def.durees[p.niveau]; p.t += dt * v; p.anim += dt * 9 * v;
-        if (p.t >= p.duree) { p.t = 0; if (def.auto) { p.sortie = recolteAuto(p); if (p.sortie) noter('pollen'); } else { const lot = p.entrees.splice(0, def.besoin); p.sortie = { type: def.sortie, valeur: lot.reduce((s, c) => s + c.valeur, 0) * def.mult }; noter(def.sortie); } }
+        if (p.t >= p.duree) { p.t = 0; if (def.auto) { p.sortie = recolteAuto(p); if (p.sortie) { noter('pollen'); if (def.brosses) consommer('brosses', 1 / def.brosses); if (def.rayon > 50) lancerDrone(p); } } else { const lot = p.entrees.splice(0, def.besoin); p.sortie = { type: def.sortie, valeur: lot.reduce((s, c) => s + c.valeur, 0) * def.mult }; noter(def.sortie); } }
       } else p.t = 0;
       if (pres(p)) { if (ud.rotor && p.travaille) ud.rotor.rotation.y += dt * 8 * (alim ? 1 : 0.25); ud.voyant.material = p.panne || (p.veut && !alim) ? (Math.sin(gt * 20) > 0 ? M_ROUGE : M.graphite) : p.travaille ? (Math.sin(gt * 12) > 0 ? M.seve : M.graphite) : p.sortie ? M.lisere : M.graphite; }
     }
@@ -2411,12 +2449,13 @@ MAJ.push((dt) => { tSuperv += dt; if (tSuperv < 1 || DEDANS.salle !== STATION.us
 const VEHICULES = {
   chariot: { nom: 'Chariot pousseur', prix: 900, cap: 150, vmax: 3.2, virage: 1.4, pente: 0.8, largeur: 1, contact: 0.6, siege: [-1.25, 0], assise: [0, 1.25], hw: 0.55, hd: 0.9, sondes: [[0.5, 0.6], [-0.3, 0.6]], tete: 0.95, place: -4.4 },
   quad: { nom: 'Quad de service', prix: 4000, cap: 600, vmax: 11, virage: 1.1, pente: 2.4, largeur: 0, siege: [0.1, 0.45], assise: [1.06, 0.2], hw: 0.8, hd: 1.3, sondes: [[0.7, 0.85], [-0.6, 0.85]], place: -2.6 },
-  pollinisatrice: { nom: 'Pollinisatrice', prix: 18000, cap: 1200, vmax: 7, virage: 0.8, pente: 0.9, largeur: 3, contact: 0.25, siege: [0.85, 0.75], assise: [2.07, -0.95], hw: 1.7, hd: 3.1, sondes: [[2.6, 1.6], [0.3, 1.35], [-1.8, 1.35]], tete: 3.15, place: 3.6 },
+  pollinisatrice: { nom: 'Pollinisatrice', prix: 45000, cap: 1200, vmax: 7, virage: 0.8, pente: 0.9, largeur: 3, contact: 0.25, siege: [0.85, 0.75], assise: [2.07, -0.95], hw: 1.7, hd: 3.1, sondes: [[2.6, 1.6], [0.3, 1.35], [-1.8, 1.35]], tete: 3.15, place: 3.6 },
   citerne: { nom: 'Remorque-citerne', prix: 35000, cap: 0, vmax: 0, remorque: true, hw: 1.0, hd: 1.9, sondes: [], place: 6.6 },
-  transporteur: { nom: 'Transporteur lourd', prix: 90000, cap: 4000, vmax: 9, virage: 0.9, pente: 1.2, tournees: true, largeur: 5, contact: 0.15, tete: -3.65, siege: [2.3, 0.45], assise: [1.52, -2.3], hw: 1.35, hd: 3.4, sondes: [[2.4, 1.5], [0, 1.4], [-2.2, 1.4]], place: 9.3 },
+  transporteur: { nom: 'Transporteur lourd', prix: 300000, cap: 4000, vmax: 9, virage: 0.9, pente: 1.2, tournees: true, largeur: 5, contact: 0.15, tete: -3.65, siege: [2.3, 0.45], assise: [1.52, -2.3], hw: 1.35, hd: 3.4, sondes: [[2.4, 1.5], [0, 1.4], [-2.2, 1.4]], place: 9.3 },
   // Le haut de gamme : beaucoup plus cher, beaucoup plus efficace. À l'achat, ils sortent au milieu du parvis.
-  geante: { nom: 'Moissonneuse géante', prix: 250000, cap: 8000, vmax: 10, virage: 0.6, pente: 1.0, largeur: 11, contact: 0.1, siege: [1.55, 1.15], assise: [2.57, -1.45], hw: 2.4, hd: 4.3, sondes: [[3.5, 2.3], [0.5, 1.9], [-2.8, 1.9]], tete: 4.45, place: 0, marque: false },
-  aeroglisseur: { nom: 'Aéroglisseur à rampe', prix: 750000, cap: 25000, vmax: 15, virage: 0.9, pente: 3, largeur: 15, contact: 0.06, siege: [0.9, 0.15], assise: [1.32, -0.75], hw: 2.0, hd: 3.6, sondes: [[2.6, 2.0], [0, 2.0], [-2.6, 2.0]], tete: 3.7, place: 0, marque: false },
+  geante: { nom: 'Moissonneuse géante', prix: 1500000, cap: 8000, vmax: 10, virage: 0.6, pente: 1.0, largeur: 11, contact: 0.1, siege: [1.55, 1.15], assise: [2.57, -1.45], hw: 2.4, hd: 4.3, sondes: [[3.5, 2.3], [0.5, 1.9], [-2.8, 1.9]], tete: 4.45, place: 0, marque: false },
+  moto: { nom: 'Moto des champs', prix: 35000, cap: 700, vmax: 20, virage: 1.7, pente: 2.4, largeur: 4, contact: 0.04, siege: [-0.05, 0.6], assise: [0.97, 0.2], hw: 0.5, hd: 1.15, sondes: [[0.6, 0.45], [-0.5, 0.45]], tete: -0.45, place: -7.0 },   // pour toi : vite, partout
+  aeroglisseur: { nom: 'Aéroglisseur à rampe', prix: 5000000, cap: 25000, vmax: 15, virage: 0.9, pente: 3, largeur: 15, contact: 0.06, siege: [0.9, 0.15], assise: [1.32, -0.75], hw: 2.0, hd: 3.6, sondes: [[2.6, 2.0], [0, 2.0], [-2.6, 2.0]], tete: 3.7, place: 0, marque: false },
 };
 const ORDRE_VEHICULES = Object.keys(VEHICULES);
 const AMELIO_VEH = { moteur: 'MOTEUR', chassis: 'CHÂSSIS', pneus: 'PNEUS', phares: 'PHARES' }, CLES_AMELIO = Object.keys(AMELIO_VEH);
@@ -2573,6 +2612,22 @@ function fabriquerVehicule(cle, niv = { moteur: 0, chassis: 0, pneus: 0, phares:
     essieu(c, 0.9, -2.4, 3.0, 0.09); essieu(c, 0.65, 2.6, 2.8, 0.08);
     equiper(c, niv, { pot: [0.6, 3.47, 2.9], cof: [1.2, 1.0, 1.2, -0.6, 0.45], av: [3.42, -2.45] });
     for (const s of [-1, 1]) { roue(g, s * 1.75, 0.9, -2.4, 0.9, 0.7, niv); roue(g, s * 1.55, 0.65, 2.6, 0.65, 0.5, niv); }
+  } else if (cle === 'moto') {   // la moto des champs : cadre, réservoir à hublot, selle, guidon ; deux rampes de brosses repliables
+    placer(c, boite(0.22, 0.2, 1.5, M.graphite, 0.05), 0, 0.62, 0.05); placer(c, boite(0.36, 0.28, 0.5, M.lisere, 0.09), 0, 0.86, -0.25); hublot(c, 0.185, 0.86, -0.25, 0.28, 0.14, Math.PI / 2);
+    placer(c, boite(0.3, 0.1, 0.62, M.graphite, 0.04), 0, 0.93, 0.32); placer(c, boite(0.31, 0.02, 0.6, M.lisere, 0.008), 0, 0.98, 0.32);
+    placer(c, tube(0.035, 0.035, 0.62, M.graphite), 0, 0.88, -0.74).rotation.x = -0.35; placer(c, tube(0.022, 0.022, 0.7, M_CHROME), 0, 1.18, -0.85).rotation.z = Math.PI / 2;
+    for (const s of [-1, 1]) placer(c, tube(0.03, 0.03, 0.12, M.graphite), s * 0.32, 1.18, -0.85).rotation.z = Math.PI / 2;
+    for (const s of [-1, 1]) placer(c, boite(0.05, 0.06, 0.62, M.graphite, 0.015), s * 0.12, 0.45, 0.5);   // bras oscillant
+    phare(c, 0, 1.0, -0.98, 0.07); feuxArriere(c, 0.16, 0.86, 0.66);
+    placer(c, boite(0.34, 0.22, 0.1, M.graphite, 0.03), 0, 0.62, -0.45); placer(c, tube(0.04, 0.04, 0.3, M.graphite), 0, 0.55, -0.45).rotation.z = Math.PI / 2;   // support des rampes
+    g.userData.ailes = [];
+    for (const s of [-1, 1]) {
+      const a = new THREE.Group(); a.position.set(s * 0.17, 0.55, -0.45); a.rotation.y = -s * Math.PI / 2; a.userData.garder = true; a.userData.s = s; c.add(a); g.userData.ailes.push(a);
+      placer(a, cylindre(0.06, 0.06, 0.14, M.lisere, 10), 0, 0, 0); placer(a, tube(0.035, 0.035, 1.75, M.graphite), s * 0.9, 0, 0).rotation.z = Math.PI / 2;
+      for (let x = 0.35; x <= 1.71; x += 0.45) { placer(a, tube(0.015, 0.015, 0.2, M.graphite), s * x, -0.1, 0); placer(a, cylindre(0.07, 0.09, 0.14, M_POILS, 10), s * x, -0.26, 0); }
+    }
+    equiper(c, niv, { pot: [0.16, 0.5, 0.62], cof: [0.24, 0.72, 0.05, 0.0, 0.26], av: [1.0, -0.98] });
+    roue(g, 0, 0.36, -0.82, 0.36, 0.16, niv); roue(g, 0, 0.38, 0.8, 0.38, 0.2, niv);
   } else if (cle === 'aeroglisseur') {   // l'aéroglisseur : jupe souple, coque, deux soufflantes carénées, rampe d'épandage de 14 m haubanée
     placer(c, boite(3.8, 0.5, 7.0, M_GOMME, 0.22), 0, 0.25, 0);   // la jupe, posée au sol
     placer(c, boite(3.4, 0.6, 6.4, M.blanc, 0.14), 0, 0.8, 0); placer(c, boite(3.44, 0.06, 6.44, M.lisere, 0.02), 0, 0.53, 0); placer(c, boite(3.42, 0.04, 6.42, M.seve, 0.015), 0, 0.95, 0);   // filet cyan sur les flancs
@@ -2685,7 +2740,7 @@ const CONCESSION = (() => {
 const M_PARK = new THREE.MeshBasicMaterial({ color: ORANGE, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
 // --- Le grand garage : un hangar couvert de 30 × 13 m à l'est de la base, ouvert vers le hall. Une baie marquée par
 //     véhicule, son nom au mur ; c'est là que la borne « Rappeler » et le garde-fou ramènent chacun. ---
-const BAIES = [['aeroglisseur', 4.6], ['transporteur', 3.6], ['citerne', 3.0], ['pollinisatrice', 4.0], ['quad', 3.2], ['chariot', 2.6], ['geante', 9.0]];
+const BAIES = [['aeroglisseur', 4.4], ['transporteur', 3.6], ['citerne', 2.8], ['pollinisatrice', 4.0], ['quad', 3.0], ['chariot', 2.4], ['moto', 1.4], ['geante', 8.4]];
 const PARCS = {};
 const HANGAR = (() => {
   const W = 30, D = 13, H = 5.2, g = new THREE.Group(), p = local(37, -2);
@@ -2750,11 +2805,12 @@ function avancer(v, dt, mz, mx) {   // un pas de conduite ; renvoie false si le 
 const nuit = () => 1 - JOUR.ici;
 function travailler(v, dt) {   // la brosse pollinise ce qui passe dessous ; la nuit, il faut des phares
   const D = v.D; if (!D.largeur) return;
+  const joueurDedans = joueur.enVehicule === v;   // les fleurs rares ne se laissent polliniser que par toi
   const dr = _dr.crossVectors(v.f, _d2.copy(v.p).normalize()), vues = new Set(), rythme = lerp(1, MULT_VEH.phares[v.niv.phares], nuit()), n = D.largeur === 1 ? 0 : Math.max(2, Math.floor(D.largeur / 2));   // une voie tous les 0,95 m
   for (let k = -n; k <= n; k++) {
-    const i = tuileA(_vp.copy(v.p).addScaledVector(v.f, D.tete).addScaledVector(dr, k * 0.95)); if (i < 0 || !pollinisable(i) || vues.has(i)) continue; vues.add(i);
+    const i = tuileA(_vp.copy(v.p).addScaledVector(v.f, D.tete).addScaledVector(dr, k * 0.95)); if (i < 0 || !(joueurDedans ? pollinisableJoueur(i) : pollinisable(i)) || vues.has(i)) continue; vues.add(i);
     const t = (v.contact.get(i) || 0) + dt * rythme * (1 + Math.abs(v.v) * 2); v.contact.set(i, t);   // le contact se compte aussi en distance : à pleine vitesse, tout ce qui passe sous la brosse est pollinisé
-    if (t >= D.contact && v.charge + KG_TUILE <= capacite(v)) { const val = polliniser(i, 'vehicule'); if (val > 0) { v.charge += KG_TUILE; v.valeur += val; noter('pollen', KG_TUILE); sons.pop(); } }
+    if (t >= D.contact && v.charge + KG_TUILE <= capacite(v)) { const val = polliniser(i, joueurDedans ? 'vehicule' : 'pilote'); if (val > 0) { v.charge += KG_TUILE; v.valeur += val; noter('pollen', KG_TUILE); sons.pop(); } }
   }
   for (const i of v.contact.keys()) if (!vues.has(i)) v.contact.delete(i);
 }
@@ -2879,7 +2935,7 @@ const BORNES_VEH = [];
 {
   const g = CONCESSION, F = g.userData.salle.F;
   ORDRE_VEHICULES.forEach((cle, n) => {
-    const x = n < 5 ? -4.6 + n * 3.3 : [-26.9, -21.9][n - 5], z = n < 5 ? 0.0 : 0.8, D = VEHICULES[cle];   // le haut de gamme est exposé dans l'accueil   // allée de 3 m devant l'atelier et le laboratoire, 1 m de passage entre deux plateformes
+    const x = n < 5 ? -4.6 + n * 3.3 : [-26.9, -21.9, -17.9][n - 5], z = n < 5 ? 0.0 : 0.8, D = VEHICULES[cle];   // le haut de gamme est exposé dans l'accueil   // allée de 3 m devant l'atelier et le laboratoire, 1 m de passage entre deux plateformes
     placer(g, cylindre(1.1, 1.15, 0.14, M.graphite, 32), x, F + 0.07, z); placer(g, cylindre(1.17, 1.17, 0.03, M.seve, 32), x, F + 0.03, z);
     const pl = new THREE.Group(); pl.userData.garder = true; placer(g, pl, x, F + 0.14, z); placer(pl, cylindre(1.02, 1.02, 0.1, M.blanc, 32), 0, 0.05, 0); placer(pl, cylindre(1.04, 1.04, 0.025, M.seve, 32), 0, 0.085, 0);
     const modele = fabriquerVehicule(cle); modele.scale.setScalar(Math.min(0.55, 0.95 / D.hd)); modele.position.y = 0.1; pl.add(modele); modele.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
@@ -3058,7 +3114,7 @@ function etatSauve() {
   const v = joueur.enVehicule, p = v ? surSol(new V3().copy(v.p).addScaledVector(new V3().crossVectors(v.f, joueur.haut), -(v.D.hw + 0.9))) : joueur.p;   // au volant : on reprendra à côté du véhicule
   return {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
-    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh, toit: S.toit || 0, robots: S.robots || 0, robotVendu: Math.round(S.robotVendu || 0), saison: S.saison || 0, rech: S.rech },
+    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh, toit: S.toit || 0, robots: S.robots || 0, robotVendu: Math.round(S.robotVendu || 0), saison: S.saison || 0, rech: S.rech, stock: S.stock, ouvriers: S.ouvriers || 0, desherbeurs: S.desherbeurs || 0, finis: S.finis || [], rares: S.rares || 0 },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
     balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),
@@ -3199,7 +3255,7 @@ MAJ.push((dt) => { NUAGE.t += dt; if (NUAGE.t >= 60) { NUAGE.t = 0; envoyerNuage
       if (d) {
         const ecrit = stock.ecrire(cleEmpl(EMPL), m.texte) && stock.lire(cleEmpl(EMPL)) === m.texte;
         if (DEMARRAGE.repris && ecrit) { SUPPRIME.v = true; location.reload(); return; }   // une partie locale tourne déjà : on recharge sur la copie en ligne
-        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); retourAbsence(d.date); absenceEquipe(d.date); }
+        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); retourAbsence(d.date); absenceEquipe(d.date); chargesAbsence(d.date); reconcilierHerbes(); reconcilierRares(); }
       }
     }
     NUAGE.pret = true; NUAGE.etat = 'en ligne'; envoyerNuage();
@@ -3471,14 +3527,12 @@ const kwToit = () => TOIT.niveaux.slice(0, S.toit).reduce((s, n) => s + n.kw, 0)
   TOIT.maj = () => { TOIT.niv = S.toit; const parNiv = [0, 52, 120, n], m = parNiv[S.toit]; for (const o of [cadre, verre, pied]) { o.count = m; o.instanceMatrix.needsUpdate = true; } TOIT.cellules = m; };
   TOIT.maj();
 }
-function toitureSolaire(dt) {   // appelée par le réseau électrique : alimente ce qui manque de courant, vend le surplus
-  const kw = kwToit(); if (!kw) { TOIT.prod = 0; return; }
-  TOIT.prod = kw * lisse(-0.05, 0.3, _c.copy(BASE).normalize().dot(SOLEIL));
+function toitureSolaire(dt) {   // appelée par le réseau électrique : ce qui manque de courant prend celui de la toiture, puis
+  // celui du réseau extérieur, payé (15-usine) ; tant qu'une facture reste impayée, le réseau extérieur est coupé
+  TOIT.prod = kwToit() * lisse(-0.05, 0.3, _c.copy(BASE).normalize().dot(SOLEIL));
   let besoin = 0; const sans = []; for (const p of GRILLE.values()) { const d = PIECES[p.cle]; if (d.conso && !p.courant && (p.veut || d.tapis)) { besoin += d.conso; sans.push(p); } }
-  if (TOIT.prod >= besoin) for (const p of sans) p.courant = true;
-  const surplus = Math.max(0, TOIT.prod - (TOIT.prod >= besoin ? besoin : 0));
-  TOIT.cumul += surplus * dt * 0.4;   // 0,4 cr par kW et par seconde
-  if (TOIT.cumul >= 25) { TOIT.vendu += expedier(TOIT.cumul, 'energie'); TOIT.cumul = 0; }
+  TOIT.besoin = besoin;
+  const couvert = TOIT.prod >= besoin || !CHARGES.impaye; for (const p of sans) p.courant = couvert;
 }
 const BORNE_TOIT = borneAccueil(-8.0, 0.1, 'TOITURE SOLAIRE');
 function dessinerToit() {
@@ -3494,7 +3548,7 @@ INTER.push({ p: BORNE_TOIT.p, r: 2.2, get etiquette() { const n = TOIT.niveaux[S
   agir() { const n = TOIT.niveaux[S.toit]; if (!n || S.credits < n.prix) { sons.refus(); return; } S.credits -= n.prix; S.toit++; TOIT.maj(); sons.achat(); dessinerToit(); sauverBientot(); } });
 
 // --- Les robots ouvriers. ---
-const ROBOTS = [], RESERVEES = new Set(), MAX_ROBOTS = 40, vitRobot = () => 2.4 * (1 + 0.05 * S.rech.robots), travailRobot = () => 1.6 / (1 + 0.05 * S.rech.robots);
+const ROBOTS = [], RESERVEES = new Set(), MAX_ROBOTS = 40, vitRobot = () => 1.5 * (1 + 0.05 * S.rech.robots), travailRobot = () => 3.2 / (1 + 0.05 * S.rech.robots);   // de petits robots lents : il en faut beaucoup
 const prixRobot = (n) => Math.round(2500 * Math.pow(1.35, n) / 50) * 50;
 S.robots = S.robots || 0;
 function fabriquerRobot() {   // un petit robot de champ : corps blanc à bande orange, tête à visière cyan, antenne, bras-pinceau
@@ -3523,6 +3577,7 @@ MAJ.push((dt) => {
   for (const r of ROBOTS) {
     r.phase += dt;
     if (r.k >= 0 && !pollinisable(r.k)) { RESERVEES.delete(r.k); r.k = -1; r.etat = 'cherche'; }
+    if (r.etat === 'cherche' && !brosseOk()) { r.attente = true; continue; } r.attente = false;   // plus de brosses à l'usine : il attend
     if (r.etat === 'cherche') { r.t += dt; if (r.t > 0.4) { r.t = 0; const k = chercherTuile(r.p); if (k >= 0) { r.k = k; RESERVEES.add(k); r.etat = 'va'; } else { r.etat = 'explore'; r.but = surSol(new V3().copy(r.p).addScaledVector(tangent(r.p, _rd.subVectors(r.p, BASE)), 60)); } } }
     let but = r.etat === 'va' ? T.pos[r.k] : r.etat === 'explore' ? r.but : null;
     if (but) {
@@ -3568,7 +3623,7 @@ function viderAuQuai(w) { if (w.valeur <= 0) return; const cr = encaisser(w.vale
 MAJ.push((dt) => {
   for (const c of ORDRE_VEHICULES) {
     const w = FLOTTE[c], P = w.pilote;
-    const pilote = P && P.achete && P.actif && w.possede && w.g && joueur.enVehicule !== w && SORTIE.v !== w && !w.D.remorque;
+    const pilote = P && P.achete && P.actif && w.possede && w.g && joueur.enVehicule !== w && SORTIE.v !== w && !w.D.remorque && piecesOk();   // sans pièces de rechange, il attend
     if (P) P.roule = !!pilote;
     if (!w.piloteModele && pilote) w.piloteModele = fabriquerPilote(c !== 'chariot');
     if (w.piloteModele) { const ca = w.g && w.g.userData.caisse; if (pilote && ca) { if (w.piloteModele.parent !== ca) ca.add(w.piloteModele); const a = w.D.assise || [0, 0]; w.piloteModele.position.set(0, a[0], a[1]); } else if (w.piloteModele.parent) w.piloteModele.parent.remove(w.piloteModele); }
@@ -3581,7 +3636,7 @@ MAJ.push((dt) => {
     } else {
       if (w.charge >= capacite(w) * 0.95) { P.etat = 'retour'; P.cible = null; }
       P.t += dt; if (!P.cible || w.p.distanceTo(P.cible) < 3.5 || P.t > 25) { P.cible = chercherCible(w); P.t = 0; }
-      if (!versCible(w, P.cible, dt)) P.bloque += dt; else P.bloque = Math.max(0, P.bloque - dt * 0.5);
+      if (!versCible(w, P.cible, dt, 0.55)) P.bloque += dt; else P.bloque = Math.max(0, P.bloque - dt * 0.5);   // un pilote prudent : à un peu plus de la moitié de la vitesse
       if (P.bloque > 5) { P.cible = null; P.bloque = 0; P.coince = (P.coince || 0) + 1; if (P.coince > 3) { P.coince = 0; w.f.applyAxisAngle(_d.copy(w.p).normalize(), Math.PI * 0.7); w.p.copy(surSol(new V3().copy(w.p).addScaledVector(w.f, 8))); } }
       travailler(w, dt);
     }
@@ -3645,6 +3700,236 @@ function absenceEquipe(date) {
 if (DEMARRAGE.repris) absenceEquipe(DEMARRAGE.date);
 
 // =====================================================================
+// 17. L'usine et les charges. Une usine à l'ouest de la base, des ouvriers payés, de l'électricité payée.
+//     - L'usine fabrique des brosses (robots, désherbeurs, pollinisateurs, tours, drones) et des pièces de rechange (pilotes
+//       automatiques). Un ouvrier fait une pièce toutes les 20 s ; il touche 0,6 cr/s, embauché ou non au travail.
+//     - L'électricité qui manque (machines, usine, recharge des robots) vient du réseau extérieur à 0,25 cr par kW et par
+//       seconde ; la toiture solaire passe d'abord, son surplus se vend 0,1 cr/kW/s.
+//     - Les charges sont prélevées toutes les 2 s. Sans argent : la facture reste due, les ouvriers s'arrêtent et le réseau
+//       extérieur est coupé jusqu'au paiement ; rien n'est perdu.
+//     - Chaque secteur entièrement fleuri paie une prime (la moitié de sa valeur), une fois par saison.
+//     - Les mauvaises herbes gagnent les parcelles fanées voisines ; des robots désherbeurs les arrachent.
+//     - Vingt-quatre fleurs rares, violettes, signalées par une colonne de lumière : seul le joueur peut les polliniser (×25).
+// =====================================================================
+S.stock = { brosses: 40, pieces: 20, ...(S.stock || {}) };
+S.ouvriers = S.ouvriers || 0; S.desherbeurs = S.desherbeurs || 0; S.finis = S.finis || [];
+const CIBLE_STOCK = { brosses: 150, pieces: 60 }, MAX_OUVRIERS = 12, SALAIRE = 0.6, PRIX_KW = 0.25, VENTE_KW = 0.1, EMBAUCHE = 400;
+const CHARGES = { off: false, impaye: false, du: 0, salaires: 0, elec: 0, vente: 0, kwAchat: 0, t: 0, paye: 0 };
+const brosseOk = () => S.stock.brosses > 0, piecesOk = () => S.stock.pieces > 0;
+function consommer(q, n) { S.stock[q] = Math.max(0, S.stock[q] - n); }
+APRES_POLLEN.push((k, par, v) => { if (par === 'bot') consommer('brosses', 1 / 30); else if (par === 'pilote') consommer('pieces', 1 / 400); return v; });   // l'usure
+
+// --- Le bâtiment : murs blancs, toit à sheds vitrés, cheminée, grande porte vers la base ; établis, presse, tapis, caisses. ---
+const USINE = (() => {
+  const W = 20, D = 12, H = 6, g = new THREE.Group(), p = local(-37, -2);
+  poserSur(g, p, versBase(p));
+  const murs = [[W, 0.3, 0, -D / 2], [0.3, D, -W / 2, 0], [0.3, D, W / 2, 0], [(W - 6) / 2, 0.3, -(W + 6) / 4, D / 2], [(W - 6) / 2, 0.3, (W + 6) / 4, D / 2]];
+  for (const [w, d, x, z] of murs) placer(g, boite(w, H + 0.4, d, M.blanc, 0.04), x, (H - 0.4) / 2, z);
+  placer(g, boite(6, H - 4.2, 0.3, M.blanc, 0.04), 0, 4.2 + (H - 4.2) / 2, D / 2); placer(g, boite(6.4, 0.12, 0.36, M.lisere, 0.03), 0, 4.2, D / 2);   // linteau de la grande porte
+  placer(g, boite(W + 0.1, 0.3, D + 0.1, M.graphite, 0.05), 0, -0.05, 0);   // dalle
+  for (let x = -W / 2 + 1.5; x < W / 2; x += 2.5) placer(g, boite(0.28, 2.2, 0.05, M.seve, 0.02), x, 3.6, -D / 2 - 0.17);
+  placer(g, boite(W + 0.5, 0.25, D + 0.5, M.blanc, 0.05), 0, H + 0.12, 0); placer(g, boite(W + 0.54, 0.07, D + 0.54, M.lisere, 0.02), 0, H - 0.02, 0);
+  for (let i = 0; i < 4; i++) {   // les sheds : un pan incliné et une verrière verticale, quatre fois
+    const x = -W / 2 + 2.5 + i * 5; const pan = placer(g, boite(5.1, 0.14, D, M.panneau, 0.04), x, H + 0.95, 0); pan.rotation.z = -0.32;
+    placer(g, boite(0.08, 1.6, D - 0.4, M_VERRE, 0.01), x + 2.42, H + 1.0, 0); placer(g, boite(0.12, 0.08, D, M.lisere, 0.02), x + 2.42, H + 1.82, 0);
+  }
+  placer(g, tube(0.45, 0.55, 5, M.panneau, 20), W / 2 - 2, H + 2.5, -D / 2 + 2); for (const y of [H + 3.5, H + 4.8]) placer(g, tube(0.5, 0.5, 0.15, M.lisere, 20), W / 2 - 2, y, -D / 2 + 2);   // cheminée
+  placer(g, boite(5.4, 1.0, 0.2, M.lisere, 0.05), 0, H - 0.8, D / 2 + 0.2); placer(g, boite(5.0, 0.8, 0.03, new THREE.MeshStandardMaterial({ map: texteTex([['USINE', 84]], 1024, 128, '#f08a24', '#fffdf7'), roughness: 0.5 }), 0.01), 0, H - 0.8, D / 2 + 0.32);
+  for (let x = -W / 2 + 2; x <= W / 2 - 2; x += 4) placer(g, boite(0.3, 0.05, D - 2, M_LUM, 0.01), x, H - 0.2, 0);
+  for (const z of [-2.2, 1.4]) { placer(g, boite(13, 0.9, 0.9, M.blanc, 0.04), 0, 0.45, z); placer(g, boite(13.1, 0.08, 1.0, M.graphite, 0.02), 0, 0.94, z); placer(g, boite(13.1, 0.04, 1.0, M.lisere, 0.01), 0, 0.7, z); }   // établis
+  placer(g, boite(2.2, 2.4, 1.6, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.06), -7.9, 1.2, -4.3); placer(g, boite(1.4, 0.3, 1.0, M.graphite, 0.04), -7.9, 2.55, -4.3);   // la presse
+  placer(g, boite(12, 0.06, 0.8, M_TAPIS, 0.01), 1.0, 0.82, -4.6); for (let x = -4.6; x <= 6.6; x += 2.8) placer(g, boite(0.1, 0.8, 0.7, M.graphite, 0.02), x, 0.4, -4.6);   // le tapis
+  fusionner(g); scene.add(g); ombreContact(g, 1).scale.set(W / 2 + 0.6, 1, D / 2 + 0.6);
+  for (const [w, d, x, z] of murs) OBSTACLES.push(boiteDe(g, w / 2 + 0.05, d / 2 + 0.05, {}, x, z));
+  for (const z of [-2.2, 1.4]) OBSTACLES.push(boiteDe(g, 6.6, 0.5, {}, 0, z)); OBSTACLES.push(boiteDe(g, 1.2, 0.9, {}, -7.9, -4.3), boiteDe(g, 6.0, 0.45, {}, 1.0, -4.6));
+  return g;
+})();
+// Les ouvriers : debout aux établis, ils se penchent sur leur travail ; les caisses de brosses s'empilent près de la porte.
+const POSTES = []; for (const z of [-3.0, 2.2]) for (let x = -5.5; x <= 5.6; x += 2.2) POSTES.push([x, z, z < 0 ? 0 : Math.PI]);
+const OUVRIERS_3D = POSTES.map(([x, z, ry]) => { const o = new THREE.Group(), corps = fabriquerPilote(false); o.add(corps); o.userData.corps = corps; poserDans(o, USINE, x, z, ry); o.visible = false; scene.add(o); return o; });   // le corps à part : on l'incline sans toucher au repère
+const CAISSES_3D = Array.from({ length: 12 }, (_, k) => { const c = caisses(1); poserDans(c, USINE, 7.2 + (k % 3) * 0.6, -0.4 + Math.floor(k / 3) * 0.6); c.visible = false; scene.add(c); return c; });
+const PROD = { acc: 0, parMin: 0, fait: [] };
+function produire(dt, rythme = 1) {   // ce qui manque le plus, par rapport au stock voulu ; rien quand tout est plein
+  const ouvriers = CHARGES.impaye ? 0 : S.ouvriers; PROD.acc += ouvriers / 20 * dt * rythme; let n = 0;
+  while (PROD.acc >= 1) { PROD.acc -= 1; const q = S.stock.brosses / CIBLE_STOCK.brosses <= S.stock.pieces / CIBLE_STOCK.pieces ? 'brosses' : 'pieces'; if (S.stock[q] >= CIBLE_STOCK[q]) { PROD.acc = 0; break; } S.stock[q]++; n++; }
+  return n;
+}
+let tFumee = 0;
+MAJ.push((dt) => {
+  const n = produire(dt); if (n) PROD.fait.push(gt); while (PROD.fait.length && gt - PROD.fait[0] > 60) PROD.fait.shift(); PROD.parMin = PROD.fait.length;
+  const pres = joueur.p.distanceTo(USINE.position) < 70, travaille = S.ouvriers > 0 && !CHARGES.impaye;
+  OUVRIERS_3D.forEach((o, k) => { o.visible = k < S.ouvriers && pres; if (o.visible) o.userData.corps.rotation.x = travaille ? 0.12 + Math.sin(gt * 3 + k) * 0.1 : 0; });
+  CAISSES_3D.forEach((c, k) => { c.visible = pres && k < Math.ceil(S.stock.brosses / 12); });
+  tFumee += dt; if (travaille && pres && tFumee > 0.6) { tFumee = 0; bouffee(monde(USINE, 8, 11.6, -4), 6, 0xbdbab3); }
+});
+// Les bornes devant l'usine.
+function borneDans(parent, x, z, titre) {
+  const e = ecranDyn(320, 256), b = new THREE.Group(); placer(b, cylindre(0.22, 0.26, 0.06, M.graphite, 16), 0, 0.03, 0); placer(b, tube(0.05, 0.07, 1.0, M.graphite), 0, 0.5, 0);
+  const tete = new THREE.Group(); placer(b, tete, 0, 1.25, 0); tete.rotation.x = -0.35; placer(tete, boite(0.72, 0.6, 0.07, M.graphite, 0.03), 0, 0, 0);
+  const ec = placer(tete, new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.51), e.mat), 0, 0.01, 0.04); ec.userData.garder = true; placer(b, bouton(), 0, 0.75, 0.1).scale.setScalar(0.8);
+  placer(b, bouton(), 0.3, 0.75, 0.08).scale.setScalar(0.5);
+  placer(b, boite(0.6, 0.12, 0.03, new THREE.MeshStandardMaterial({ map: texteTex([[titre, 44]], 512, 96, '#2e343a', '#fffdf7'), roughness: 0.5 }), 0.01), 0, 1.68, 0);
+  poserDans(b, parent, x, z); b.position.copy(surSol(b.position)); scene.add(b); OBSTACLES.push({ p: b.position.clone(), r: 0.3 });
+  return { e, p: monde(parent, x, 1.2, z + 0.1), p2: monde(parent, x + 0.3, 0.8, z + 0.1) };
+}
+const BORNE_USINE = borneDans(USINE, -4, 8.2, 'USINE'), BORNE_DESH = borneDans(USINE, 4, 8.2, 'DÉSHERBEURS');
+const parMin = (x) => Math.round(x * 60);
+function dessinerUsine() {
+  const e = BORNE_USINE.e, g = e.g; fond(e); g.textAlign = 'left'; const L = (t, y, c = '#edeae4', f = 19) => { g.fillStyle = c; g.font = `800 ${f}px system-ui`; g.fillText(t, 16, y); };
+  L(`OUVRIERS ${S.ouvriers} / ${MAX_OUVRIERS}`, 26, '#c9c3b6', 20);
+  L(`Brosses ${Math.floor(S.stock.brosses)} / ${CIBLE_STOCK.brosses}`, 62); L(`Pièces ${Math.floor(S.stock.pieces)} / ${CIBLE_STOCK.pieces}`, 90); L(`${PROD.parMin} fabriquées par minute`, 118, '#4fd6e3', 17);
+  L(`Salaires −${fmtCr(parMin(CHARGES.salaires))} cr/min`, 152, '#f4b41a', 17); L(`Électricité −${fmtCr(parMin(CHARGES.elec))} cr/min`, 178, '#f4b41a', 17);
+  if (CHARGES.impaye) L('IMPAYÉ : ouvriers à l’arrêt', 208, '#e0452f', 18);
+  L(S.ouvriers < MAX_OUVRIERS ? `● Embaucher ${fmtCr(EMBAUCHE)} cr   ○ Renvoyer` : '○ Renvoyer', 238, S.credits >= EMBAUCHE ? '#f08a24' : '#e0452f', 16); e.maj();
+}
+INTER.push({ p: BORNE_USINE.p, r: 2.2, get etiquette() { return S.ouvriers < MAX_OUVRIERS ? `Embaucher (${fmtCr(EMBAUCHE)} cr, ${parMin(SALAIRE)} cr/min)` : null; },
+  agir() { if (S.ouvriers >= MAX_OUVRIERS || S.credits < EMBAUCHE) { sons.refus(); return; } S.credits -= EMBAUCHE; S.ouvriers++; sons.achat(); dessinerUsine(); sauverBientot(); } });
+INTER.push({ p: BORNE_USINE.p2, r: 1.6, get etiquette() { return S.ouvriers ? 'Renvoyer un ouvrier' : null; }, agir() { if (!S.ouvriers) { sons.refus(); return; } S.ouvriers--; sons.arrache(); dessinerUsine(); sauverBientot(); } });
+
+// --- Les charges : salaires, électricité du réseau extérieur, surplus solaire vendu. ---
+function kwDemande() { return (TOIT.besoin || 0) + (S.ouvriers && !CHARGES.impaye ? 4 + 1.5 * S.ouvriers : 0) + 0.3 * (ROBOTS.length + DESHERBEURS.length); }
+MAJ.push((dt) => {
+  if (CHARGES.off) return;
+  const demande = kwDemande(), prod = TOIT.prod || 0;
+  CHARGES.kwAchat = CHARGES.impaye ? 0 : Math.max(0, demande - prod);   // impayé : plus de réseau, plus de salaires qui courent
+  CHARGES.salaires = CHARGES.impaye ? 0 : S.ouvriers * SALAIRE; CHARGES.elec = CHARGES.kwAchat * PRIX_KW; CHARGES.vente = Math.max(0, prod - demande) * VENTE_KW;
+  CHARGES.du += (CHARGES.salaires + CHARGES.elec) * dt; TOIT.cumul += CHARGES.vente * dt;
+  if (TOIT.cumul >= 25) { TOIT.vendu += expedier(TOIT.cumul, 'energie'); TOIT.cumul = 0; }
+  CHARGES.t += dt; if (CHARGES.t < 2) return; CHARGES.t = 0;
+  if (CHARGES.du <= 0) { CHARGES.impaye = false; return; }
+  if (S.credits >= CHARGES.du) { S.credits -= CHARGES.du; CHARGES.paye += CHARGES.du; CHARGES.du = 0; CHARGES.impaye = false; }
+  else { if (!CHARGES.impaye) sons.refus(); CHARGES.impaye = true; }
+});
+{   // la ligne des charges, sous les crédits
+  const el = $('charges'); let sig = '';
+  MAJ.push(() => { const m = parMin(CHARGES.salaires + CHARGES.elec), t = CHARGES.off || (!m && !CHARGES.impaye) ? '' : CHARGES.impaye ? `Impayé : ${fmtCr(CHARGES.du)} cr` : `Charges −${fmtCr(m)} cr/min`; if (t === sig) return; sig = t; el.textContent = t; el.hidden = !t; el.classList.toggle('impaye', CHARGES.impaye); });
+}
+
+// --- Les primes de secteur : une fois par secteur et par saison. ---
+let FINIS = new Set(S.finis), finisRef = S.finis, saisonVue = S.saison;
+SECTEUR_FINI.push((s) => {
+  if (S.finis !== finisRef) { FINIS = new Set(S.finis); finisRef = S.finis; }
+  if (FINIS.has(s)) return; FINIS.add(s); S.finis = finisRef = [...FINIS];
+  const prime = Math.round(secteurs[s].total * VARIETES[SECTEURS[s].variete].prix * 0.5 * multSaison());
+  S.credits += prime; montrerBandeau('Secteur terminé', `prime : +${fmtCr(prime)} cr`); sons.vente(); sauverBientot();
+});
+MAJ.push(() => { if (S.saison !== saisonVue) { saisonVue = S.saison; FINIS = new Set(); S.finis = finisRef = []; } });
+
+// --- Les mauvaises herbes : elles gagnent les parcelles fanées voisines ; leurs instances à part de celles du départ. ---
+const HERBES = { off: false, ens: new Set(), slots: new Map(), libres: [], t: 0 }, MAX_HERBES = 3000;
+const herbesMesh = new THREE.InstancedMesh(chardonGeo, chardons.material, MAX_HERBES * 2);
+for (let j = MAX_HERBES * 2 - 1; j >= 0; j--) { herbesMesh.setMatrixAt(j, _m.makeScale(0, 0, 0)); HERBES.libres.push(j); }
+herbesMesh.frustumCulled = false; herbesMesh.castShadow = true; scene.add(herbesMesh);
+function poserHerbe(k) {
+  if (HERBES.slots.has(k) || slotsChardon.has(k) || HERBES.libres.length < 2) return;
+  const R = mulberry(k * 17 + 3), l = [], { est, nord } = repere(T.pos[k]);
+  for (let c = 0; c < 2; c++) { const a = R() * 6.28, d = R() * 0.6, sc = 0.9 + R() * 0.5, j = HERBES.libres.pop(); surSol(_p.copy(T.pos[k]).addScaledVector(est, Math.cos(a) * d).addScaledVector(nord, Math.sin(a) * d), 0, _p); herbesMesh.setMatrixAt(j, _m.compose(_p, qHaut(T.dir[k], _q), _s.set(sc, sc, sc))); l.push(j); }
+  HERBES.slots.set(k, l); herbesMesh.instanceMatrix.needsUpdate = true;
+}
+function planterHerbe(k) { if (k < 0 || T.sorte[k] !== 0 || T.vert[k] || HERBES.slots.size >= MAX_HERBES) return false; changerSorte(k, 1); poserHerbe(k); HERBES.ens.add(k); return true; }
+APRES_DESHERBER.push((k) => { const l = HERBES.slots.get(k); if (l) { for (const j of l) { herbesMesh.setMatrixAt(j, _m.makeScale(0, 0, 0)); HERBES.libres.push(j); } herbesMesh.instanceMatrix.needsUpdate = true; HERBES.slots.delete(k); } HERBES.ens.delete(k); });
+function reconcilierHerbes() { HERBES.ens.clear(); for (let k = 0; k < NT; k++) if (T.sorte[k] === 1) { HERBES.ens.add(k); poserHerbe(k); } }
+reconcilierHerbes();
+MAJ.push((dt) => {
+  HERBES.t += dt; if (HERBES.t < 3 || HERBES.off) return; HERBES.t = 0;
+  const l = [...HERBES.ens]; if (!l.length) return;
+  for (let n = 0; n < 25; n++) { if (Math.random() > 0.05) continue;   // environ une nouvelle herbe toutes les 2,5 s
+    const k = l[Math.floor(Math.random() * l.length)], v = voisinsDe(T.id[k]); planterHerbe(IDX.get(v[Math.floor(Math.random() * v.length)]) ?? -1); }
+});
+
+// --- Les robots désherbeurs : orange, une pince au bout du bras ; ils vont à la mauvaise herbe la plus proche. ---
+const DESHERBEURS = [], MAX_DESH = 20, prixDesherbeur = (n) => Math.round(3000 * Math.pow(1.4, n) / 50) * 50;
+function fabriquerDesherbeur() {
+  const g = new THREE.Group(), c = new THREE.Group(); g.add(c);
+  placer(c, new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.3, 4, 12), M.lisere), 0, 0.62, 0); placer(c, cylindre(0.205, 0.205, 0.06, M.graphite, 14), 0, 0.6, 0);
+  placer(c, new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), M.graphite), 0, 1.0, 0); placer(c, boite(0.22, 0.06, 0.06, M.seve, 0.02), 0, 1.02, -0.14);
+  for (const s of [-1, 1]) placer(c, tube(0.05, 0.06, 0.36, M.graphite), s * 0.1, 0.2, 0);
+  const bras = new THREE.Group(); bras.position.set(0.24, 0.78, 0); bras.userData.garder = true; c.add(bras);
+  placer(bras, tube(0.03, 0.03, 0.45, M.graphite), 0, -0.2, -0.05).rotation.x = 0.4; for (const s of [-1, 1]) placer(bras, boite(0.03, 0.14, 0.04, M.blanc, 0.01), s * 0.04, -0.46, -0.15).rotation.z = s * 0.3;
+  g.userData.corps = c; g.userData.bras = bras; fusionner(c); g.traverse((o) => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+const PORTE_USINE = () => surSol(monde(USINE, 0, 0, 7.6));
+function chercherHerbe(p, rmax = 90) {
+  const { est, nord } = repere(p);
+  for (let r = 2; r <= rmax; r += 2) { const n = Math.max(6, Math.round(r * 1.6)); for (let a = 0; a < n; a++) { const t = (a / n) * Math.PI * 2 + r; _vp.copy(p).addScaledVector(est, Math.cos(t) * r).addScaledVector(nord, Math.sin(t) * r); const k = tuileA(_vp); if (k >= 0 && T.sorte[k] === 1 && !RESERVEES.has(k)) return k; } }
+  return -1;
+}
+MAJ.push((dt) => {
+  while (DESHERBEURS.length < Math.min(S.desherbeurs, MAX_DESH)) { const r = { g: fabriquerDesherbeur(), p: PORTE_USINE(), f: versBase(PORTE_USINE()), k: -1, t: 0, etat: 'cherche', phase: Math.random() * 6 }; scene.add(r.g); DESHERBEURS.push(r); }
+  for (const r of DESHERBEURS) {
+    r.phase += dt;
+    if (r.k >= 0 && T.sorte[r.k] !== 1) { RESERVEES.delete(r.k); r.k = -1; r.etat = 'cherche'; }
+    if (r.etat === 'cherche' && !brosseOk()) continue;
+    if (r.etat === 'cherche') { r.t += dt; if (r.t > 0.5) { r.t = 0; const k = chercherHerbe(r.p); if (k >= 0) { r.k = k; RESERVEES.add(k); r.etat = 'va'; } else { r.etat = 'explore'; r.but = surSol(new V3().copy(r.p).addScaledVector(tangent(r.p, _rd.subVectors(r.p, BASE)), 60)); } } }
+    const but = r.etat === 'va' ? T.pos[r.k] : r.etat === 'explore' ? r.but : null;
+    if (but) {
+      const d = r.p.distanceTo(but);
+      if (r.etat === 'va' && d < 0.9) { r.etat = 'arrache'; r.t = 0; } else if (r.etat === 'explore' && d < 2) r.etat = 'cherche';
+      else { tangent(r.p, _rd.subVectors(but, r.p), _rd); r.f.lerp(_rd, 1 - Math.exp(-dt * 6)).normalize(); surSol(_vp.copy(r.p).addScaledVector(_rd, Math.min(d, vitRobot() * dt)), 0, r.p); const rp = repousser(r.p, 0.3); surSol(rp.p, 0, r.p); }
+    }
+    if (r.etat === 'arrache') { r.t += dt; if (r.t >= 2.6) { if (T.sorte[r.k] === 1) { desherber(r.k); consommer('brosses', 1 / 40); expedier(2, 'graines'); if (r.p.distanceTo(joueur.p) < 30) bouffee(T.pos[r.k], 10, 0x8c8794); } RESERVEES.delete(r.k); r.k = -1; r.etat = 'cherche'; } }
+    if (r.p.distanceTo(joueur.p) < 120) { poserSur(r.g, r.p, r.f); const m = r.etat === 'va' || r.etat === 'explore'; r.g.userData.corps.position.y = m ? Math.abs(Math.sin(r.phase * 9)) * 0.06 : 0; r.g.userData.bras.rotation.x = r.etat === 'arrache' ? Math.sin(r.phase * 10) * 0.6 - 0.4 : 0; r.g.visible = true; } else r.g.visible = false;
+  }
+});
+function dessinerDesh() {
+  const e = BORNE_DESH.e, g = e.g; fond(e); g.textAlign = 'center';
+  g.fillStyle = '#c9c3b6'; g.font = '800 20px system-ui'; g.fillText('DÉSHERBEURS', 160, 28);
+  g.fillStyle = '#edeae4'; g.font = '800 42px system-ui'; g.fillText(`${S.desherbeurs} / ${MAX_DESH}`, 160, 80);
+  g.fillStyle = '#c9c3b6'; g.font = '800 18px system-ui'; g.fillText(`${fmtCr(HERBES.ens.size)} mauvaises herbes`, 160, 124);
+  const prix = prixDesherbeur(S.desherbeurs); g.font = '800 22px system-ui'; g.fillStyle = S.desherbeurs >= MAX_DESH ? '#4fd6e3' : S.credits >= prix ? '#f08a24' : '#e0452f';
+  g.fillText(S.desherbeurs >= MAX_DESH ? 'COMPLET' : `+1 : ${fmtCr(prix)} cr`, 160, 200); e.maj();
+}
+INTER.push({ p: BORNE_DESH.p, r: 2.2, get etiquette() { return S.desherbeurs < MAX_DESH ? `Désherbeur (${fmtCr(prixDesherbeur(S.desherbeurs))} cr)` : null; },
+  agir() { const prix = prixDesherbeur(S.desherbeurs); if (S.desherbeurs >= MAX_DESH || S.credits < prix) { sons.refus(); return; } S.credits -= prix; S.desherbeurs++; sons.achat(); dessinerDesh(); sauverBientot(); } });
+
+// --- Les fleurs rares : grandes, violettes, une colonne de lumière les signale de loin. ---
+const RARES = { ens: new Set(), cible: 24, cueillies: 0 };
+const M_RARE = new THREE.MeshStandardMaterial({ color: 0x8a4dff, emissive: 0x7a3dff, emissiveIntensity: 0.9, roughness: 0.4 });
+const raresFleurs = new THREE.InstancedMesh(mereGeo, M_RARE, RARES.cible + 8), raresColonnes = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.6, 40, 12, 1, true).translate(0, 20, 0), new THREE.MeshBasicMaterial({ color: 0xa070ff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), RARES.cible + 8);
+for (const m of [raresFleurs, raresColonnes]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
+function majRares() { let i = 0; for (const k of RARES.ens) { if (i >= raresFleurs.instanceMatrix.count) break; _m.compose(T.pos[k], qHaut(T.dir[k], _q), _s.set(1.3, 1.3, 1.3)); raresFleurs.setMatrixAt(i, _m); _m.compose(T.pos[k], qHaut(T.dir[k], _q), _s.set(1, 1, 1)); raresColonnes.setMatrixAt(i, _m); i++; } raresFleurs.count = raresColonnes.count = i; raresFleurs.instanceMatrix.needsUpdate = raresColonnes.instanceMatrix.needsUpdate = true; }
+function semerRare() { for (let essai = 0; essai < 200; essai++) { const k = Math.floor(Math.random() * NT); if (T.sorte[k] === 0 && !T.vert[k] && T.pos[k].distanceTo(BASE) > 90) { changerSorte(k, 5); RARES.ens.add(k); return k; } } return -1; }
+function reconcilierRares() { RARES.ens.clear(); for (let k = 0; k < NT; k++) if (T.sorte[k] === 5) RARES.ens.add(k); while (RARES.ens.size < RARES.cible) if (semerRare() < 0) break; majRares(); }
+reconcilierRares();
+RARE_CUEILLIE.push((k, v) => { RARES.ens.delete(k); RARES.cueillies++; S.rares = (S.rares || 0) + 1; sons.or(); bouffee(T.pos[k], 60, 0xa070ff); montrerBandeau('Fleur rare', `+${fmtCr(v)} cr`); semerRare(); majRares(); sauverBientot(); });
+REPERES_CARTE.push(() => [...RARES.ens].map((k) => T.pos[k]));
+
+// --- Les drones du nid : chaque lot, un drone file vers la parcelle, la pollinise et revient se poser. ---
+const droneGeo = (() => { const parts = [new THREE.BoxGeometry(0.3, 0.08, 0.3)]; for (const [x, z] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]]) parts.push(new THREE.CylinderGeometry(0.12, 0.12, 0.015, 12).translate(x, 0.06, z)); return mergeGeometries(parts.map((p) => p.index ? p.toNonIndexed() : p)); })();
+droneGeo.type = 'RoundedBoxGeometry';
+const dronesMesh = new THREE.InstancedMesh(droneGeo, M.graphite, 240); dronesMesh.count = 0; dronesMesh.frustumCulled = false; scene.add(dronesMesh);
+function lancerDrone(p) {
+  if (!p.drones) p.drones = Array.from({ length: 6 }, (_, i) => ({ t: 2, i, b: new V3() })); p.idr = ((p.idr || 0) + 1) % 6;
+  const d = p.drones[p.idr]; d.t = 0; d.b.copy(T.pos[p.dernier]);
+}
+const _da = new V3(), _db = new V3();
+MAJ.push((dt) => {
+  let n = 0;
+  for (const p of GRILLE.values()) {
+    if (p.cle !== 'drones' || !p.drones || p.pos.distanceTo(joueur.p) > 200) continue;
+    for (const d of p.drones) {
+      d.t = Math.min(2, d.t + dt / 0.7); const a = (d.i / 6) * Math.PI * 2, { est, nord } = repere(p.pos);
+      _da.copy(p.pos).addScaledVector(p.up, 1.75).addScaledVector(est, Math.cos(a) * 0.62).addScaledVector(nord, Math.sin(a) * 0.62);
+      const s = d.t <= 1 ? d.t : 2 - d.t, h = Math.sin(s * Math.PI) * 8; _db.copy(_da).lerp(d.b, s).addScaledVector(p.up, h + s * 0.6);
+      _m.compose(_db, qHaut(p.up, _q), _s.set(1, 1, 1)); if (n < 240) dronesMesh.setMatrixAt(n++, _m);
+    }
+  }
+  dronesMesh.count = n; dronesMesh.instanceMatrix.needsUpdate = true;
+});
+
+// --- L'absence : l'usine a produit (au tiers) et les charges ont couru (au tiers, sans jamais passer sous zéro). ---
+function chargesAbsence(date) {
+  const s = Math.min(7200, (Date.now() - date) / 1000); if (!date || s < 300 || CHARGES.off) return;
+  const n = produire(s / 3, 1), du = Math.round((S.ouvriers * SALAIRE + Math.max(0, (S.ouvriers ? 4 + 1.5 * S.ouvriers : 0) + 0.3 * (S.robots + S.desherbeurs) - kwToit() * 0.5) * PRIX_KW) * s / 3);
+  const pris = Math.min(S.credits, du); S.credits -= pris; if (du > pris) { CHARGES.du += du - pris; CHARGES.impaye = true; }
+  if (n || du) { const a = document.getElementById('annonce'); montrerAnnonce(`${a.hidden ? '' : a.textContent + ' '}L'usine a fabriqué ${n} pièces ; charges payées : ${fmtCr(pris)} cr.`); }
+}
+if (DEMARRAGE.repris) chargesAbsence(DEMARRAGE.date);
+let tBornesU = 0;
+MAJ.push((dt) => { tBornesU += dt; if (tBornesU < 0.5 || joueur.p.distanceTo(USINE.position) > 40) return; tBornesU = 0; dessinerUsine(); dessinerDesh(); });
+dessinerUsine(); dessinerDesh();
+
+// =====================================================================
 // 99. Post-traitement, mise en page (paysage forcé sur téléphone), boucle de jeu
 // =====================================================================
 const cible = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: Q.msaa });
@@ -3705,7 +3990,7 @@ function image(now) {
 window.pollen = {
   figer: false, Q, T, NT, IDX, CHARTE, scene, camera, renderer, machines, COLLECTEUR, joueur, E, OBSTACLES, SURCOTES, vue, corps, RP, PAS, SECTEURS, BASE, QUAI, poserVehicule, refaireVehicule, local, sol, surSol, altitude, repere, tangent, tuileDe, tuileA, dirDe, voisinsDe, deplacer, V3,
   get outil() { return outilEnMain; }, prendre, S, INTER, ETAL, AMELIOS, TERMINAL_ATELIER, COMPTOIR, STATION, ATELIER, LABO, CONCESSION, HALL, placeParvis, SALLES, DEDANS, secteurs, polliniser, vendre, acheter, changerOutil, pollinisable, chargeMax, VARIETES, OUVERTS, PIECES, CATEGORIES, ameliorer, demonter, raisonRefus, SEL, kgSac, valeurSac, ajouter, sacVide, COLIS, emballer, ESSAIM, echapperEssaim, PANNES, VAGUE, FIN_SECTEUR, MATS_FLEUR, FLEUR_GEOS, contreJour, sun, hemi, lampe, lampeSalle, ao, secousseMax: () => secousse, parkingVert: () => M_PARK.color.getHex() === 0x3fd35a, ecartObstacle, repousser, penetre, surcote, PARKING, bienGare, M, composer, sons, porteColis: () => porte, PAQUETS, majFleurs,
-  GRILLE, poserPiece, CAPSULES, FLOTTE, VEHICULES, acheterVehicule, monter, descendre, SORTIE, sauver, charger, etatSauve, CONS, CARTE, departs, RUCHES, BALISES, TOIT, ROBOTS, prixRobot, cloreSaison, seuilSaison, multSaison, chercherTuile, HANGAR, PARCS, prixPilote, absenceEquipe, listeIds, octetsEnTexte, octetsDesTuiles, convertir, RB, rappeler, PLANETE_PROG, monde, ELAN, BOURRASQUE, gagnerXp, progresser, retourAbsence, xpPour, prochainAchat, ACTIONS, ENERGIE, JOUR, SOLEIL, placerSoleil, dormir, SUCCES, MEDAILLONS, DEBITS, SOL_U, HALO, PLANETE, posTuile, voisineVers, accepter, amelio, viser, MAJ,
+  GRILLE, poserPiece, CAPSULES, FLOTTE, VEHICULES, acheterVehicule, monter, descendre, SORTIE, sauver, charger, etatSauve, CONS, CARTE, departs, RUCHES, BALISES, TOIT, ROBOTS, USINE, CHARGES, HERBES, RARES, DESHERBEURS, planterHerbe, semerRare, produire, prixDesherbeur, consommer, estRare, kwDemande, SECTEUR_FINI, desherber,  prixRobot, cloreSaison, seuilSaison, multSaison, chercherTuile, HANGAR, PARCS, prixPilote, absenceEquipe, listeIds, octetsEnTexte, octetsDesTuiles, convertir, RB, rappeler, PLANETE_PROG, monde, ELAN, BOURRASQUE, gagnerXp, progresser, retourAbsence, xpPour, prochainAchat, ACTIONS, ENERGIE, JOUR, SOLEIL, placerSoleil, dormir, SUCCES, MEDAILLONS, DEBITS, SOL_U, HALO, PLANETE, posTuile, voisineVers, accepter, amelio, viser, MAJ,
   get visee() { return visee; }, get interVise() { return interVise; }, get groupe() { return groupe; },
   step(dt, n = 1) { for (let k = 0; k < n; k++) majMonde(dt); return { p: joueur.p.toArray(), f: joueur.f.toArray(), pitch: joueur.pitch, vitesse: joueur.vitesse }; },
 };

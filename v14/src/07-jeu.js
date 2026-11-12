@@ -11,14 +11,14 @@ const sacVide = () => Object.fromEntries(Object.keys(RESSOURCES).map((k) => [k, 
 // Les cinq améliorations de l'atelier (trois niveaux chacune).
 const AMELIOS = {
   sac: { nom: 'SAC', unite: 'kg', valeurs: [12, 18, 26, 36], prix: [400, 1500, 5000] },
-  jambes: { nom: 'MARCHE', unite: '%', valeurs: [100, 112, 125, 140], prix: [300, 1200, 4000] },
+  jambes: { nom: 'MARCHE', unite: '%', valeurs: [100, 112, 125, 140, 165, 195], prix: [300, 1200, 4000, 20000, 80000] },   // les deux derniers : bottes à ressort, pour aller plus vite
   geste: { nom: 'GESTE', unite: '%', valeurs: [100, 88, 76, 65], prix: [500, 2000, 6500] },
   negoce: { nom: 'VENTE', unite: '%', valeurs: [100, 110, 120, 135], prix: [800, 3000, 9000] },
   portee: { nom: 'PORTÉE', unite: 'm', valeurs: [4.6, 5.6, 6.8, 8], prix: [250, 900, 3000] },
 };
 const S = { credits: 0, sac: sacVide(), outils: ['pinceau'], tuiles: 0, ventes: 0, silo: sacVide(), expedie: 0, temps: 0, amelio: { sac: 0, jambes: 0, geste: 0, negoce: 0, portee: 0 }, succes: {}, recolte: 0, pieces: 0 };   // l'état du joueur (sauvegardé)
 const amelio = (c) => AMELIOS[c].valeurs[S.amelio[c]];
-const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'rateau', 'collecteur', 'enfumoir', 'marteau'];
+const ORDRE_OUTILS = ['pinceau', 'brosse', 'large', 'xl', 'souffleur', 'canon', 'rateau', 'collecteur', 'enfumoir', 'marteau'];
 const outilDef = () => OUTILS_DEF[outilEnMain];
 const chargeMax = () => amelio('sac');
 const kgSac = (sac = S.sac) => Object.values(sac).reduce((s, r) => s + r.kg, 0);
@@ -86,6 +86,8 @@ function viser(portee = amelio('portee') + 0.6) {
 }
 const ouvert = (k) => k >= 0 && T.sect[k] < OUVERTS.value;
 const pollinisable = (k) => ouvert(k) && !T.vert[k] && T.sorte[k] === 0;
+const estRare = (k) => k >= 0 && T.sorte[k] === 5 && !T.vert[k];   // une fleur rare : seul le joueur (à pied ou au volant) la pollinise
+const pollinisableJoueur = (k) => pollinisable(k) || (ouvert(k) && estRare(k));
 const prixTuile = (k) => VARIETES[SECTEURS[T.sect[k]].variete].prix;
 function groupeVise(v, largeur) {   // la tuile visée et ses voisines dans l'axe perpendiculaire au regard
   if (!v || v.k < 0) return [];
@@ -97,15 +99,20 @@ const secteurs = Array.from({ length: NSECT }, () => ({ total: 0, vert: 0 }));
 for (let k = 0; k < NT; k++) { secteurs[T.sect[k]].total++; secteurs[T.sect[k]].vert += T.vert[k]; PLANETE_PROG.vert += T.vert[k]; }
 const majProgres = (s) => { if (s === undefined) { for (let k = 0; k < NSECT; k++) PROG[k] = secteurs[k].vert / secteurs[k].total; } else PROG[s] = secteurs[s].vert / secteurs[s].total; PROG_TEX.needsUpdate = true; };
 const FIN_SECTEUR = [];   // la fête : toutes les 500 parcelles rendues à la vie
+const SECTEUR_FINI = [], RARE_CUEILLIE = [];   // (s) quand un secteur est entièrement fleuri ; (k, valeur) pour une fleur rare
 const APRES_POLLEN = [], APRES_VENTE = [];   // (k, par, valeur) → valeur, et (crédits) : l'élan s'y branche
 const multSaison = () => (1 + 0.5 * (S.saison || 0)) * (1 + 0.05 * ((S.rech && S.rech.valeur) || 0));   // multiplicateur permanent : +50 % par saison close, +5 % par niveau de recherche « valeur »
 function polliniser(k, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur de son pollen
-  if (!pollinisable(k)) return 0;
+  const rare = estRare(k) && (par === 'joueur' || par === 'vehicule');
+  if (!pollinisable(k) && !rare) return 0;
+  if (rare) T.sorte[k] = 0;
   fleurirTuile(k, gt); secteurs[T.sect[k]].vert++; S.tuiles++; majProgres(T.sect[k]);
+  if (secteurs[T.sect[k]].vert >= secteurs[T.sect[k]].total) for (const f of SECTEUR_FINI) f(T.sect[k]);
   bouffee(T.pos[k], par === 'joueur' ? 16 : 8, CHARTE.pollen);
   const s = T.sect[k];
   PLANETE_PROG.vert++; if (PLANETE_PROG.vert % 500 === 0) for (const f of FIN_SECTEUR) f(s);
-  let v = prixTuile(k) * multSaison(); for (const f of APRES_POLLEN) v = f(k, par, v);
+  let v = prixTuile(k) * multSaison() * (rare ? 25 : 1); for (const f of APRES_POLLEN) v = f(k, par, v);
+  if (rare) for (const f of RARE_CUEILLIE) f(k, v);
   return v;
 }
 // L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil. Relâcher, ou changer de cible,
@@ -118,7 +125,7 @@ function majAction(dt) {
   let cibleAction = null;
   if (visee) for (const a of ACTIONS) if (a.quand(visee)) { cibleAction = a; break; }
   if (cibleAction) groupe = cibleAction.objet ? [] : visee.k >= 0 ? [visee.k] : [];
-  else if (def.largeur && visee && place() >= KG_TUILE) groupe = groupeVise(visee, def.largeur).filter(pollinisable);
+  else if (def.largeur && visee && place() >= KG_TUILE) groupe = groupeVise(visee, def.largeur).filter(pollinisableJoueur);
   else groupe = [];
   selectionner(groupe);
   gesteType = cibleAction && cibleAction.geste ? cibleAction.geste : 'brosser';
@@ -182,7 +189,7 @@ INTER.push({ p: new V3().copy(COLLECTEUR.position).addScaledVector(COLLECTEUR.us
 INTER.push({ p: monde(COMPTOIR, 0, 1.3, 0.6), r: 2.6, vente: true, agir: () => vendre() });
 
 // --- L'établi du comptoir : tous les outils y sont exposés. Possédé : blanc et orange ; trop cher : gris translucide. ---
-const VENTE_COMPTOIR = [['pinceau', 0], ['brosse', 250], ['rateau', 200], ['collecteur', 400], ['enfumoir', 300], ['marteau', 600], ['large', 1200], ['xl', 3200], ['souffleur', 8000]];
+const VENTE_COMPTOIR = [['pinceau', 0], ['brosse', 250], ['rateau', 200], ['collecteur', 400], ['enfumoir', 300], ['marteau', 600], ['large', 1200], ['xl', 3200], ['souffleur', 8000], ['canon', 60000]];
 VENTE_COMPTOIR.forEach(([cle, prix], n) => {
   const g = COMPTOIR, F = g.userData.salle.F, x = -4.4 + n * 0.975, objet = fusionner(fabriquerOutil(cle)), l = { pinceau: 0.42, brosse: 1.05, large: 1.2, xl: 1.35, rateau: 1.1, souffleur: 0.8 }[cle] || 0.6;
   objet.scale.setScalar(Math.min(1, 0.85 / l) * (cle === 'xl' || cle === 'large' ? 0.5 : 1)); objet.userData.garder = true; placer(g, objet, x, F + 0.9, -2.85);
@@ -219,7 +226,7 @@ MAJ.push(() => {
     const A = AMELIOS[t.c], niv = S.amelio[t.c], prix = A.prix[niv], ok = prix !== undefined && S.credits >= prix, sig = niv + ' ' + ok; if (sig === t.sig) continue; t.sig = sig;
     const g = t.e.g; fond(t.e); g.textAlign = 'center'; g.fillStyle = '#edeae4'; g.font = '800 26px system-ui'; g.fillText(A.nom, 80, 26);
     g.fillStyle = '#4fd6e3'; g.font = '800 34px system-ui'; g.fillText(`${A.valeurs[niv]} ${A.unite}`.replace('.', ','), 80, 72);
-    for (let k = 0; k < 3; k++) { g.fillStyle = k < niv ? '#4fd6e3' : '#3a3f45'; g.fillRect(26 + k * 38, 100, 30, 12); }
+    const nb = A.prix.length, w = 112 / nb; for (let k = 0; k < nb; k++) { g.fillStyle = k < niv ? '#4fd6e3' : '#3a3f45'; g.fillRect(24 + k * w, 100, w - 6, 12); }
     g.fillStyle = prix === undefined ? '#4fd6e3' : ok ? '#f08a24' : '#c0392b'; g.font = '800 26px system-ui'; g.fillText(prix === undefined ? 'MAX' : `${prix.toLocaleString('fr-FR')} cr`, 80, 160);
     t.e.maj();
   }

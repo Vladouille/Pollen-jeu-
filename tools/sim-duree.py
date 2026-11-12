@@ -6,10 +6,11 @@ def prix_rang(r):
 NS = int(sys.argv[1]) if len(sys.argv) > 1 else 25
 SEUILS = [min(1, 0.02 * 1.5 ** s) for s in range(NS)]
 PAS_SAISON = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
-EFF_PILOTE = 0.5; EFF_JOUEUR = 0.7   # trajets, demi-tours, quai
+EFF_PILOTE = 0.5 * 0.55   # le pilote roule à 55 % de la vitesse
+EFF_JOUEUR = 0.7   # trajets, demi-tours, quai
 # (nom, prix, débit en parcelles/s si conduit par le joueur, pilotable)
 OUTILS = [('pinceau',0,0.25),('brosse',250,0.6),('large',1200,1.2),('xl',3200,2.0),('souffleur',8000,3.0)]
-VEH = [('chariot',900,1.5),('pollinisatrice',18000,6.5),('transporteur',90000,9.7),('geante',250000,15),('aeroglisseur',750000,38)]
+VEH = [('chariot',900,1.5),('pollinisatrice',45000,6.5),('moto',35000,9.0),('transporteur',300000,9.7),('geante',1500000,15),('aeroglisseur',5000000,38)]
 def prix_tuile(n, mult):   # la n-ième parcelle pollinisée vaut selon le rang de son secteur (au plus près d'abord)
     return prix_rang(int(n // SECT)) * mult
 rech = [0, 0, 0]; PRIX_R = [20000, 30000, 50000]
@@ -19,10 +20,11 @@ while saison < len(SEUILS):
     mult = (1 + PAS_SAISON * saison) * (1 + 0.05 * rech[2])
     meilleur_veh = max([d for (k,p,d) in VEH if k in possede] + [0])
     joueur = max(outil, meilleur_veh) * EFF_JOUEUR
-    auto = sum(d for (k,p,d) in VEH if k in pilotes and k != max(((d,k) for (k,p,d) in VEH if k in possede), default=(0,''))[1]) * EFF_PILOTE * (1 + 0.06 * rech[1]) + robots * 0.35 * (1 + 0.05 * rech[0])
+    auto = sum(d for (k,p,d) in VEH if k in pilotes and k != max(((d,k) for (k,p,d) in VEH if k in possede), default=(0,''))[1]) * EFF_PILOTE * (1 + 0.06 * rech[1]) + robots * 0.2 * (1 + 0.05 * rech[0])
     debit = joueur + auto
     gain = debit * dt * prix_tuile(n, mult) + [0, 8, 32, 104][toit] * 0.5 * dt
-    cr += gain; n += debit * dt; t += dt
+    charges = (6 * 0.6 + 13 * 0.25 + robots * 0.3 * 0.25) if robots else 0   # usine de six ouvriers, recharge des robots
+    cr += gain - charges * dt; n += debit * dt; t += dt
     # achats : le meilleur rapport débit/prix abordable
     choix = []
     for (k,p,d) in OUTILS:
@@ -31,7 +33,7 @@ while saison < len(SEUILS):
         if k not in possede and cr >= p: choix.append((max(0, d - max(outil, meilleur_veh)) + 0.01, p, ('veh', k)))
         if k in possede and k not in pilotes and cr >= p * 0.3: choix.append((d * EFF_PILOTE, p * 0.3, ('pilote', k)))
     pr = 2500 * 1.35 ** robots
-    if robots < 40 and cr >= pr: choix.append((0.35, pr, ('robot',)))
+    if robots < 40 and cr >= pr: choix.append((0.2, pr, ('robot',)))
     tp = [6000, 30000, 150000]
     for i in range(3):
         pr_ = PRIX_R[i] * 2.0 ** rech[i]

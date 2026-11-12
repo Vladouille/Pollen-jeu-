@@ -15,6 +15,7 @@ const OUTILS_DEF = {
   large: { nom: 'Brosse large', prix: 1200, largeur: 2, duree: 1.2 },
   xl: { nom: 'Brosse extra-large', prix: 3200, largeur: 3, duree: 0.8 },
   souffleur: { nom: 'Souffleur à dos', prix: 8000, largeur: 5, duree: 0.5 },
+  canon: { nom: 'Canon à pollen', prix: 60000, largeur: 9, duree: 0.6 },   // neuf parcelles d'un coup, pour aller vite
   rateau: { nom: 'Râteau à graines', prix: 200, special: true },      // graines sur les tuiles fanées, ou replanter une tuile nue
   collecteur: { nom: 'Collecteur à main', prix: 400, special: true },  // nectar sur les fleurs déjà ouvertes
   enfumoir: { nom: 'Enfumoir', prix: 300, special: true },             // miel et cire aux ruches
@@ -43,6 +44,11 @@ function fabriquerOutil(cle) {
     if (cle === 'large' || cle === 'xl') for (let k = -3; k <= 3; k++) placer(tete, boite(W * 0.07, 0.012, 0.03, M.pollen, 0.005), k * W * 0.13, 0.068, 0);   // tirets jaunes sur le dessus
     if (cle === 'xl') { placer(tete, boite(W * 0.96, 0.06, 0.06, M_POILS, 0.02), 0, -0.04, 0.07); placer(tete, cylindre(0.05, 0.05, 0.04, M.graphite, 20), W / 2 + 0.04, 0.0, 0).rotation.z = Math.PI / 2; }   // deuxième rangée, roulette
     g.userData.tete = tete;
+  } else if (cle === 'canon') {   // réservoir vitré à dos, canon orange à évasement, poignée et gâchette
+    placer(g, tube(0.022, 0.022, 0.2, M.graphite), 0, 0.1, 0); placer(g, boite(0.05, 0.12, 0.05, M.graphite, 0.015), 0, 0.18, 0.06);
+    placer(g, tube(0.07, 0.07, 0.34, M_TUBE, 16), 0, 0.42, 0.12); placer(g, tube(0.072, 0.072, 0.03, M.lisere, 16), 0, 0.6, 0.12);
+    const c = placer(g, tube(0.05, 0.05, 0.55, M.lisere, 16), 0, 0.32, -0.25); c.rotation.x = Math.PI / 2;
+    const ev = placer(g, tube(0.06, 0.13, 0.16, M.graphite, 16), 0, 0.32, -0.58); ev.rotation.x = -Math.PI / 2; placer(g, boite(0.08, 0.05, 0.12, M.seve, 0.01), 0, 0.4, -0.15);
   } else if (cle === 'souffleur') {
     placer(g, tube(0.022, 0.022, 0.25, M.graphite), 0, 0.12, 0);                               // poignée
     placer(g, tube(0.05, 0.035, 0.55, M.blanc), 0, 0.5, 0);                                    // buse blanche
@@ -274,6 +280,7 @@ const POSE_OUTIL = {   // position et orientation de chaque outil dans la camér
   large: { p: [0.42, -0.72, -0.65], r: [-1.25, 1.05, 0.1], s: 0.85 },
   xl: { p: [0.45, -0.8, -0.7], r: [-1.28, 1.05, 0.1], s: 0.72 },
   souffleur: { p: [0.26, -0.42, -0.55], r: [-1.25, 0.7, 0.1], s: 0.85 },
+  canon: { p: [0.22, -0.36, -0.55], r: [-1.35, 0.55, 0.05], s: 0.85 },
   marteau: { p: [0.24, -0.34, -0.5], r: [-0.7, 0.4, 0.2], s: 1.1 },
   rateau: { p: [0.36, -0.62, -0.6], r: [-1.2, 1.05, 0.12], s: 0.9 },
   collecteur: { p: [0.24, -0.36, -0.5], r: [-1.1, 0.5, 0.1], s: 1.1 },

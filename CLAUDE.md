@@ -77,6 +77,24 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   toute la planète dès la 10e ; ×1,5 par saison ; la 30e sauve la planète). Durée estimée par `tools/sim-duree.py` (joueur qui
   optimise tout) : ~50 h jusqu'à la saison 30, donc bien plus pour un joueur réel ; à confirmer en jouant. L'absence
   compte aussi robots et pilotes (`absenceEquipe`).
+  Puis : « une usine avec des ouvriers payés qui fabrique des brosses pour les robots ; payer l'électricité ; des charges
+  à couvrir ; une prime par secteur fini ; ouvriers et robots moins efficaces ; grosses machines beaucoup plus chères ;
+  des machines automatiques plus efficaces ; d'autres pour aller plus vite ; des robots désherbeurs ; des fleurs
+  rares » → `15-usine.js` : USINE à local(-37, -2) (sheds, cheminée, établis, ouvriers visibles) ; un ouvrier fait une
+  brosse ou une pièce toutes les 20 s et touche 0,6 cr/s (embauche 400 cr, 12 au plus) ; stock voulu 150 brosses et
+  60 pièces (`S.stock`). Les robots usent une brosse pour 30 parcelles, les désherbeurs pour 40 herbes, les machines
+  automatiques selon `brosses` ; les pilotes une pièce pour 400 parcelles ; sans stock, ils attendent. Électricité
+  achetée au réseau extérieur 0,25 cr/kW/s (toiture d'abord, surplus revendu 0,1) ; charges prélevées toutes les 2 s ;
+  impayé : facture due, ouvriers et réseau coupés jusqu'au paiement (`CHARGES`, ligne sous les crédits). Prime d'un
+  secteur entièrement fleuri : moitié de sa valeur, une fois par saison (`SECTEUR_FINI`, `S.finis`). Prix : pollinisatrice
+  45 000, transporteur 300 000, géante 1,5 M, aéroglisseur 5 M, ruche mère 25 000, pollinisateur 12 000. Robots 1,5 m/s
+  et 3,2 s par parcelle ; pilotes à 55 % de la vitesse. Nouvelles machines : tour d'épandage (60 000, rayon 22 m) et nid
+  de drones (250 000, rayon 80 m, six drones animés) ; pour le joueur : moto des champs (35 000, 20 m/s, rampes
+  repliables), canon à pollen (60 000, neuf parcelles), deux niveaux de marche de plus. Mauvaises herbes (sorte 1) qui
+  gagnent les parcelles fanées voisines (`HERBES`, instances à part) ; robots désherbeurs (3 000 × 1,4^n, 20 au plus).
+  Fleurs rares (sorte 5, 24 sur la planète, colonne violette) : seul le joueur les pollinise, ×25. Sauvegarde : S.stock,
+  ouvriers, desherbeurs, finis, rares. `CHARGES.off` et `HERBES.off` pour les tests. Durée estimée : ~67 h pour un joueur
+  qui optimise tout (`tools/sim-duree.py`).
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;
