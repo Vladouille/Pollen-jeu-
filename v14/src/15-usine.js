@@ -18,48 +18,109 @@ const brosseOk = () => S.stock.brosses > 0, piecesOk = () => S.stock.pieces > 0;
 function consommer(q, n) { S.stock[q] = Math.max(0, S.stock[q] - n); }
 APRES_POLLEN.push((k, par, v) => { if (par === 'bot') consommer('brosses', 1 / 30); else if (par === 'pilote') consommer('pieces', 1 / 400); return v; });   // l'usure
 
-// --- Le bâtiment : murs blancs, toit à sheds vitrés, cheminée, grande porte vers la base ; établis, presse, tapis, caisses. ---
+// --- Le bâtiment : 30 × 16 m, toit à sheds vitrés, cheminée, grande porte vers la base. Dedans, deux lignes de production :
+//     une presse au début, un tapis qui avance entre deux rangées d'établis, des porteurs qui emportent les caisses aux
+//     étagères. La ligne A tourne avec les ouvriers embauchés ; la ligne B avec les habitants de la ville. ---
+const UW = 30, UD = 16, UH = 7;
 const USINE = (() => {
-  const W = 20, D = 12, H = 6, g = new THREE.Group(), p = local(-37, -2);
+  const W = UW, D = UD, H = UH, g = new THREE.Group(), p = local(-52, -2);
   poserSur(g, p, versBase(p));
-  const murs = [[W, 0.3, 0, -D / 2], [0.3, D, -W / 2, 0], [0.3, D, W / 2, 0], [(W - 6) / 2, 0.3, -(W + 6) / 4, D / 2], [(W - 6) / 2, 0.3, (W + 6) / 4, D / 2]];
-  for (const [w, d, x, z] of murs) placer(g, boite(w, H + 0.4, d, M.blanc, 0.04), x, (H - 0.4) / 2, z);
-  placer(g, boite(6, H - 4.2, 0.3, M.blanc, 0.04), 0, 4.2 + (H - 4.2) / 2, D / 2); placer(g, boite(6.4, 0.12, 0.36, M.lisere, 0.03), 0, 4.2, D / 2);   // linteau de la grande porte
-  placer(g, boite(W + 0.1, 0.3, D + 0.1, M.graphite, 0.05), 0, -0.05, 0);   // dalle
-  for (let x = -W / 2 + 1.5; x < W / 2; x += 2.5) placer(g, boite(0.28, 2.2, 0.05, M.seve, 0.02), x, 3.6, -D / 2 - 0.17);
+  const murs = [[W, 0.3, 0, -D / 2], [0.3, D, -W / 2, 0], [0.3, D, W / 2, 0], [(W - 7) / 2, 0.3, -(W + 7) / 4, D / 2], [(W - 7) / 2, 0.3, (W + 7) / 4, D / 2]];
+  for (const [w, d, x, z] of murs) placer(g, boite(w, H + 0.5, d, M.blanc, 0.04), x, (H - 0.5) / 2, z);
+  placer(g, boite(7, H - 4.6, 0.3, M.blanc, 0.04), 0, 4.6 + (H - 4.6) / 2, D / 2); placer(g, boite(7.4, 0.12, 0.36, M.lisere, 0.03), 0, 4.6, D / 2);   // linteau de la grande porte
+  placer(g, boite(W + 0.1, 0.3, D + 0.1, M.graphite, 0.05), 0, -0.05, 0); placer(g, boite(W - 1, 0.012, D - 1, M_DALLE, 0.004), 0, 0.106, 0);   // dalle
+  for (let x = -W / 2 + 1.5; x < W / 2; x += 2.5) for (const z of [-D / 2 - 0.17, D / 2 + 0.17]) if (Math.abs(x) > 4.5 || z < 0) placer(g, boite(0.28, 2.4, 0.05, M.seve, 0.02), x, 4.2, z);
   placer(g, boite(W + 0.5, 0.25, D + 0.5, M.blanc, 0.05), 0, H + 0.12, 0); placer(g, boite(W + 0.54, 0.07, D + 0.54, M.lisere, 0.02), 0, H - 0.02, 0);
-  for (let i = 0; i < 4; i++) {   // les sheds : un pan incliné et une verrière verticale, quatre fois
+  for (let i = 0; i < 6; i++) {   // les sheds : un pan incliné et une verrière verticale, six fois
     const x = -W / 2 + 2.5 + i * 5; const pan = placer(g, boite(5.1, 0.14, D, M.panneau, 0.04), x, H + 0.95, 0); pan.rotation.z = -0.32;
     placer(g, boite(0.08, 1.6, D - 0.4, M_VERRE, 0.01), x + 2.42, H + 1.0, 0); placer(g, boite(0.12, 0.08, D, M.lisere, 0.02), x + 2.42, H + 1.82, 0);
   }
-  placer(g, tube(0.45, 0.55, 5, M.panneau, 20), W / 2 - 2, H + 2.5, -D / 2 + 2); for (const y of [H + 3.5, H + 4.8]) placer(g, tube(0.5, 0.5, 0.15, M.lisere, 20), W / 2 - 2, y, -D / 2 + 2);   // cheminée
-  placer(g, boite(5.4, 1.0, 0.2, M.lisere, 0.05), 0, H - 0.8, D / 2 + 0.2); placer(g, boite(5.0, 0.8, 0.03, new THREE.MeshStandardMaterial({ map: texteTex([['USINE', 84]], 1024, 128, '#f08a24', '#fffdf7'), roughness: 0.5 }), 0.01), 0, H - 0.8, D / 2 + 0.32);
+  placer(g, tube(0.55, 0.65, 6, M.panneau, 20), W / 2 - 2.5, H + 3, -D / 2 + 2.5); for (const y of [H + 4, H + 5.6]) placer(g, tube(0.6, 0.6, 0.15, M.lisere, 20), W / 2 - 2.5, y, -D / 2 + 2.5);   // cheminée
+  placer(g, boite(6.4, 1.1, 0.2, M.lisere, 0.05), 0, H - 1.0, D / 2 + 0.2); placer(g, boite(6.0, 0.9, 0.03, new THREE.MeshStandardMaterial({ map: texteTex([['USINE', 84]], 1024, 128, '#f08a24', '#fffdf7'), roughness: 0.5 }), 0.01), 0, H - 1.0, D / 2 + 0.32);
   for (let x = -W / 2 + 2; x <= W / 2 - 2; x += 4) placer(g, boite(0.3, 0.05, D - 2, M_LUM, 0.01), x, H - 0.2, 0);
-  for (const z of [-2.2, 1.4]) { placer(g, boite(13, 0.9, 0.9, M.blanc, 0.04), 0, 0.45, z); placer(g, boite(13.1, 0.08, 1.0, M.graphite, 0.02), 0, 0.94, z); placer(g, boite(13.1, 0.04, 1.0, M.lisere, 0.01), 0, 0.7, z); }   // établis
-  placer(g, boite(2.2, 2.4, 1.6, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.06), -7.9, 1.2, -4.3); placer(g, boite(1.4, 0.3, 1.0, M.graphite, 0.04), -7.9, 2.55, -4.3);   // la presse
-  placer(g, boite(12, 0.06, 0.8, M_TAPIS, 0.01), 1.0, 0.82, -4.6); for (let x = -4.6; x <= 6.6; x += 2.8) placer(g, boite(0.1, 0.8, 0.7, M.graphite, 0.02), x, 0.4, -4.6);   // le tapis
+  for (const zl of [-3.5, 3.5]) {   // une ligne : établis des deux côtés, tapis au milieu, presse au début, bac au bout
+    for (const s of [-1, 1]) { placer(g, boite(17, 0.9, 0.8, M.blanc, 0.04), -1.5, 0.45, zl + s * 1.5); placer(g, boite(17.1, 0.07, 0.9, M.graphite, 0.02), -1.5, 0.93, zl + s * 1.5); placer(g, boite(17.1, 0.04, 0.9, M.lisere, 0.01), -1.5, 0.7, zl + s * 1.5); }
+    placer(g, boite(20, 0.1, 0.9, M.graphite, 0.02), -1, 0.8, zl); for (let x = -10.5; x <= 8.6; x += 2.4) for (const s of [-1, 1]) placer(g, boite(0.08, 0.8, 0.08, M.graphite, 0.02), x, 0.4, zl + s * 0.4);
+    const t = placer(g, new THREE.Mesh(new THREE.PlaneGeometry(19.6, 0.8).rotateX(-Math.PI / 2), M_TAPIS), -1, 0.86, zl); t.userData.garder = true;
+    placer(g, boite(2.4, 2.6, 1.8, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.06), -12.6, 1.3, zl); placer(g, boite(1.6, 0.4, 1.2, M.graphite, 0.04), -12.6, 3.2, zl);   // la presse
+    placer(g, boite(1.6, 0.7, 1.4, M.graphite, 0.04), 10.2, 0.35, zl); placer(g, boite(1.62, 0.05, 1.42, M.lisere, 0.02), 10.2, 0.72, zl);   // le bac d'arrivée
+  }
+  for (const z of [-6.8, -4.6, 4.6, 6.8]) { placer(g, boite(0.5, 2.6, 1.8, M.graphite, 0.03), 13.7, 1.3, z * 0.0 + z); }   // montants des étagères
+  for (const y of [0.3, 1.2, 2.1]) placer(g, boite(0.7, 0.06, 13.8, M.blanc, 0.02), 13.7, y, 0);
+  const ec = ecranDyn(1024, 384); placer(g, boite(6.2, 2.3, 0.12, M.graphite, 0.03), -2, 4.6, -D / 2 + 0.25); const m = placer(g, new THREE.Mesh(new THREE.PlaneGeometry(6.0, 2.1), ec.mat), -2, 4.6, -D / 2 + 0.33); m.userData.garder = true;
   fusionner(g); scene.add(g); ombreContact(g, 1).scale.set(W / 2 + 0.6, 1, D / 2 + 0.6);
   for (const [w, d, x, z] of murs) OBSTACLES.push(boiteDe(g, w / 2 + 0.05, d / 2 + 0.05, {}, x, z));
-  for (const z of [-2.2, 1.4]) OBSTACLES.push(boiteDe(g, 6.6, 0.5, {}, 0, z)); OBSTACLES.push(boiteDe(g, 1.2, 0.9, {}, -7.9, -4.3), boiteDe(g, 6.0, 0.45, {}, 1.0, -4.6));
+  for (const zl of [-3.5, 3.5]) { OBSTACLES.push(boiteDe(g, 9.6, 1.95, {}, -1.5, zl), boiteDe(g, 1.25, 0.95, {}, -12.6, zl), boiteDe(g, 0.85, 0.75, {}, 10.2, zl)); }
+  OBSTACLES.push(boiteDe(g, 0.45, 7.1, {}, 13.7, 0));
+  g.userData.ecran = ec; g.userData.tapis = g.children.filter((o) => o.userData.garder && o.material === M_TAPIS);
   return g;
 })();
-// Les ouvriers : debout aux établis, ils se penchent sur leur travail ; les caisses de brosses s'empilent près de la porte.
-const POSTES = []; for (const z of [-3.0, 2.2]) for (let x = -5.5; x <= 5.6; x += 2.2) POSTES.push([x, z, z < 0 ? 0 : Math.PI]);
-const OUVRIERS_3D = POSTES.map(([x, z, ry]) => { const o = new THREE.Group(), corps = fabriquerPilote(false); o.add(corps); o.userData.corps = corps; poserDans(o, USINE, x, z, ry); o.visible = false; scene.add(o); return o; });   // le corps à part : on l'incline sans toucher au repère
-const CAISSES_3D = Array.from({ length: 12 }, (_, k) => { const c = caisses(1); poserDans(c, USINE, 7.2 + (k % 3) * 0.6, -0.4 + Math.floor(k / 3) * 0.6); c.visible = false; scene.add(c); return c; });
+// --- Les ouvriers : combinaison bleue, casque jaune, bras et jambes articulés. ---
+const M_COMBI = new THREE.MeshStandardMaterial({ color: 0x2f6db5, roughness: 0.8 }), M_PEAU = new THREE.MeshStandardMaterial({ color: 0xd9a27a, roughness: 0.7 }), M_CASQUE = new THREE.MeshStandardMaterial({ color: 0xf4b41a, roughness: 0.5 });
+function fabriquerOuvrier(peau = M_PEAU) {
+  const g = new THREE.Group(), membre = (l, r, mat) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 4, 8), mat); m.position.y = -l / 2 - r * 0.5; m.castShadow = true; return m; };
+  placer(g, new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.42, 4, 10), M_COMBI), 0, 1.16, 0).castShadow = true;
+  placer(g, boite(0.38, 0.06, 0.3, M.lisere, 0.02), 0, 1.1, 0);   // ceinture orange
+  placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), peau), 0, 1.6, 0); placer(g, new THREE.Mesh(new THREE.SphereGeometry(0.135, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), M_CASQUE), 0, 1.63, 0); placer(g, boite(0.3, 0.025, 0.1, M_CASQUE, 0.01), 0, 1.63, -0.13);
+  const bras = [-1, 1].map((s) => { const b = new THREE.Group(); b.position.set(s * 0.25, 1.4, 0); b.add(membre(0.42, 0.06, M_COMBI)); const main = placer(b, new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), peau), 0, -0.56, 0); main.castShadow = true; g.add(b); return b; });
+  const jambes = [-1, 1].map((s) => { const j = new THREE.Group(); j.position.set(s * 0.1, 0.86, 0); j.add(membre(0.62, 0.075, M.graphite)); placer(j, boite(0.12, 0.08, 0.22, M.graphite, 0.02), 0, -0.82, -0.04); g.add(j); return j; });
+  const caisse = placer(g, boite(0.42, 0.3, 0.32, M.blanc, 0.03), 0, 0.95, -0.36); caisse.visible = false; placer(caisse, boite(0.43, 0.05, 0.33, M.lisere, 0.01), 0, 0.05, 0);
+  g.userData = { bras, jambes, caisse }; return g;
+}
+const PEAUX = [0xd9a27a, 0xb07a52, 0x8a5a3c, 0xf0c8a0, 0x6b4430].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 }));
+// Les postes : douze monteurs par ligne (six de chaque côté du tapis), un opérateur à la presse, deux porteurs.
+const POSTES = [];
+for (const zl of [-3.5, 3.5]) {
+  const ligne = [];
+  for (let k = 0; k < 6; k++) for (const s of [-1, 1]) ligne.push({ type: 'monteur', x: -8.5 + k * 2.8, z: zl + s * 2.3, ry: s < 0 ? 0 : Math.PI });
+  ligne.splice(2, 0, { type: 'porteur', x: 10.2, z: zl + 1.2, ry: 0 }); ligne.splice(7, 0, { type: 'presse', x: -12.6, z: zl + 1.6, ry: Math.PI }); ligne.splice(11, 0, { type: 'porteur', x: 10.2, z: zl - 1.2, ry: 0 });
+  POSTES.push(...ligne);
+}
+const OUVRIERS_3D = POSTES.map((p, k) => { const o = fabriquerOuvrier(PEAUX[k % PEAUX.length]); o.visible = false; scene.add(o); return { o, p, t: Math.random() * 6, etat: 0 }; });
+const CAISSES_3D = Array.from({ length: 30 }, (_, k) => { const c = caisses(1); poserDans(c, USINE, 13.7, -6.3 + (k % 10) * 1.4); c.position.addScaledVector(c.position.clone().normalize(), [0.36, 1.26, 2.16][Math.floor(k / 10)]); c.visible = false; scene.add(c); return c; });
+// Les brosses qui avancent sur les tapis.
+const geoBrosse = mergeGeometries([new THREE.BoxGeometry(0.4, 0.05, 0.08), new THREE.BoxGeometry(0.3, 0.08, 0.1).translate(0.05, 0.06, 0)].map((x) => x.toNonIndexed())); geoBrosse.type = 'RoundedBoxGeometry';
+const brossesTapis = new THREE.InstancedMesh(geoBrosse, M_POILS, 80); brossesTapis.count = 0; brossesTapis.frustumCulled = false; scene.add(brossesTapis);
+const SUR_TAPIS = [];   // { ligne, x }
+const POPULATION = 24, SALAIRE_VILLE = 0.3;
+S.ville = !!S.ville;
+const effectifs = () => S.ouvriers + (S.ville ? POPULATION : 0);
+const cibleStock = (q) => CIBLE_STOCK[q] * (S.ville ? 2 : 1);
 const PROD = { acc: 0, parMin: 0, fait: [] };
 function produire(dt, rythme = 1) {   // ce qui manque le plus, par rapport au stock voulu ; rien quand tout est plein
-  const ouvriers = CHARGES.impaye ? 0 : S.ouvriers; PROD.acc += ouvriers / 20 * dt * rythme; let n = 0;
-  while (PROD.acc >= 1) { PROD.acc -= 1; const q = S.stock.brosses / CIBLE_STOCK.brosses <= S.stock.pieces / CIBLE_STOCK.pieces ? 'brosses' : 'pieces'; if (S.stock[q] >= CIBLE_STOCK[q]) { PROD.acc = 0; break; } S.stock[q]++; n++; }
+  const ouvriers = CHARGES.impaye ? 0 : effectifs(); PROD.acc += ouvriers / 20 * dt * rythme; let n = 0;
+  while (PROD.acc >= 1) { PROD.acc -= 1; const q = S.stock.brosses / cibleStock('brosses') <= S.stock.pieces / cibleStock('pieces') ? 'brosses' : 'pieces'; if (S.stock[q] >= cibleStock(q)) { PROD.acc = 0; break; } S.stock[q]++; n++; }
   return n;
 }
-let tFumee = 0;
+let tFumee = 0, tTapis = 0;
+const _ub = new V3();
 MAJ.push((dt) => {
   const n = produire(dt); if (n) PROD.fait.push(gt); while (PROD.fait.length && gt - PROD.fait[0] > 60) PROD.fait.shift(); PROD.parMin = PROD.fait.length;
-  const pres = joueur.p.distanceTo(USINE.position) < 70, travaille = S.ouvriers > 0 && !CHARGES.impaye;
-  OUVRIERS_3D.forEach((o, k) => { o.visible = k < S.ouvriers && pres; if (o.visible) o.userData.corps.rotation.x = travaille ? 0.12 + Math.sin(gt * 3 + k) * 0.1 : 0; });
-  CAISSES_3D.forEach((c, k) => { c.visible = pres && k < Math.ceil(S.stock.brosses / 12); });
-  tFumee += dt; if (travaille && pres && tFumee > 0.6) { tFumee = 0; bouffee(monde(USINE, 8, 11.6, -4), 6, 0xbdbab3); }
+  const pres = joueur.p.distanceTo(USINE.position) < 70, actifs = CHARGES.impaye ? 0 : effectifs(), plein = S.stock.brosses >= cibleStock('brosses') && S.stock.pieces >= cibleStock('pieces'), travaille = actifs > 0 && !plein;
+  // chacun à son poste : les premiers venus sur la ligne A, les habitants sur la ligne B
+  OUVRIERS_3D.forEach((w, k) => {
+    const actif = k < Math.round(Math.min(S.ouvriers, MAX_OUVRIERS) * 15 / MAX_OUVRIERS) || (S.ville && k >= 15);   // ligne A : les embauchés (porteurs et presse compris) ; ligne B : les habitants
+    w.o.visible = pres && actif; if (!w.o.visible) return;
+    w.t += dt * (travaille ? 1 : 0.2); const { bras, jambes, caisse } = w.o.userData, P = w.p;
+    if (P.type === 'porteur') {   // va-et-vient entre le bac et les étagères, une caisse dans les bras à l'aller
+      const cycle = (w.t * 0.12) % 2, aller = cycle < 1, s = aller ? cycle : 2 - cycle, x = lerp(P.x, 13.0, s), z = lerp(P.z, P.z * 0.6, s);
+      poserDans(w.o, USINE, x, z, aller ? -Math.PI / 2 : Math.PI / 2); const pas = Math.sin(w.t * 9);
+      jambes[0].rotation.x = pas * 0.6; jambes[1].rotation.x = -pas * 0.6; caisse.visible = aller && travaille; bras[0].rotation.x = bras[1].rotation.x = caisse.visible ? -1.2 : pas * 0.4;
+    } else {
+      poserDans(w.o, USINE, P.x, P.z, P.ry); jambes[0].rotation.x = jambes[1].rotation.x = 0; caisse.visible = false;
+      const a = P.type === 'presse' ? Math.sin(w.t * 2) * 0.5 - 1.0 : Math.sin(w.t * 5 + k) * 0.45 - 0.9;   // monteurs : ils assemblent ; l'opérateur pousse le levier
+      bras[0].rotation.x = travaille ? a : 0; bras[1].rotation.x = travaille ? (P.type === 'presse' ? a : Math.sin(w.t * 5 + k + 1.7) * 0.45 - 0.9) : 0;
+    }
+  });
+  CAISSES_3D.forEach((c, k) => { c.visible = pres && k < Math.ceil(S.stock.brosses / (cibleStock('brosses') / 30)); });
+  // les brosses sur les tapis : il en part une à la presse tant que la ligne tourne
+  if (pres) {
+    tTapis += dt; const lignes = [S.ouvriers > 0, S.ville]; if (travaille && tTapis > 0.6) { tTapis = 0; lignes.forEach((a, l) => { if (a && SUR_TAPIS.length < 80) SUR_TAPIS.push({ l, x: -10.8 }); }); }
+    let i = 0; for (let j = SUR_TAPIS.length - 1; j >= 0; j--) { const b = SUR_TAPIS[j]; if (travaille) b.x += dt * 0.9; if (b.x > 9.4) { SUR_TAPIS.splice(j, 1); continue; } }
+    for (const b of SUR_TAPIS) { _ub.copy(monde(USINE, b.x, 0.95, b.l ? 3.5 : -3.5)); _m.compose(_ub, USINE.quaternion, _s.set(1, 1, 1)); brossesTapis.setMatrixAt(i++, _m); }
+    brossesTapis.count = i; brossesTapis.instanceMatrix.needsUpdate = true;
+  } else brossesTapis.count = 0;
+  tFumee += dt; if (travaille && pres && tFumee > 0.5) { tFumee = 0; bouffee(monde(USINE, UW / 2 - 2.5, UH + 6.3, -UD / 2 + 2.5), 6, 0xbdbab3); }
 });
 // Les bornes devant l'usine.
 function borneDans(parent, x, z, titre) {
@@ -71,12 +132,12 @@ function borneDans(parent, x, z, titre) {
   poserDans(b, parent, x, z); b.position.copy(surSol(b.position)); scene.add(b); OBSTACLES.push({ p: b.position.clone(), r: 0.3 });
   return { e, p: monde(parent, x, 1.2, z + 0.1), p2: monde(parent, x + 0.3, 0.8, z + 0.1) };
 }
-const BORNE_USINE = borneDans(USINE, -4, 8.2, 'USINE'), BORNE_DESH = borneDans(USINE, 4, 8.2, 'DÉSHERBEURS');
+const BORNE_USINE = borneDans(USINE, -5, UD / 2 + 2.2, 'USINE'), BORNE_DESH = borneDans(USINE, 5, UD / 2 + 2.2, 'DÉSHERBEURS');
 const parMin = (x) => Math.round(x * 60);
 function dessinerUsine() {
   const e = BORNE_USINE.e, g = e.g; fond(e); g.textAlign = 'left'; const L = (t, y, c = '#edeae4', f = 19) => { g.fillStyle = c; g.font = `800 ${f}px system-ui`; g.fillText(t, 16, y); };
-  L(`OUVRIERS ${S.ouvriers} / ${MAX_OUVRIERS}`, 26, '#c9c3b6', 20);
-  L(`Brosses ${Math.floor(S.stock.brosses)} / ${CIBLE_STOCK.brosses}`, 62); L(`Pièces ${Math.floor(S.stock.pieces)} / ${CIBLE_STOCK.pieces}`, 90); L(`${PROD.parMin} fabriquées par minute`, 118, '#4fd6e3', 17);
+  L(`OUVRIERS ${S.ouvriers} / ${MAX_OUVRIERS}${S.ville ? ` + ${POPULATION} habitants` : ''}`, 26, '#c9c3b6', 20);
+  L(`Brosses ${Math.floor(S.stock.brosses)} / ${cibleStock('brosses')}`, 62); L(`Pièces ${Math.floor(S.stock.pieces)} / ${cibleStock('pieces')}`, 90); L(`${PROD.parMin} fabriquées par minute`, 118, '#4fd6e3', 17);
   L(`Salaires −${fmtCr(parMin(CHARGES.salaires))} cr/min`, 152, '#f4b41a', 17); L(`Électricité −${fmtCr(parMin(CHARGES.elec))} cr/min`, 178, '#f4b41a', 17);
   if (CHARGES.impaye) L('IMPAYÉ : ouvriers à l’arrêt', 208, '#e0452f', 18);
   L(S.ouvriers < MAX_OUVRIERS ? `● Embaucher ${fmtCr(EMBAUCHE)} cr   ○ Renvoyer` : '○ Renvoyer', 238, S.credits >= EMBAUCHE ? '#f08a24' : '#e0452f', 16); e.maj();
@@ -86,12 +147,12 @@ INTER.push({ p: BORNE_USINE.p, r: 2.2, get etiquette() { return S.ouvriers < MAX
 INTER.push({ p: BORNE_USINE.p2, r: 1.6, get etiquette() { return S.ouvriers ? 'Renvoyer un ouvrier' : null; }, agir() { if (!S.ouvriers) { sons.refus(); return; } S.ouvriers--; sons.arrache(); dessinerUsine(); sauverBientot(); } });
 
 // --- Les charges : salaires, électricité du réseau extérieur, surplus solaire vendu. ---
-function kwDemande() { return (TOIT.besoin || 0) + (S.ouvriers && !CHARGES.impaye ? 4 + 1.5 * S.ouvriers : 0) + 0.3 * (ROBOTS.length + DESHERBEURS.length); }
+function kwDemande() { return (TOIT.besoin || 0) + (effectifs() && !CHARGES.impaye ? 6 + 1.0 * effectifs() : 0) + 0.3 * (ROBOTS.length + DESHERBEURS.length); }
 MAJ.push((dt) => {
   if (CHARGES.off) return;
   const demande = kwDemande(), prod = TOIT.prod || 0;
   CHARGES.kwAchat = CHARGES.impaye ? 0 : Math.max(0, demande - prod);   // impayé : plus de réseau, plus de salaires qui courent
-  CHARGES.salaires = CHARGES.impaye ? 0 : S.ouvriers * SALAIRE; CHARGES.elec = CHARGES.kwAchat * PRIX_KW; CHARGES.vente = Math.max(0, prod - demande) * VENTE_KW;
+  CHARGES.salaires = CHARGES.impaye ? 0 : S.ouvriers * SALAIRE + (S.ville ? POPULATION * SALAIRE_VILLE : 0);   // les habitants, logés, touchent moitié moins CHARGES.elec = CHARGES.kwAchat * PRIX_KW; CHARGES.vente = Math.max(0, prod - demande) * VENTE_KW;
   CHARGES.du += (CHARGES.salaires + CHARGES.elec) * dt; TOIT.cumul += CHARGES.vente * dt;
   if (TOIT.cumul >= 25) { TOIT.vendu += expedier(TOIT.cumul, 'energie'); TOIT.cumul = 0; }
   CHARGES.t += dt; if (CHARGES.t < 2) return; CHARGES.t = 0;
@@ -147,7 +208,7 @@ function fabriquerDesherbeur() {
   placer(bras, tube(0.03, 0.03, 0.45, M.graphite), 0, -0.2, -0.05).rotation.x = 0.4; for (const s of [-1, 1]) placer(bras, boite(0.03, 0.14, 0.04, M.blanc, 0.01), s * 0.04, -0.46, -0.15).rotation.z = s * 0.3;
   g.userData.corps = c; g.userData.bras = bras; fusionner(c); g.traverse((o) => { if (o.isMesh) o.castShadow = true; }); return g;
 }
-const PORTE_USINE = () => surSol(monde(USINE, 0, 0, 7.6));
+const PORTE_USINE = () => surSol(monde(USINE, 0, 0, UD / 2 + 1.2));
 function chercherHerbe(p, rmax = 90) {
   const { est, nord } = repere(p);
   for (let r = 2; r <= rmax; r += 2) { const n = Math.max(6, Math.round(r * 1.6)); for (let a = 0; a < n; a++) { const t = (a / n) * Math.PI * 2 + r; _vp.copy(p).addScaledVector(est, Math.cos(t) * r).addScaledVector(nord, Math.sin(t) * r); const k = tuileA(_vp); if (k >= 0 && T.sorte[k] === 1 && !RESERVEES.has(k)) return k; } }
@@ -219,11 +280,20 @@ MAJ.push((dt) => {
 // --- L'absence : l'usine a produit (au tiers) et les charges ont couru (au tiers, sans jamais passer sous zéro). ---
 function chargesAbsence(date) {
   const s = Math.min(7200, (Date.now() - date) / 1000); if (!date || s < 300 || CHARGES.off) return;
-  const n = produire(s / 3, 1), du = Math.round((S.ouvriers * SALAIRE + Math.max(0, (S.ouvriers ? 4 + 1.5 * S.ouvriers : 0) + 0.3 * (S.robots + S.desherbeurs) - kwToit() * 0.5) * PRIX_KW) * s / 3);
+  const n = produire(s / 3, 1), du = Math.round((S.ouvriers * SALAIRE + (S.ville ? POPULATION * SALAIRE_VILLE : 0) + Math.max(0, (effectifs() ? 6 + effectifs() : 0) + 0.3 * (S.robots + S.desherbeurs) - kwToit() * 0.5) * PRIX_KW) * s / 3);
   const pris = Math.min(S.credits, du); S.credits -= pris; if (du > pris) { CHARGES.du += du - pris; CHARGES.impaye = true; }
   if (n || du) { const a = document.getElementById('annonce'); montrerAnnonce(`${a.hidden ? '' : a.textContent + ' '}L'usine a fabriqué ${n} pièces ; charges payées : ${fmtCr(pris)} cr.`); }
 }
 if (DEMARRAGE.repris) chargesAbsence(DEMARRAGE.date);
 let tBornesU = 0;
-MAJ.push((dt) => { tBornesU += dt; if (tBornesU < 0.5 || joueur.p.distanceTo(USINE.position) > 40) return; tBornesU = 0; dessinerUsine(); dessinerDesh(); });
+function dessinerTableau() {   // le grand écran du mur du fond
+  const e = USINE.userData.ecran, g = e.g; fond(e); g.textAlign = 'left';
+  g.fillStyle = '#edeae4'; g.font = '800 46px system-ui'; g.fillText('PRODUCTION', 40, 56); g.fillStyle = '#f08a24'; g.fillRect(40, 84, 944, 5);
+  const ligne = (t, x, y, c = '#edeae4', f = 34) => { g.fillStyle = c; g.font = `800 ${f}px system-ui`; g.fillText(t, x, y); };
+  ligne(`Ligne A : ${S.ouvriers} ouvrier${S.ouvriers > 1 ? 's' : ''}`, 40, 150, S.ouvriers ? '#4fd6e3' : '#6c7076'); ligne(`Ligne B : ${S.ville ? `${POPULATION} habitants` : 'à l’arrêt (pas de ville)'}`, 40, 200, S.ville ? '#4fd6e3' : '#6c7076');
+  ligne(`${PROD.parMin} pièces par minute`, 40, 270, '#f4b41a', 40);
+  ligne(`Brosses ${Math.floor(S.stock.brosses)} / ${cibleStock('brosses')}`, 560, 150); ligne(`Pièces ${Math.floor(S.stock.pieces)} / ${cibleStock('pieces')}`, 560, 200);
+  ligne(CHARGES.impaye ? 'IMPAYÉ : la ligne s’arrête' : `Charges −${fmtCr(parMin(CHARGES.salaires + CHARGES.elec))} cr/min`, 560, 270, CHARGES.impaye ? '#e0452f' : '#c9c3b6', 30); e.maj();
+}
+MAJ.push((dt) => { tBornesU += dt; if (tBornesU < 0.5 || joueur.p.distanceTo(USINE.position) > 45) return; tBornesU = 0; dessinerUsine(); dessinerDesh(); dessinerTableau(); });
 dessinerUsine(); dessinerDesh();

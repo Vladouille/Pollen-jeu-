@@ -236,12 +236,12 @@ function majCamera() {
   const up = joueur.haut.copy(joueur.p).normalize(), a = clamp(joueur.vitesse / VIT, 0, 1.3), sb = Math.sin(joueur.pas);
   const v = joueur.enVehicule;
   if (v && VUE_VEH.exterieure) {
-    const D = v.D, upV = _dr.copy(v.p).normalize(), dist = 3.4 + D.hd * 1.55, h = 1.9 + D.hd * 0.55 + clamp(-joueur.pitch - 0.18, -0.4, 0.9) * dist * 0.6;
+    const D = v.D, upV = _dr.copy(v.p).normalize(), dist = 3.4 + D.hd * 1.55, h = 1.9 + D.hd * 0.55 + (D.vol || 0) + clamp(-joueur.pitch - 0.18, -0.4, 0.9) * dist * 0.6;
     _oe.copy(v.p).addScaledVector(joueur.f, -dist).addScaledVector(upV, h);
     const sg = sol(_lk.copy(_oe).normalize()) + 0.8; if (_oe.length() < sg) _oe.setLength(sg);   // jamais sous le sol
     if (VUE_VEH.lisse) VUE_VEH.p.lerp(_oe, 0.2); else VUE_VEH.p.copy(_oe); VUE_VEH.lisse = true;
     camera.position.copy(VUE_VEH.p); camera.up.copy(upV);
-    camera.lookAt(_lk.copy(v.p).addScaledVector(upV, 1.0 + D.hd * 0.3).addScaledVector(joueur.f, D.hd * 0.8));
+    camera.lookAt(_lk.copy(v.p).addScaledVector(upV, 1.0 + D.hd * 0.3 + (D.vol || 0) * 0.8).addScaledVector(joueur.f, D.hd * 0.8));
     camera.updateMatrixWorld(); return;
   }
   VUE_VEH.lisse = false;

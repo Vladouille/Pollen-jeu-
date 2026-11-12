@@ -72,7 +72,7 @@ const VARIETES = [   // pétales, hauteur de tige (m), rayon des pointes, profon
   { nom: 'Azurelle de nuit', petales: 6, h: 0.35, rr: 0.09, pf: 0.1, prix: 70, ferme: true },
   { nom: 'Azurelle mère', petales: 8, h: 0.5, rr: 0.15, pf: 0.1, prix: 150 },
 ];
-const RB = 50, RB_ANCIEN = 28;   // rayon de l’esplanade de la base (sans fleurs) ; 28 m jusqu'à la sauvegarde au format 8
+const RB = 72, RB_ANCIEN = 28, RB_FORMAT = { 8: 28, 9: 50 };   // l'esplanade a grandi deux fois : la sauvegarde dit laquelle elle connaissait   // rayon de l’esplanade de la base (sans fleurs) ; 28 m jusqu'à la sauvegarde au format 8
 const BASE_DIR = new V3(0.45, 0.35, 0.82).normalize();
 function deplacer(dir, capDeg, dist) {   // la direction atteinte en partant de dir, au cap donné (0 = nord, 90 = est), après dist mètres
   const { up, est, nord } = repere(dir), a = capDeg * Math.PI / 180, t = new V3().addScaledVector(nord, Math.cos(a)).addScaledVector(est, Math.sin(a)), w = dist / RP;

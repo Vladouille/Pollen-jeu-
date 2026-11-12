@@ -27,7 +27,7 @@ const kwToit = () => TOIT.niveaux.slice(0, S.toit).reduce((s, n) => s + n.kw, 0)
 {   // les panneaux : une grille de cellules inclinées vers le soleil sur le hall, puis sur le garage ; on en montre autant que le niveau
   const cell = [], ajouter = (parent, x, z, y) => cell.push({ parent, x, z, y });
   for (let x = -17.4; x <= 17.5; x += 2.15) for (let z = -7.2; z <= 6.3; z += 1.55) { if (Math.abs(Math.abs(x) - 13) < 2.2 && z > -6.3 && z < -2.7) continue; ajouter(HALL, x, z, HALL_H + 0.88); }
-  for (let x = -14; x <= 14.1; x += 2.15) for (let z = -5.6; z <= 5.7; z += 1.55) ajouter(HANGAR, x, z, 5.5);
+  for (let x = -23.4; x <= 23.5; x += 2.15) for (let z = -6.2; z <= 6.3; z += 1.55) ajouter(HANGAR, x, z, 5.9);
   const centre = (c) => c.parent === HALL ? Math.hypot(c.x, c.z) : 100 + Math.hypot(c.x, c.z);   // le hall d'abord, du centre vers les bords
   cell.sort((a, b) => centre(a) - centre(b));
   const n = cell.length, mk = (geo, mat) => { const m = new THREE.InstancedMesh(geo, mat, n); m.count = 0; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); return m; };
@@ -40,7 +40,8 @@ const kwToit = () => TOIT.niveaux.slice(0, S.toit).reduce((s, n) => s + n.kw, 0)
     _mm.compose(_pp.set(c.x, c.y + 0.24, c.z), _q2, _u).premultiply(g.matrixWorld); verre.setMatrixAt(k, _mm);
     _mm.compose(_pp.set(c.x, c.y + 0.1, c.z - 0.45), new THREE.Quaternion(), _u).premultiply(g.matrixWorld); pied.setMatrixAt(k, _mm);
   });
-  TOIT.maj = () => { TOIT.niv = S.toit; const parNiv = [0, 52, 120, n], m = parNiv[S.toit]; for (const o of [cadre, verre, pied]) { o.count = m; o.instanceMatrix.needsUpdate = true; } TOIT.cellules = m; };
+  // niveaux 4 et 5 : les fermes solaires au sol (16-ville) ; la toiture reste pleine
+  TOIT.maj = () => { TOIT.niv = S.toit; const parNiv = [0, 52, 120, n], m = parNiv[Math.min(S.toit, 3)]; for (const o of [cadre, verre, pied]) { o.count = m; o.instanceMatrix.needsUpdate = true; } TOIT.cellules = m; };
   TOIT.maj();
 }
 function toitureSolaire(dt) {   // appelée par le réseau électrique : ce qui manque de courant prend celui de la toiture, puis
@@ -53,8 +54,8 @@ function toitureSolaire(dt) {   // appelée par le réseau électrique : ce qui 
 const BORNE_TOIT = borneAccueil(-8.0, 0.1, 'TOITURE SOLAIRE');
 function dessinerToit() {
   const e = BORNE_TOIT.e, g = e.g, n = TOIT.niveaux[S.toit]; fond(e); g.textAlign = 'center';
-  g.fillStyle = '#c9c3b6'; g.font = '800 22px system-ui'; g.fillText(`NIVEAU ${S.toit} / 3`, 160, 30);
-  for (let k = 0; k < 3; k++) { g.fillStyle = k < S.toit ? '#4fd6e3' : '#3a3f45'; g.fillRect(70 + k * 64, 50, 52, 16); }
+  g.fillStyle = '#c9c3b6'; g.font = '800 22px system-ui'; g.fillText(`NIVEAU ${S.toit} / ${TOIT.niveaux.length}`, 160, 30);
+  for (let k = 0, N = TOIT.niveaux.length; k < N; k++) { g.fillStyle = k < S.toit ? '#4fd6e3' : '#3a3f45'; g.fillRect(160 - N * 32 + k * 64 + 6, 50, 52, 16); }
   g.fillStyle = '#edeae4'; g.font = '800 26px system-ui'; g.fillText(`${kwToit()} kW crête`, 160, 104);
   g.fillStyle = '#f4b41a'; g.font = '800 22px system-ui'; g.fillText(`${(TOIT.prod).toFixed(1).replace('.', ',')} kW maintenant`, 160, 140);
   g.fillStyle = '#c9c3b6'; g.font = '800 18px system-ui'; g.fillText(`${fmtCr(TOIT.vendu)} cr vendus`, 160, 172);
@@ -209,6 +210,7 @@ function absenceEquipe(date) {
   const cr0 = S.credits, t0 = S.tuiles; let budget = 40000;
   const travail = (depart, n, vendre) => { let p = depart.clone(); for (; n > 0 && budget > 0; n--, budget--) { const k = chercherTuile(p, 40); if (k < 0) { p = surSol(p.addScaledVector(tangent(p, _rd.subVectors(p, BASE)), 30)); continue; } p.copy(T.pos[k]); vendre(polliniser(k, 'bot')); } };
   travail(SORTIE_HALL(), Math.floor(Math.min(S.robots, MAX_ROBOTS) * s * 0.35 / 3), (v) => { S.robotVendu = (S.robotVendu || 0) + expedier(v, 'pollen'); });
+  travail(SORTIE_HALL(), Math.floor(Math.min(S.robots2 || 0, 20) * s * 0.35 * 3 / 1.2), (v) => { S.robotVendu = (S.robotVendu || 0) + expedier(v, 'pollen'); });   // les robots avancés (16-ville)
   for (const c of ORDRE_VEHICULES) { const w = FLOTTE[c]; if (!w.possede || !w.pilote || !w.pilote.achete || !w.pilote.actif || !w.D.largeur) continue; const voies = w.D.largeur === 1 ? 1 : 2 * Math.max(2, Math.floor(w.D.largeur / 2)) + 1; travail(w.p.distanceTo(BASE) < RB ? surSol(local(0, RB + 6)) : w.p, Math.floor(voies * 0.95 / 2 * w.D.vmax * 0.5 * s / 3), (v) => encaisser(v * (1 + 0.06 * S.rech.pilotes))); }
   const cr = Math.round(S.credits - cr0), n = S.tuiles - t0; if (!n) return;
   const a = document.getElementById('annonce'); montrerAnnonce(`${a.hidden ? '' : a.textContent + ' '}Ton équipe (robots et pilotes) a pollinisé ${n} parcelles (+${fmtCr(cr)} cr).`); sauverBientot();

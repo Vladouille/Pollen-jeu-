@@ -45,7 +45,7 @@ MAJ.push((dt) => {
     e.maj(); }
 });
 
-const VERSION_SAUVE = 9, NB_EMPL = 3;   // 9 : esplanade de 50 m
+const VERSION_SAUVE = 10, NB_EMPL = 3;   // 9 : esplanade de 50 m ; 10 : de 72 m
 const cleEmpl = (n) => `pollen-v14-emplacement-${n}`, cleSecours = (n) => `pollen-v14-emplacement-${n}-secours`;
 const stock = {   // le localStorage peut être refusé (navigation privée, stockage plein) : on joue alors sans sauvegarde
   lire(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -77,7 +77,7 @@ function etatSauve() {
   const v = joueur.enVehicule, p = v ? surSol(new V3().copy(v.p).addScaledVector(new V3().crossVectors(v.f, joueur.haut), -(v.D.hw + 0.9))) : joueur.p;   // au volant : on reprendra à côté du véhicule
   return {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
-    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh, toit: S.toit || 0, robots: S.robots || 0, robotVendu: Math.round(S.robotVendu || 0), saison: S.saison || 0, rech: S.rech, stock: S.stock, ouvriers: S.ouvriers || 0, desherbeurs: S.desherbeurs || 0, finis: S.finis || [], rares: S.rares || 0 },
+    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh, toit: S.toit || 0, robots: S.robots || 0, robotVendu: Math.round(S.robotVendu || 0), saison: S.saison || 0, rech: S.rech, stock: S.stock, ouvriers: S.ouvriers || 0, desherbeurs: S.desherbeurs || 0, finis: S.finis || [], rares: S.rares || 0, ville: !!S.ville, robots2: S.robots2 || 0 },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
     balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),
@@ -91,15 +91,15 @@ function etatSauve() {
 // --- Conversion des anciens formats. Les formats 2 à 5 sont ceux du terrain plat de la v9 : le monde ne se transpose
 //     pas sur la planète. On en garde ce qui appartient au joueur (argent, outils, temps de jeu, ventes). ---
 const CONVERSIONS = {};
-// Format 8 → 9 : l'esplanade passe de 28 à 50 m de rayon ; les parcelles gardent leur état, rangées dans le nouvel ordre
-// (celles qui sont maintenant sous la base disparaissent).
-CONVERSIONS[8] = (d) => {
-  if (!d.tuiles) return { ...d, v: 9 };
-  const anciens = listeIds(RB_ANCIEN), o = octetsDesTuiles(d.tuiles, anciens.length), n = new Uint8Array(NT);
+// Formats 8 et 9 → 10 : l'esplanade est passée de 28 puis 50 m à 72 m de rayon ; les parcelles gardent leur état, rangées
+// dans le nouvel ordre (celles qui sont maintenant sous la base disparaissent).
+for (const f of [8, 9]) CONVERSIONS[f] = (d) => {
+  if (!d.tuiles) return { ...d, v: VERSION_SAUVE };
+  const anciens = listeIds(RB_FORMAT[f]), o = octetsDesTuiles(d.tuiles, anciens.length), n = new Uint8Array(NT);
   for (let i = 0; i < anciens.length; i++) { const k = IDX.get(anciens[i]); if (k !== undefined) n[k] = o[i]; }
-  return { ...d, v: 9, nt: NT, tuiles: octetsEnTexte(n) };
+  return { ...d, v: VERSION_SAUVE, nt: NT, tuiles: octetsEnTexte(n) };
 };
-for (const f of [2, 3, 4, 5, 6, 7]) CONVERSIONS[f] = (d) => ({ v: 8, date: d.date, temps: d.temps || (d.S && d.S.temps) || 0, monde: 'neuf', S: { credits: (d.S && d.S.credits) || 0, outils: ((d.S && d.S.outils) || ['pinceau']).filter((o) => OUTILS_DEF[o]), ventes: (d.S && d.S.ventes) || 0, tuiles: 0 }, ouverts: 1, tuiles: '' });
+for (const f of [2, 3, 4, 5, 6, 7]) CONVERSIONS[f] = (d) => ({ v: 10, date: d.date, temps: d.temps || (d.S && d.S.temps) || 0, monde: 'neuf', S: { credits: (d.S && d.S.credits) || 0, outils: ((d.S && d.S.outils) || ['pinceau']).filter((o) => OUTILS_DEF[o]), ventes: (d.S && d.S.ventes) || 0, tuiles: 0 }, ouverts: 1, tuiles: '' });
 function convertir(d) {
   if (!d || typeof d !== 'object' || typeof d.v !== 'number') throw new Error('pas une sauvegarde POLLEN');
   while (d.v < VERSION_SAUVE) { const f = CONVERSIONS[d.v]; if (!f) throw new Error(`format ${d.v} trop ancien`); d = f(d); }

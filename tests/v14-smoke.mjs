@@ -34,7 +34,7 @@ try {
   // --- 1. La planète ---
   const pl = await page.evaluate(() => {
     const P = pollen, V3 = P.V3, j = P.joueur; P.figer = true;
-    const r0 = j.p.length(), h0 = j.haut.clone(); P.E.mz = 1; U.aller(P.local(0, 61), P.local(0, 100)); P.step(0.05, 400); P.E.mz = 0; P.step(0.05, 5);
+    const r0 = j.p.length(), h0 = j.haut.clone(); P.E.mz = 1; U.aller(P.local(0, 85), P.local(0, 100)); P.step(0.05, 400); P.E.mz = 0; P.step(0.05, 5);
     const colle = Math.abs(j.p.length() - P.sol(j.p.clone().normalize())), angle = h0.angleTo(j.haut), camHaut = P.camera.up.angleTo(j.haut);
     let allers = 0; for (let k = 0; k < 300; k++) { const id = P.T.id[(k * 29) % P.NT]; if (P.tuileDe(P.dirDe(id)) === id) allers++; }
     const sommet = P.tuileDe(new V3(-1, (1 + Math.sqrt(5)) / 2, 0).normalize()), penta = P.voisinsDe(sommet).length, hexa = P.voisinsDe(P.T.id[10]).length;
@@ -60,7 +60,7 @@ try {
   check(jn.dormi && jn.matin > 0.9 && jn.refus === false, 'le lit fait passer la nuit (et refuse en plein jour)');
   // --- 2. La boucle : jauge maintenue, vente à la borne ---
   const b = await page.evaluate(() => {
-    const P = pollen; U.aller(P.local(0, 59), P.local(0, 90)); P.joueur.pitch = -0.6; P.step(0.016, 3);
+    const P = pollen; U.aller(P.local(0, 83), P.local(0, 90)); P.joueur.pitch = -0.6; P.step(0.016, 3);
     const vise = P.visee && P.visee.k; P.E.action = true; P.step(0.05, 30); const mi = P.SEL.y; P.E.action = false; P.step(0.05, 2); const lache = P.S.tuiles;
     P.E.action = true; P.step(0.05, 56); P.E.action = false; P.step(0.05, 2); const fait = P.S.tuiles, kg = P.kgSac();
     const g = P.COMPTOIR, F = g.userData.salle.F; U.aller(U.dans(g, 0, 0, 2.3)); const it = P.INTER.find((i) => i.vente && i.p.distanceTo(P.joueur.p) < 4), vu = U.utiliser(it);
@@ -130,13 +130,13 @@ try {
    
     const im = P.INTER.filter((i) => i.cache && i.p.distanceTo(U.dans(g, -4.9, 0.66, 2.39)) < 0.05)[0]; U.aller(U.dans(g, -4.6, 0, 3.6)); out.vuAmelio = U.utiliser(im); out.moteur = v.niv.moteur; out.plus = compte() > avant; out.crAmelio = P.S.credits;
     // au volant du chariot : il pollinise la tuile qu'il pousse
-    v.p.copy(P.local(0, 58)); v.f.copy(P.tangent(v.p, new P.V3().subVectors(P.local(0, 90), v.p))); P.monter(v); const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 240); P.E.mz = 0; P.step(0.05, 10);
-    out.tuiles = P.S.tuiles - t0; out.charge = v.charge; out.avance = v.p.distanceTo(P.local(0, 58)); out.pastille = document.getElementById('nomOutil').textContent;
+    v.p.copy(P.local(0, 82)); v.f.copy(P.tangent(v.p, new P.V3().subVectors(P.local(0, 90), v.p))); P.monter(v); const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 240); P.E.mz = 0; P.step(0.05, 10);
+    out.tuiles = P.S.tuiles - t0; out.charge = v.charge; out.avance = v.p.distanceTo(P.local(0, 82)); out.pastille = document.getElementById('nomOutil').textContent;
     // retour au collecteur : garé sur le repère, E vide les cuves
     v.p.copy(P.PARKING.p); P.step(0.05, 2); const cr0 = P.S.credits; out.vert = P.parkingVert(); P.E.inter = true; P.step(0.05, 1); out.vendu = P.S.credits - cr0; P.E.inter = true; P.step(0.05, 1); out.descendu = !P.joueur.enVehicule;
     return out;
   });
-  check(ve.dedans && ve.modeles.length === 8 && ve.prix.join() === '900,4000,45000,35000,300000,1500000,35000,5000000', `concessionnaire : huit véhicules (${ve.prix.join(', ')} cr)`);
+  check(ve.dedans && ve.modeles.length === 12 && ve.prix.join() === '900,4000,45000,35000,300000,1500000,35000,5000000,12000,120000,800000,12000000', `concessionnaire et garage : douze véhicules (${ve.prix.join(', ')} cr)`);
   check(ve.refus === false && ve.vuBorne && ve.possede && ve.cr === 4100, 'achat à la borne : refusé sans argent, immédiat avec');
   check(ve.porte > 0.85 && ve.sorti && ve.auVolant && ve.distParvis < 16 && ve.referme < 0.2, `la porte sectionnelle s'ouvre, le véhicule sort se garer sur le parvis, on est au volant, la porte se referme`);
   check(ve.vuAmelio && ve.moteur === 1 && ve.plus && ve.crAmelio === 4100 - 135, 'amélioration du moteur : achetée à la borne, visible sur le véhicule');
@@ -162,10 +162,10 @@ try {
     const P = pollen, V3 = P.V3, out = {}; P.S.credits = 1e6; P.figer = false;
     P.acheterVehicule('pollinisatrice'); let n = 0; while (P.SORTIE.v && n++ < 1200) P.step(0.05, 1);
     const v = P.FLOTTE.pollinisatrice; v.niv.moteur = 3; P.refaireVehicule(v);
-    v.p.copy(P.surSol(P.local(-40, 60))); v.f.copy(P.tangent(v.p, new V3().subVectors(P.local(-40, 160), v.p))); P.joueur.f.copy(v.f); P.poserVehicule(v);
+    v.p.copy(P.surSol(P.local(-40, 84))); v.f.copy(P.tangent(v.p, new V3().subVectors(P.local(-40, 160), v.p))); P.joueur.f.copy(v.f); P.poserVehicule(v);
     const t0 = P.S.tuiles, p0 = v.p.clone(); let vmax = 0; P.E.mz = 1; for (let k = 0; k < 240; k++) { P.step(0.05, 1); vmax = Math.max(vmax, v.v); } P.E.mz = 0; P.step(0.05, 10);
     out.vmax = vmax; out.parMetre = (P.S.tuiles - t0) / v.p.distanceTo(p0);
-    P.descendre(); U.aller(P.local(60, 40)); P.step(0.05, 2); out.loin = v.p.distanceTo(P.joueur.p); P.E.rappel = true; P.step(0.05, 2); out.pres = v.p.distanceTo(P.joueur.p);
+    P.descendre(); U.aller(P.local(60, 64)); P.step(0.05, 2); out.loin = v.p.distanceTo(P.joueur.p); P.E.rappel = true; P.step(0.05, 2); out.pres = v.p.distanceTo(P.joueur.p);
     v.p.copy(P.joueur.p).addScaledVector(P.joueur.haut, 200); P.step(0.05, 50); out.garde = Math.abs(v.p.length() - P.sol(v.p.clone().normalize()));
     return out;
   });
@@ -205,7 +205,7 @@ try {
     out.conversion = d9.v === 9 && P.octetsDesTuiles(d9.tuiles)[P.IDX.get(anciens[i8])] === 1 && anciens.length > P.NT;
     return out;
   });
-  check(eq.conversion, 'sauvegarde au format 8 convertie : les parcelles gardent leur état sur la nouvelle esplanade de 50 m');
+  check(eq.conversion, 'sauvegarde au format 8 convertie : les parcelles gardent leur état sur la nouvelle esplanade de 72 m');
   check(eq.camion && eq.camionTuiles > 20, `le camion : on monte dedans, sa rampe arrière pollinise (${eq.camionTuiles} parcelles en 8 s)`);
   check(eq.baie && eq.boussole, 'grand garage : « Rappeler » gare le véhicule dans sa baie ; la boussole montre la base et sa distance');
   check(eq.toit === 3 && eq.toitProd > 100 && eq.toitVendu > 0, `toiture solaire : trois niveaux, ${Math.round(eq.toitProd)} kW au soleil, ${eq.toitVendu} cr de surplus vendus en 5 s`);
@@ -240,6 +240,41 @@ try {
   check(us.propagation > 0 && us.desh === 6 && us.arrachees > 0, `mauvaises herbes : +${us.propagation} en 1 min ; 6 désherbeurs en arrachent ${us.arrachees} en 2 min`);
   check(us.tour > 0 && us.nid > 0, `tour d'épandage (${Math.round(us.tour)} cr) et nid de drones (${Math.round(us.nid)} cr) en 20 s`);
   check(us.moto && us.motoTuiles > 60, `moto des champs : ${us.motoTuiles} parcelles en 15 s`);
+  // --- 4 sexies. Le grand garage, les nouveaux véhicules, l'usine vivante, la mini-ville, les fermes solaires, les robots avancés ---
+  const vi = await page.evaluate(() => {
+    const P = pollen, V3 = P.V3, out = {}; P.figer = false; P.CHARGES.off = true; P.HERBES.off = true; P.S.credits = 2e8;
+    const it = (re) => P.INTER.find((i) => { try { return re.test(i.etiquette || ''); } catch (e) { return false; } });
+    if (P.joueur.enVehicule) P.descendre();
+    // l'aéroglisseur, garé dans sa baie, sort du garage en marche avant
+    const H = P.HANGAR, ae = P.FLOTTE.aeroglisseur; P.rappeler(ae, false); P.step(0.05, 5); const devant = () => new V3().subVectors(ae.p, H.position).dot(H.userData.az);
+    out.aeBaie = devant(); P.monter(ae); P.E.mz = 1; P.step(0.05, 120); P.E.mz = 0; P.step(0.05, 10); out.aeSorti = devant(); P.descendre();
+    // les véhicules du garage : achetés à leur borne de baie, on part au volant
+    out.garage = ['buggy', 'tracteur', 'chenille'].map((c) => { P.acheterVehicule(c); const v = P.FLOTTE[c], ok = v.possede && P.joueur.enVehicule === v; P.E.mz = 1; P.step(0.05, 100); P.E.mz = 0; P.step(0.05, 5); const d = v.p.distanceTo(P.PARCS[c].p); P.descendre(); P.rappeler(v, false); return ok && d > 8; });
+    P.acheterVehicule('dirigeable'); let n = 0; while (P.SORTIE.v && n++ < 600) P.step(0.05, 1); const di = P.FLOTTE.dirigeable; if (P.joueur.enVehicule !== di) P.monter(di);
+    di.p.copy(P.surSol(P.local(-40, 120))); di.f.copy(P.tangent(di.p, new V3().subVectors(P.local(-40, 240), di.p))); P.joueur.f.copy(di.f); P.poserVehicule(di);
+    const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 200); P.E.mz = 0; P.step(0.05, 5); out.diTuiles = P.S.tuiles - t0; out.diAlt = di.p.length() - P.sol(di.p.clone().normalize()); P.descendre(); P.rappeler(di, false);
+    // la mini-ville
+    out.refusVille = (() => { const c = P.S.credits; P.S.credits = 1000; it(/^Bâtir la ville/).agir(); const r = !P.S.ville; P.S.credits = c; return r; })();
+    it(/^Bâtir la ville/).agir(); out.ville = P.S.ville; out.prixVille = P.PRIX_VILLE;
+    U.aller(P.local(0, -34)); P.step(0.05, 40); out.habitants = P.HABITANTS.filter((h) => h.o.visible).length; const h0 = P.HABITANTS.map((h) => h.p.clone()); P.step(0.05, 60); out.bougent = P.HABITANTS.filter((h, k) => h.p.distanceTo(h0[k]) > 0.5).length;
+    // l'usine : douze ouvriers embauchés + les habitants = deux lignes, trente personnes au travail, qui bougent
+    while (it(/^Embaucher/)) it(/^Embaucher/).agir(); U.aller(P.local(-44, -2)); P.step(0.05, 10);
+    const pose = () => P.OUVRIERS_3D.map((w) => w.o.visible ? w.o.userData.bras[0].rotation.x + w.o.position.x : null); const a = pose(); P.step(0.05, 20); const b = pose();
+    out.auTravail = a.filter((x) => x !== null).length; out.animes = a.filter((x, k) => x !== null && Math.abs(x - b[k]) > 1e-3).length;
+    // les panneaux solaires : cinq niveaux, les deux derniers en fermes au sol derrière l'usine et le garage
+    while (it(/^Panneaux/)) it(/^Panneaux/).agir(); out.toit = P.S.toit; P.step(0.05, 2); out.fermes = P.FERMES.n; out.kw = P.TOIT.niveaux.slice(0, P.S.toit).reduce((s, x) => s + x.kw, 0);
+    // les robots avancés
+    for (let k = 0; k < 3; k++) it(/^Robot avancé/).agir(); out.robots2 = P.S.robots2; P.S.stock.brosses = 200; const t1 = P.S.tuiles, b1 = P.S.stock.brosses; P.step(0.05, 600); out.r2Tuiles = P.S.tuiles - t1;
+    const sv = P.etatSauve(); out.sauve = sv.S.ville === true && sv.S.robots2 === 3 && sv.S.toit === 5;
+    for (const r of P.ROBOTS2) P.scene.remove(r.g); P.ROBOTS2.length = 0; P.S.robots2 = 0; P.S.toit = 0; P.S.ouvriers = 0; P.step(0.05, 2);
+    return out;
+  });
+  check(vi.aeBaie > -2 && vi.aeSorti > vi.aeBaie + 10, `garage : l'aéroglisseur sort de sa baie en marche avant (${vi.aeBaie.toFixed(1)} m → ${vi.aeSorti.toFixed(1)} m devant le garage)`);
+  check(vi.garage.every(Boolean) && vi.diTuiles > 150 && vi.diAlt > 4, `nouveaux véhicules : buggy, tracteur, chenille sortent au volant ; le dirigeable vole à ${vi.diAlt.toFixed(1)} m et pollinise ${vi.diTuiles} parcelles en 10 s`);
+  check(vi.refusVille && vi.ville && vi.prixVille === 1e8 && vi.habitants >= 10 && vi.bougent >= 6, `mini-ville à 100 000 000 cr : ${vi.habitants} habitants visibles, ${vi.bougent} qui marchent`);
+  check(vi.auTravail === 30 && vi.animes >= 25, `usine : ${vi.auTravail} personnes au travail sur deux lignes, ${vi.animes} en mouvement`);
+  check(vi.toit === 5 && vi.fermes > 100 && vi.kw === 660, `solaire : cinq niveaux (${vi.kw} kW crête), ${vi.fermes} panneaux au sol derrière l'usine et le garage`);
+  check(vi.robots2 === 3 && vi.r2Tuiles > 30 && vi.sauve, `robots avancés : 3 achetés, ${vi.r2Tuiles} parcelles en 30 s ; ville, robots et panneaux sauvegardés`);
   // --- 5. Le mode construction ---
   const co = await page.evaluate(() => {
     const P = pollen, C = P.COLLECTEUR, out = {}, V3 = P.V3;
@@ -268,14 +303,14 @@ try {
     // démonter rembourse tout (achat et amélioration)
     const cr = P.S.credits; P.ameliorer(ex); const paye = cr - P.S.credits; P.demonter(ex); out.rembourse = P.S.credits - cr; out.paye = paye;
     // ruche simple : rayon d'une tuile ; elle pollinise seule
-    const bord = P.tuileDe(P.local(-14, 62).normalize()), ru = P.poserPiece('ruche0', bord, P.voisinsDe(bord)[0]); out.cibles = ru.ruche.cibles.length; const t0 = P.S.tuiles; P.step(0.05, 400); out.parRuche = P.S.tuiles - t0;
-    const mere = P.poserPiece('ruche2', P.tuileDe(P.local(4, 61).normalize()), bord); out.ciblesMere = mere.ruche.cibles.length; P.demonter(mere);
+    const bord = P.tuileDe(P.local(-14, 86).normalize()), ru = P.poserPiece('ruche0', bord, P.voisinsDe(bord)[0]); out.cibles = ru.ruche.cibles.length; const t0 = P.S.tuiles; P.step(0.05, 400); out.parRuche = P.S.tuiles - t0;
+    const mere = P.poserPiece('ruche2', P.tuileDe(P.local(4, 85).normalize()), bord); out.ciblesMere = mere.ruche.cibles.length; P.demonter(mere);
     // revenus automatiques : ruche → convoyeurs → réceptionnaire ; pollinisateur → convoyeur → réceptionnaire
     const ligne = (x0, z0, n) => { const vec = P.tangent(P.local(x0, z0), new V3().subVectors(P.local(x0, z0 + 30), P.local(x0, z0))), t = [P.tuileDe(P.local(x0, z0).normalize())]; for (let k = 1; k <= n; k++) t.push(P.voisineVers(t[k - 1], vec)); return t; };
-    const la = ligne(-14, 67, 5), ru2 = P.poserPiece('ruche1', la[0], la[1]); P.poserPiece('convoyeur', la[1], la[2]); P.poserPiece('convoyeur', la[2], la[3]); const re1 = P.poserPiece('receptionnaire', la[3], la[4]); ru2.ruche.miel = 6; ru2.ruche.cire = 2;
-    const lb = ligne(14, 67, 4), po = P.poserPiece('pollinisateur', lb[0], lb[1]); P.poserPiece('convoyeur', lb[1], lb[2]); const re2 = P.poserPiece('receptionnaire', lb[2], lb[3]);
+    const la = ligne(-14, 91, 5), ru2 = P.poserPiece('ruche1', la[0], la[1]); P.poserPiece('convoyeur', la[1], la[2]); P.poserPiece('convoyeur', la[2], la[3]); const re1 = P.poserPiece('receptionnaire', la[3], la[4]); ru2.ruche.miel = 6; ru2.ruche.cire = 2;
+    const lb = ligne(14, 91, 4), po = P.poserPiece('pollinisateur', lb[0], lb[1]); P.poserPiece('convoyeur', lb[1], lb[2]); const re2 = P.poserPiece('receptionnaire', lb[2], lb[3]);
     P.step(0.05, 1200); out.venteRuche = Math.round(re1.total || 0); out.ventePoll = Math.round(re2.total || 0); out.mielReste = ru2.ruche.miel;
-    const lc = ligne(30, 67, 1), seul = P.poserPiece('pollinisateur', lc[0], lc[1]), cs = P.S.credits; P.step(0.05, 400); out.seul = Math.round(seul.total || 0); out.gainSeul = P.S.credits - cs;
+    const lc = ligne(30, 91, 1), seul = P.poserPiece('pollinisateur', lc[0], lc[1]), cs = P.S.credits; P.step(0.05, 400); out.seul = Math.round(seul.total || 0); out.gainSeul = P.S.credits - cs;
     return out;
   });
   check(co.sansMarteau === false && co.actif && co.barre && co.bleu === 1, 'mode construction : une touche (B), le monde bleuit, la barre apparaît (il faut l’outil de construction)');
@@ -298,7 +333,7 @@ try {
     const P = pollen, out = {}; U.aller(P.local(8, 20)); P.E.carte = true; P.step(0.05, 2);
     out.ouverte = P.CARTE.ouverte; out.dist = P.camera.position.length(); out.uCarte = P.SOL_U.uCarte.value; out.halo = P.HALO.visible; out.points = P.CARTE.points.length; out.machines = P.CARTE.machines.geometry.attributes.position.count;
     const d0 = P.CARTE.dir.clone(); P.E.dYaw = 0.5; P.step(0.05, 1); out.tourne = d0.angleTo(P.CARTE.dir);
-    U.aller(P.local(-6, 60)); P.CARTE.fermer(); P.E.carte = true; P.step(0.05, 2); out.points2 = P.CARTE.points.length; const cible = P.CARTE.points[0]; P.CARTE.dir.copy(cible.p).normalize(); P.step(0.05, 1); out.vise = P.CARTE.vise === cible; P.E.presse = true; P.step(0.05, 2);
+    U.aller(P.local(-6, 84)); P.CARTE.fermer(); P.E.carte = true; P.step(0.05, 2); out.points2 = P.CARTE.points.length; const cible = P.CARTE.points[0]; P.CARTE.dir.copy(cible.p).normalize(); P.step(0.05, 1); out.vise = P.CARTE.vise === cible; P.E.presse = true; P.step(0.05, 2);
     out.arrive = P.joueur.p.distanceTo(cible.p); out.fermee = !P.CARTE.ouverte && P.SOL_U.uCarte.value === 0 && !P.HALO.visible; U.aller(P.local(8, 20));
     return out;
   });
@@ -308,7 +343,7 @@ try {
   const sv = await page.evaluate(() => { const P = pollen; P.S.credits = 4321; const e = P.etatSauve(); const ok = P.sauver(); return { v: e.v, ok, pieces: e.pieces.length, tuiles: P.S.tuiles, octets: JSON.stringify(e).length, outils: P.S.outils.length, amelio: P.S.amelio.sac }; });
   await page.goto(`http://localhost:${srv.address().port}/?mode=pc`, { timeout: 180000 }); await page.waitForFunction(() => window.pollen, null, { timeout: 180000 }); await page.waitForTimeout(1500);
   const rs = await page.evaluate(() => { const P = pollen; return { cr: P.S.credits, pieces: P.GRILLE.size, chariot: P.FLOTTE.chariot.possede && !!P.FLOTTE.chariot.g, moteur: P.FLOTTE.chariot.niv.moteur, vertes: P.T.vert.reduce((s, v) => s + v, 0), outils: P.S.outils.length, amelio: P.S.amelio.sac, ruches: P.RUCHES.length, alt: P.altitude(P.joueur.p), succes: Object.keys(P.S.succes).length }; });
-  check(sv.v === 9 && sv.ok && sv.octets < 60000, `sauvegarde au format ${sv.v} (${(sv.octets / 1024).toFixed(1)} Ko)`);
+  check(sv.v === 10 && sv.ok && sv.octets < 60000, `sauvegarde au format ${sv.v} (${(sv.octets / 1024).toFixed(1)} Ko)`);
   if (!(rs.cr === 4321 && rs.pieces === sv.pieces && rs.ruches === 2)) console.log('recharge', JSON.stringify([rs.cr, rs.pieces, sv.pieces, rs.chariot, rs.moteur, rs.outils, sv.outils, rs.amelio, rs.ruches, rs.alt]));
   check(rs.cr === 4321 && rs.pieces === sv.pieces && rs.chariot && rs.moteur === 1 && rs.outils === sv.outils && rs.amelio === 1 && rs.ruches === 2 && rs.alt > 0, `rechargée : argent, ${rs.pieces} pièces, ruche, chariot amélioré, outils et améliorations retrouvés`);
   const perf = await page.evaluate(() => { const P = pollen; P.figer = false; return new Promise((res) => setTimeout(() => res({ tri: P.renderer.info.render.triangles, appels: P.renderer.info.render.calls }), 1500)); });
