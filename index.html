@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>POLLEN · prototype jalon 1</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      { "imports": { "three": "./vendor/three.module.min.js" } }
+    </script>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <div id="hud" aria-live="polite">
+      <div id="credits">0 cr</div>
+      <div id="crosshair"></div>
+      <div id="charge" hidden></div>
+      <div id="prompt"></div>
+      <div id="toast"></div>
+      <div id="tool">
+        <span class="tool-name">Tige de coton</span>
+        <span id="doses"></span>
+        <span id="pockets">Poches 0/12</span>
+      </div>
+      <pre id="debug" hidden></pre>
+    </div>
+
+    <div id="overlay">
+      <div class="card">
+        <h1>POLLEN</h1>
+        <p class="tagline">Un continent à polliniser. Une tige de coton pour commencer.</p>
+        <ul class="controls">
+          <li><kbd>Z Q S D</kbd> ou <kbd>W A S D</kbd> se déplacer · <kbd>Maj</kbd> courir</li>
+          <li><kbd>Souris</kbd> regarder</li>
+          <li><kbd>Clic maintenu</kbd> sur une fleur ouverte : prendre le pollen</li>
+          <li><kbd>Clic</kbd> sur une autre fleur : la polliniser</li>
+          <li><kbd>E</kbd> secouer un arbre mûr · vendre au point de collecte</li>
+          <li><kbd>Échap</kbd> pause</li>
+        </ul>
+        <button id="start" type="button">Jouer</button>
+        <p class="note">Prototype du jalon 1 : cubes gris, une parcelle, cent fleurs.</p>
+      </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

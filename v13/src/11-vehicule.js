@@ -1,0 +1,291 @@
+
+// =====================================================================
+// 15. Le concessionnaire et les véhicules. Un bâtiment à part : hangar large et bas, façade entièrement vitrée,
+//     structure blanche à poteaux charbon, grande enseigne orange sur le toit, porte sectionnelle sur le côté de la
+//     façade, parvis en béton aux places marquées. Dedans : les véhicules tournent sur des plateformes blanches à
+//     liseré cyan, chacun avec sa borne (nom, prix, trois barres, bouton d'achat, quatre boutons d'amélioration) ;
+//     pont élévateur, pneus empilés, établi, distributeur de boissons.
+//     Cinq véhicules : chariot pousseur, quad de service, pollinisatrice, remorque-citerne, transporteur lourd.
+//     Quatre améliorations à trois niveaux, visibles sur le véhicule : moteur, châssis, pneus, phares.
+//     À l'achat, la porte sectionnelle s'ouvre, le véhicule sort se garer sur le parvis, on est au volant.
+// =====================================================================
+const VEHICULES = {
+  chariot: { nom: 'Chariot pousseur', prix: 5000, cap: 150, vmax: 3.2, virage: 1.4, pente: 0.8, largeur: 1, contact: 0.6, siege: [-1.25, 0], hw: 0.55, hd: 0.9, sondes: [[0.5, 0.6], [-0.3, 0.6]], tete: 0.95, place: -4.4 },
+  quad: { nom: 'Quad de service', prix: 12000, cap: 600, vmax: 18, virage: 1.1, pente: 2.4, largeur: 0, siege: [0.1, 0.45], hw: 0.8, hd: 1.3, sondes: [[0.7, 0.85], [-0.6, 0.85]], place: -2.6 },
+  pollinisatrice: { nom: 'Pollinisatrice', prix: 60000, cap: 1200, vmax: 7, virage: 0.8, pente: 0.9, largeur: 3, contact: 0.25, siege: [0.85, 0.75], hw: 1.7, hd: 3.1, sondes: [[2.6, 1.6], [0.3, 1.35], [-1.8, 1.35]], tete: 3.15, place: 3.6 },
+  citerne: { nom: 'Remorque-citerne', prix: 120000, cap: 0, vmax: 0, remorque: true, hw: 1.0, hd: 1.9, sondes: [], place: 6.6 },
+  transporteur: { nom: 'Transporteur lourd', prix: 300000, cap: 4000, vmax: 6, virage: 0.9, pente: 1.2, auto: true, hw: 1.35, hd: 3.4, sondes: [[2.4, 1.5], [0, 1.4], [-2.2, 1.4]], place: 9.3 },
+};
+const ORDRE_VEHICULES = Object.keys(VEHICULES);
+const AMELIO_VEH = { moteur: 'MOTEUR', chassis: 'CHÂSSIS', pneus: 'PNEUS', phares: 'PHARES' }, CLES_AMELIO = Object.keys(AMELIO_VEH);
+const MULT_VEH = { moteur: [1, 1.15, 1.3, 1.5], chassis: [1, 1.3, 1.7, 2.2], pneus: [1, 1.2, 1.4, 1.6], phares: [0.4, 0.6, 0.8, 1] };   // vitesse, capacité, tenue de route, travail de nuit
+const prixAmelioVeh = (cle, niv) => niv < 3 ? Math.round(VEHICULES[cle].prix * [0.15, 0.3, 0.6][niv]) : 0;
+const M_VERRE = new THREE.MeshStandardMaterial({ color: 0xa8dbe8, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.2, depthWrite: false });
+const M_BETON = new THREE.MeshStandardMaterial({ color: 0xa9a8a3, roughness: 0.95 }); M_BETON.userData.sansReflet = true;
+const M_PNEU = new THREE.MeshStandardMaterial({ color: 0x1c1f22, roughness: 0.9 });
+// --- Les modèles. Avant du véhicule vers -z. Les améliorations se voient : pots d'échappement chromés (moteur),
+//     coffres latéraux (châssis), jantes orange et pneus plus larges (pneus), rampe de phares (phares). ---
+function roue(g, x, y, z, r, l, niv) {
+  const w = new THREE.Group(); w.position.set(x, y, z); g.add(w);
+  placer(w, cylindre(r, r, l * (1 + niv.pneus * 0.12), M_PNEU, 20), 0, 0, 0).geometry.rotateZ(Math.PI / 2);
+  placer(w, cylindre(r * 0.42, r * 0.42, l * (1 + niv.pneus * 0.12) + 0.02, niv.pneus ? M.lisere : M.blanc, 12), 0, 0, 0).geometry.rotateZ(Math.PI / 2);
+  for (let k = 0; k < niv.pneus; k++) placer(w, new THREE.Mesh(new THREE.TorusGeometry(r * (0.55 + k * 0.14), 0.02, 6, 20).rotateY(Math.PI / 2), M.lisere), Math.sign(x) * (l / 2 + 0.03), 0, 0);
+  fusionner(w); g.userData.roues.push(w); return w;
+}
+function equiper(c, D, niv, y, av) {   // les améliorations visibles
+  for (let k = 0; k < niv.moteur; k++) placer(c, tube(0.05, 0.05, 0.7, M_CHROME), -D.hw * 0.6 + k * 0.16, y + 0.45, D.hd - 0.25);
+  for (let k = 0; k < niv.chassis; k++) for (const s of [-1, 1]) { placer(c, boite(0.22, 0.34, 0.6, M.blanc, 0.04), s * (D.hw - 0.02), y, D.hd * 0.5 - k * 0.7); placer(c, boite(0.24, 0.04, 0.62, M.lisere, 0.015), s * (D.hw - 0.02), y + 0.1, D.hd * 0.5 - k * 0.7); }
+  for (let k = 0; k <= niv.phares; k++) for (const s of [-1, 1]) placer(c, cylindre(0.07, 0.07, 0.06, k ? M_LUM : M.graphite, 12), s * (0.2 + k * 0.2), av[0], av[1]).rotation.x = Math.PI / 2;
+}
+function fabriquerVehicule(cle, niv = { moteur: 0, chassis: 0, pneus: 0, phares: 0 }) {
+  const g = new THREE.Group(), c = new THREE.Group(), D = VEHICULES[cle]; g.add(c); g.userData.caisse = c; g.userData.roues = [];
+  if (cle === 'chariot') {
+    placer(c, boite(0.9, 0.5, 1.2, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.06), 0, 0.6, 0); placer(c, boite(0.94, 0.05, 1.24, M.seve, 0.02), 0, 0.36, 0); placer(c, boite(0.92, 0.06, 1.22, M.lisere, 0.02), 0, 0.84, 0);
+    for (const s of [-1, 1]) placer(c, tube(0.025, 0.025, 0.9, M.graphite), s * 0.36, 0.95, 0.85).rotation.x = -0.75; placer(c, tube(0.03, 0.03, 0.8, M.lisere), 0, 1.28, 1.15).rotation.z = Math.PI / 2;
+    placer(c, boite(1.3, 0.22, 0.35, M.blanc, 0.05), 0, 0.42, -0.9); const r = placer(c, cylindre(0.16, 0.16, 1.2, M_POILS, 14), 0, 0.2, -0.95); r.geometry.rotateZ(Math.PI / 2); g.userData.rouleau = r; r.userData.garder = true;
+    equiper(c, D, niv, 0.55, [0.75, -0.62]);
+    for (const z of [-0.4, 0.45]) for (const s of [-1, 1]) roue(g, s * 0.52, 0.2, z, 0.2, 0.12, niv);
+  } else if (cle === 'quad') {
+    placer(c, boite(1.0, 0.3, 2.3, M.graphite, 0.08), 0, 0.6, 0); placer(c, boite(1.04, 0.05, 2.34, M.seve, 0.02), 0, 0.46, 0);
+    placer(c, boite(0.8, 0.35, 0.9, M.blanc, 0.1), 0, 0.92, -0.6); placer(c, boite(0.82, 0.05, 0.92, M.lisere, 0.02), 0, 0.82, -0.6); placer(c, boite(0.5, 0.16, 0.9, M.graphite, 0.07), 0, 0.92, 0.3);
+    placer(c, tube(0.03, 0.03, 0.5, M.graphite), 0, 1.25, -0.75).rotation.x = 0.4; placer(c, tube(0.03, 0.03, 0.9, M.graphite), 0, 1.47, -0.66).rotation.z = Math.PI / 2;
+    placer(c, boite(1.1, 0.06, 0.8, M.blanc, 0.03), 0, 0.98, 0.98); for (const s of [-1, 1]) placer(c, boite(0.05, 0.25, 0.8, M.graphite, 0.02), s * 0.55, 1.1, 0.98);
+    for (const s of [-1, 1]) for (const z of [-0.85, 0.85]) placer(c, boite(0.5, 0.08, 0.75, M.blanc, 0.035), s * 0.72, 0.9, z);   // garde-boue
+    equiper(c, D, niv, 0.62, [1.02, -1.07]);
+    for (const z of [-0.85, 0.85]) for (const s of [-1, 1]) roue(g, s * 0.75, 0.42, z, 0.42, 0.32, niv);
+  } else if (cle === 'pollinisatrice') {
+    placer(c, boite(2.3, 0.35, 5.2, M.graphite, 0.06), 0, 0.75, 0); placer(c, boite(2.36, 0.05, 5.26, M.seve, 0.02), 0, 0.58, 0);
+    placer(c, boite(2.2, 0.55, 1.7, M.blanc, 0.06), 0, 1.2, -1.45);
+    for (const [x, z] of [[-1.05, -2.25], [1.05, -2.25], [-1.05, -0.65], [1.05, -0.65]]) placer(c, boite(0.1, 1.15, 0.1, M.graphite, 0.03), x, 2.05, z);
+    placer(c, boite(2.3, 0.14, 1.8, M.blanc, 0.05), 0, 2.68, -1.45); placer(c, boite(2.32, 0.04, 1.82, M.lisere, 0.015), 0, 2.59, -1.45);
+    placer(c, boite(1.9, 0.18, 0.4, M.graphite, 0.04), 0, 1.6, -2.05);
+    const e = placer(c, new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.14), ecran('0 kg')), 0.45, 1.7, -1.84); e.rotation.x = -0.6; e.userData.garder = true; g.userData.ecran = e.material;
+    placer(c, new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.025, 8, 24), M.graphite), -0.45, 1.75, -1.8).rotation.x = -0.9;
+    for (const s of [-1, 1]) {
+      const cuve = placer(c, new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1.6, 6, 18).rotateX(Math.PI / 2), M.blanc), s * 0.58, 1.5, 1.2); cuve.castShadow = true;
+      for (const z of [0.5, 1.9]) placer(c, new THREE.Mesh(new THREE.TorusGeometry(0.51, 0.04, 8, 24), M.lisere), s * 0.58, 1.5, z);
+      for (let k = 0; k < 12; k++) { const t = k / 11, z = lerp(0.3, -3.0, t), y = 1.55 + Math.sin(t * Math.PI) * 0.35 - t * 1.1; placer(c, new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.025, 6, 12), M.graphite), s * 1.2, y, z); }
+      placer(c, boite(0.12, 0.12, 0.9, M.graphite, 0.03), s * 0.9, 0.7, -2.7);
+    }
+    placer(c, boite(3.3, 0.35, 0.55, M.blanc, 0.06), 0, 0.7, -3.15); placer(c, boite(3.34, 0.05, 0.58, M.lisere, 0.02), 0, 0.87, -3.15);
+    const r = placer(c, cylindre(0.22, 0.22, 3.1, M_POILS, 18), 0, 0.4, -3.15); r.geometry.rotateZ(Math.PI / 2); g.userData.rouleau = r; r.userData.garder = true;
+    equiper(c, D, niv, 0.8, [2.82, -2.36]);
+    for (const z of [-1.7, 0, 1.7]) for (const s of [-1, 1]) roue(g, s * 1.2, 0.45, z, 0.45, 0.36, niv);
+  } else if (cle === 'citerne') {
+    placer(c, boite(1.6, 0.25, 3.4, M.graphite, 0.06), 0, 0.7, 0); placer(c, boite(1.64, 0.05, 3.44, M.seve, 0.02), 0, 0.56, 0);
+    const cuve = placer(c, new THREE.Mesh(new THREE.CapsuleGeometry(0.75, 1.9, 6, 20).rotateX(Math.PI / 2), M.blanc), 0, 1.55, 0); cuve.castShadow = true;
+    for (const z of [-0.9, 0, 0.9]) placer(c, new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.05, 8, 28), z ? M.lisere : M.graphite), 0, 1.55, z);
+    placer(c, cylindre(0.2, 0.2, 0.2, M.graphite, 14), 0, 2.36, 0); placer(c, boite(0.1, 0.1, 1.5, M.graphite, 0.03), 0, 0.65, -2.4);   // trappe, timon
+    equiper(c, D, niv, 0.75, [0.9, -1.72]);
+    for (const z of [0.5, 1.3]) for (const s of [-1, 1]) roue(g, s * 0.85, 0.42, z, 0.42, 0.3, niv);
+  } else {
+    placer(c, boite(2.5, 0.4, 6.6, M.graphite, 0.07), 0, 0.85, 0); placer(c, boite(2.56, 0.05, 6.66, M.seve, 0.02), 0, 0.66, 0);
+    placer(c, boite(2.4, 1.5, 1.7, M.blanc, 0.12), 0, 1.8, -2.4); placer(c, boite(2.1, 0.6, 0.06, M_VITRE, 0.02), 0, 2.1, -3.26); placer(c, boite(2.44, 0.06, 1.74, M.lisere, 0.02), 0, 1.25, -2.4);
+    placer(c, boite(2.5, 2.0, 4.5, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.08), 0, 2.05, 1.0); placer(c, boite(2.54, 0.08, 4.54, M.lisere, 0.03), 0, 2.9, 1.0); placer(c, boite(2.3, 0.14, 4.3, M.blanc, 0.05), 0, 3.1, 1.0);
+    const e = placer(c, new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.3), ecran('0 kg')), 1.26, 2.2, 0.2, Math.PI / 2); e.userData.garder = true; g.userData.ecran = e.material; placer(c, bouton(), 1.26, 1.7, 0.2, Math.PI / 2).scale.setScalar(0.7);
+    equiper(c, D, niv, 0.9, [2.7, -3.27]);
+    for (const z of [-2.3, 0.6, 2.2]) for (const s of [-1, 1]) roue(g, s * 1.25, 0.5, z, 0.5, 0.4, niv);
+  }
+  fusionner(c); return g;
+}
+
+// --- Le bâtiment. ---
+const CONCESSION = (() => {
+  const W = 20, D = 10, Ht = 3.6, e = 0.25, F = 0.14, PW = 1.9, PH = 2.4, g = new THREE.Group(), pos = local(23, -4), yM = F + Ht / 2, zf = D / 2 - e / 2;
+  placer(g, boite(W, F, D, M_DALLE, 0.03), 0, F / 2, 0);
+  for (const [w, d, x, z] of [[W - 0.8, 0.07, 0, -D / 2 + e + 0.12], [0.07, D - 0.8, -W / 2 + e + 0.12, 0], [0.07, D - 0.8, W / 2 - e - 0.12, 0]]) placer(g, boite(w, 0.012, d, M.lisere, 0.004), x, F + 0.006, z);
+  const murs = [[W, e, 0, -D / 2 + e / 2], [e, D, -W / 2 + e / 2, 0], [e, D, W / 2 - e / 2, 0]];
+  for (const [w, d, x, z] of murs) placer(g, boite(w, Ht, d, M.blanc, 0.03), x, yM, z);
+  // Façade vitrée : poteaux charbon tous les 2,2 m, verre entre eux ; porte du public au centre, porte sectionnelle à gauche.
+  const baie = [-9.7, -5.3], vitres = [[-5.3, -PW / 2], [PW / 2, W / 2 - e]];
+  for (const [a, b] of vitres) { placer(g, boite(b - a, Ht - 0.5, 0.06, M_VERRE, 0.01), (a + b) / 2, F + (Ht - 0.5) / 2, zf); for (let x = a; x <= b + 0.01; x += (b - a) / Math.max(1, Math.round((b - a) / 2.2))) placer(g, boite(0.14, Ht, 0.2, M.graphite, 0.03), x, yM, zf); murs.push([b - a, 0.3, (a + b) / 2, zf]); }
+  placer(g, boite(W, 0.5, e, M.blanc, 0.03), 0, F + Ht - 0.25, zf); placer(g, boite(PW + 0.2, 0.08, e + 0.06, M.lisere, 0.02), 0, F + PH + 0.04, zf); placer(g, boite(PW, Ht - 0.5 - PH, 0.06, M_VERRE, 0.01), 0, F + PH + (Ht - 0.5 - PH) / 2, zf);
+  for (const x of baie) placer(g, boite(0.3, Ht, 0.3, M.graphite, 0.04), x, yM, zf); placer(g, boite(baie[1] - baie[0], 0.12, 0.34, M.lisere, 0.03), (baie[0] + baie[1]) / 2, F + 3.02, zf);
+  placer(g, boite(W + 0.6, 0.3, D + 0.6, M.blanc, 0.05), 0, F + Ht + 0.15, 0); placer(g, boite(W + 0.64, 0.07, D + 0.64, M.lisere, 0.02), 0, F + Ht - 0.02, 0); placer(g, boite(W + 0.08, 0.12, D + 0.08, M.graphite, 0.04), 0, 0.06, 0);
+  for (let x = -W / 2 + 1.2; x <= W / 2 - 1.2; x += 2) placer(g, boite(0.28, 1.9, 0.05, M.seve, 0.02), x, F + 1.7, -D / 2 - 0.01);
+  for (let z = -D / 2 + 1.2; z <= D / 2 - 1.2; z += 2) for (const s of [-1, 1]) placer(g, boite(0.05, 1.9, 0.28, M.seve, 0.02), s * (W / 2 + 0.01), F + 1.7, z);
+  for (let x = -W / 2 + 2; x <= W / 2 - 2; x += 3.2) placer(g, boite(0.3, 0.05, D - 1.6, M_LUM, 0.02), x, F + Ht - 0.115, 0);
+  placer(g, boite(W - 2 * e, 0.06, D - 2 * e, M.blanc, 0.02), 0, F + Ht - 0.09, 0); placer(g, tube(0.07, 0.07, W - 0.7, M.graphite), 0, F + Ht - 0.3, -D / 2 + e + 0.12).rotation.z = Math.PI / 2;
+  // Grande enseigne orange sur le toit.
+  placer(g, boite(9.2, 1.3, 0.25, M.lisere, 0.06), 1.5, F + Ht + 1.05, D / 2 - 0.6); for (const x of [-2.4, 5.4]) placer(g, boite(0.16, 0.5, 0.16, M.graphite, 0.03), x, F + Ht + 0.4, D / 2 - 0.6);
+  placer(g, boite(8.8, 1.0, 0.03, new THREE.MeshStandardMaterial({ map: texteTex([['CONCESSIONNAIRE', 80]], 1024, 128, '#f08a24', '#fffdf7'), roughness: 0.5 }), 0.01), 1.5, F + Ht + 1.05, D / 2 - 0.46);
+  // Le parvis : dalle de béton, places marquées à l'orange.
+  placer(g, boite(W + 1, 0.3, 9.4, M_BETON, 0.03), 0, -0.1, D / 2 + 4.6);
+  for (const cle of ORDRE_VEHICULES) { const V = VEHICULES[cle], x = V.place, w = V.hw + 0.25, l = V.hd + 0.3; for (const s of [-1, 1]) placer(g, boite(0.1, 0.012, l * 2, M.lisere, 0.004), x + s * w, 0.056, D / 2 + 5.4); placer(g, boite(w * 2, 0.012, 0.1, M.lisere, 0.004), x, 0.056, D / 2 + 5.4 - l); }
+  const vantaux = [-1, 1].map((s) => { const v = placer(g, boite(PW / 2, PH, 0.07, M_VITRE, 0.02), s * PW / 4, F + PH / 2, zf); v.userData.garder = true; v.userData.s = s; return v; });
+  const lames = [0, 1, 2, 3, 4].map((k) => { const l = placer(g, boite(baie[1] - baie[0] - 0.3, 0.57, 0.08, [M.panneau, M.panneau, M.blanc, M.blanc, M.panneau, M.panneau], 0.02), (baie[0] + baie[1]) / 2, 0, zf); l.userData.garder = true; return l; });
+  fusionner(g); poserSur(g, pos, versBase(pos)); scene.add(g);
+  ombreContact(g, 1).scale.set(W / 2 + 0.8, 1, D / 2 + 0.8);
+  for (const [w, d, x, z] of murs) OBSTACLES.push(boiteDe(g, w / 2 + 0.05, d / 2 + 0.05, {}, x, z));
+  const porteObs = boiteDe(g, (baie[1] - baie[0]) / 2, 0.2, {}, (baie[0] + baie[1]) / 2, zf); OBSTACLES.push(porteObs);
+  SURCOTES.push({ p: g.position.clone(), ax: g.userData.ax, az: g.userData.az, hw: W / 2 + 0.4, hd: D / 2 + 0.4, h: F, bord: 0.5 });
+  const S = { g, W, D, Ht, F, vantaux, PW, dedans: false, ouverture: 0, lames, porteObs, porte: 0, zf }; SALLES.push(S); g.userData.salle = S; VITRINE.salle = S;
+  return g;
+})();
+// --- La flotte. ---
+const FLOTTE = {};
+const placeParvis = (cle) => monde(CONCESSION, VEHICULES[cle].place, 0, 10.4);
+for (const cle of ORDRE_VEHICULES) {
+  const D = VEHICULES[cle], v = { cle, D, possede: false, p: surSol(placeParvis(cle)), f: CONCESSION.userData.az.clone(), v: 0, charge: 0, valeur: 0, niv: { moteur: 0, chassis: 0, pneus: 0, phares: 0 }, contact: new Map(), g: null, obs: null, auto: { etat: 'repos', t: 0, cible: null, bloque: 0 } };
+  v.obs = boiteCollision(v.p, v.f, v.f, D.hw, D.hd, { inactif: true, vehicule: v }); OBSTACLES.push(v.obs); FLOTTE[cle] = v;
+}
+function refaireVehicule(v) {   // (re)construit le modèle : à l'achat et à chaque amélioration
+  if (v.g) { scene.remove(v.g); scene.remove(v.ombre); }
+  v.g = fabriquerVehicule(v.cle, v.niv); scene.add(v.g); v.ombre = ombreContact(v.g, 1, true); v.ombre.scale.set(v.D.hw + 0.2, 1, v.D.hd + 0.3); v.affiche = -1; poserVehicule(v);
+}
+function poserVehicule(v) {
+  if (!v.g) return; tangent(v.p, v.f, v.f); poserSur(v.g, v.p, _lk.copy(v.f).negate());
+  const av = sol(_d.copy(v.p).addScaledVector(v.f, 1.5).normalize()), ar = sol(_d.copy(v.p).addScaledVector(v.f, -1.5).normalize()); v.g.userData.caisse.rotation.x = -Math.atan2(av - ar, 3);
+  v.obs.p.copy(v.p); v.obs.az.copy(v.f); v.obs.ax.crossVectors(_d.copy(v.p).normalize(), v.f); v.obs.inactif = !v.possede || joueur.enVehicule === v;
+}
+const capacite = (v) => v.D.cap * MULT_VEH.chassis[v.niv.chassis] * (FLOTTE.citerne.possede && FLOTTE.citerne.attelee === v ? 5 : 1);
+const sondesDe = (v, p, f) => v.D.sondes.map(([a, r]) => [new V3().copy(p).addScaledVector(f, a), r]);
+const cogne = (v, p, f) => sondesDe(v, p, f).some(([q, r]) => penetre(q, r, v.obs));
+const enZone = (v, p, f) => sondesDe(v, p, f).some(([q, r]) => OBSTACLES.some((o) => o.machine && q.distanceTo(o.p) < o.r + r + ZONE_APPROCHE && ecartObstacle(o, q).d < r + ZONE_APPROCHE));
+// La place de stationnement du collecteur : derrière lui. Garé dessus, le repère passe au vert et E vide les cuves.
+const PARKING = (() => { const C = COLLECTEUR, L = 1.25 + ZONE_APPROCHE + 2.2, p = surSol(new V3().copy(C.position).addScaledVector(C.userData.az, -L)); return { p, ax: C.userData.az.clone(), az: C.userData.ax.clone() }; })();
+const M_PARK = new THREE.MeshBasicMaterial({ color: ORANGE, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+cadreSol(PARKING.p, PARKING.ax, PARKING.az, 2.1, 3.9, M_PARK, 0.14); cadreSol(PARKING.p, PARKING.ax, PARKING.az, 1.2, 0.5, M_PARK, 0.1);
+const bienGare = (v) => v.p.distanceTo(PARKING.p) < 2.2;
+function avancer(v, dt, mz, mx) {   // un pas de conduite ; renvoie false si le véhicule a buté
+  const D = v.D, up = _d2.copy(v.p).normalize().clone(), vmax = (enZone(v, v.p, v.f) ? 2.2 : D.vmax * MULT_VEH.moteur[v.niv.moteur]);
+  const cible = mz * (mz > 0 ? vmax : Math.min(3, vmax));
+  v.v = lerp(v.v, cible, 1 - Math.exp(-dt * (Math.abs(cible) > Math.abs(v.v) ? 1.2 : 2.5))); v.v = clamp(v.v, -vmax, vmax);
+  const dyaw = -mx * D.virage * MULT_VEH.pneus[v.niv.pneus] * clamp(v.v / 3, -1, 1) * dt, nf = v.f.clone().applyAxisAngle(up, dyaw), np = surSol(new V3().copy(v.p).addScaledVector(nf, v.v * dt));
+  const pente = Math.abs(sol(_d.copy(np).addScaledVector(nf, Math.sign(v.v) * 1.5).normalize()) - np.length());
+  if (altitude(np) < NIVEAU_MER + 0.3 || pente > D.pente * (1 + v.niv.pneus * 0.15) || (cogne(v, np, nf) && !cogne(v, v.p, v.f))) {   // eau, pente trop raide ou obstacle : arrêt net
+    if (Math.abs(v.v) > 0.6 && joueur.enVehicule === v) { secousse = Math.min(1, Math.abs(v.v) / 4); sons.choc(); }
+    v.v = 0; return { ok: false, dyaw: 0 };
+  }
+  v.p.copy(np); v.f.copy(nf); return { ok: true, dyaw };
+}
+const nuit = () => 1 - JOUR.ici;
+function travailler(v, dt) {   // la brosse pollinise ce qui passe dessous ; la nuit, il faut des phares
+  const D = v.D; if (!D.largeur) return;
+  const dr = _dr.crossVectors(v.f, _d2.copy(v.p).normalize()), vues = new Set(), rythme = lerp(1, MULT_VEH.phares[v.niv.phares], nuit()), n = D.largeur === 1 ? 0 : 2;
+  for (let k = -n; k <= n; k++) {
+    const i = tuileA(_vp.copy(v.p).addScaledVector(v.f, D.tete).addScaledVector(dr, k * 0.95)); if (i < 0 || !pollinisable(i) || vues.has(i)) continue; vues.add(i);
+    const t = (v.contact.get(i) || 0) + dt * rythme; v.contact.set(i, t);
+    if (t >= D.contact && v.charge + KG_TUILE <= capacite(v)) { const val = polliniser(i, 'vehicule'); if (val > 0) { v.charge += KG_TUILE; v.valeur += val; noter('pollen', KG_TUILE); sons.pop(); } }
+  }
+  for (const i of v.contact.keys()) if (!vues.has(i)) v.contact.delete(i);
+}
+// La sortie du hangar : la porte sectionnelle s'ouvre, le véhicule roule jusqu'à sa place du parvis.
+const SORTIE = { v: null, t: 0, k: 0 };
+function versCible(v, cible, dt, vit = 1) {   // conduite automatique : droit vers la cible, en contournant ce qui gêne
+  const vers = tangent(v.p, _vp.subVectors(cible, v.p), new V3()), up = _d2.copy(v.p).normalize().clone(); let choix = null;
+  for (const a of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]) { const f = vers.clone().applyAxisAngle(up, a), q = surSol(new V3().copy(v.p).addScaledVector(f, 4.5)); if (altitude(q) > NIVEAU_MER + 0.4 && !penetre(q, 1.7, v.obs)) { choix = f; break; } }
+  if (!choix) { v.v = 0; return false; }
+  const cote = Math.sign(_dr.crossVectors(v.f, choix).dot(up)), ecart = v.f.angleTo(choix);
+  const r = avancer(v, dt, ecart > 1.2 ? 0.25 : vit, clamp(-cote * ecart * 2.5, -1, 1) / Math.max(0.2, clamp(Math.abs(v.v) / 3, 0, 1)) * 0.9);
+  return r.ok;
+}
+function acheterVehicule(cle) {
+  const v = FLOTTE[cle]; if (v.possede || SORTIE.v) return false;
+  if (S.credits < v.D.prix) { sons.refus(); return false; }
+  S.credits -= v.D.prix; v.possede = true; sons.achat(); sauverBientot();
+  v.p.copy(surSol(monde(CONCESSION, -7.5, 0, 1.2))); v.f.copy(CONCESSION.userData.az); refaireVehicule(v); v.obs.inactif = true; SORTIE.v = v; SORTIE.t = 0; SORTIE.k = 0; return true;
+}
+function monter(v) { if (v.D.auto || v.D.remorque) return; joueur.enVehicule = v; for (const t in S.sac) { const r = S.sac[t]; if (r.kg > 0 && v.charge + r.kg <= capacite(v)) { v.charge += r.kg; v.valeur += r.v; S.sac[t] = { kg: 0, v: 0 }; } } if (FLOTTE.citerne.possede && !v.D.remorque && v.cle !== 'chariot') FLOTTE.citerne.attelee = v; }
+function descendre() {
+  const v = joueur.enVehicule, dr = new V3().crossVectors(v.f, _d.copy(v.p).normalize()); joueur.enVehicule = null; v.v = 0; v.obs.inactif = false; poserVehicule(v);
+  let p = new V3().copy(v.p).addScaledVector(dr, -(v.D.hw + 0.9)); if (penetre(p, 0.35, v.obs)) p = new V3().copy(v.p).addScaledVector(dr, v.D.hw + 0.9);
+  surSol(repousser(p, 0.36).p, 0, joueur.p); joueur.v.set(0, 0, 0);
+}
+function viderCuves(v) { if (v.valeur <= 0) return false; const cr = encaisser(v.valeur); S.ventes++; if (joueur.enVehicule === v) sons.vente(); ecrireEcran(ECRAN_COLLECTEUR, `+${cr} cr`); sauverBientot(); v.charge = 0; v.valeur = 0; return true; }
+function chargerVehicule(v) {   // prend ce qu'un quai ou un dépôt voisin a en stock
+  let pris = false;
+  for (const p of GRILLE.values()) { if (!PIECES[p.cle].stock || p.cle === 'silo' || p.pos.distanceTo(v.p) > 7) continue; while (p.stock.length && v.charge + p.stock[0].kg <= capacite(v)) { const c = p.stock.shift(); v.charge += c.kg; v.valeur += c.valeur; pris = true; } }
+  return pris;
+}
+INTER_HORS.unshift(() => { const v = joueur.enVehicule; if (!v) return false; if (bienGare(v) && viderCuves(v)) return true; if (chargerVehicule(v)) { sons.achat(); return true; } descendre(); return true; });   // E au volant : vider, charger, ou descendre
+for (const cle of ORDRE_VEHICULES) { const v = FLOTTE[cle]; if (!v.D.auto && !v.D.remorque) INTER.push({ get p() { return _lk.copy(v.p).addScaledVector(_d.copy(v.p).normalize(), 1); }, r: v.D.hd + 1.6, etiquette: 'Conduire', cache: () => !v.possede || SORTIE.v === v, agir: () => monter(v) }); }
+function majVehicules(dt) {
+  const S0 = CONCESSION.userData.salle;
+  // La porte sectionnelle : ses lames montent puis filent sous le plafond.
+  S0.porte = lerp(S0.porte, SORTIE.v ? 1 : 0, 1 - Math.exp(-dt * 2.2)); S0.porteObs.inactif = S0.porte > 0.8;
+  S0.lames.forEach((l, k) => { const h = k * 0.58 + 0.29 + S0.porte * 2.95, haut = Math.max(0, h - 2.95); l.position.set(l.position.x, S0.F + Math.min(h, 2.95), S0.zf - haut); l.rotation.x = haut > 0 ? Math.PI / 2 : 0; });
+  if (SORTIE.v) {
+    const v = SORTIE.v, x = v.D.place; SORTIE.t += dt;   // trajet fixe : l'allée, le bord du parvis, puis sa place (il s'y gare en marche avant, nez vers la vitrine)
+    const pts = [[-7.5, 16.2], [x, 16.2], [x, 10.4]], but = surSol(monde(CONCESSION, pts[SORTIE.k][0], 0, pts[SORTIE.k][1]));
+    if (S0.porte > 0.85) { const vers = tangent(v.p, _vp.subVectors(but, v.p), new V3()); v.f.lerp(vers, 1 - Math.exp(-dt * 5)).normalize(); v.v = lerp(v.v, 3.2, 1 - Math.exp(-dt * 2)); surSol(_vp.copy(v.p).addScaledVector(vers, Math.min(v.v * dt, v.p.distanceTo(but))), 0, v.p); if (v.p.distanceTo(but) < 0.3) SORTIE.k++; }
+    if (SORTIE.k >= pts.length || SORTIE.t > 45) { v.v = 0; SORTIE.v = null; v.obs.inactif = false; monter(v); sauverBientot(); }
+    for (const r of v.g.userData.roues) r.rotation.x -= v.v * dt / 0.45;
+    poserVehicule(v); if (SORTIE.v) v.obs.inactif = true;
+  }
+  const v = joueur.enVehicule;
+  if (v) {
+    const r = avancer(v, dt, E.mz, E.mx); if (r.dyaw) joueur.f.applyAxisAngle(joueur.haut, r.dyaw);   // le regard suit le virage
+    travailler(v, dt);
+    surSol(_vp.copy(v.p).addScaledVector(v.f, v.D.siege[0]), v.D.siege[1], joueur.p); joueur.vitesse = 0;
+    for (const w of v.g.userData.roues) w.rotation.x -= v.v * dt / 0.45;
+    if (v.g.userData.rouleau) v.g.userData.rouleau.rotation.x -= dt * (Math.abs(v.v) > 0.4 ? 14 : 0);
+    poserVehicule(v);
+    const c = FLOTTE.citerne;   // la remorque suit son attelage
+    if (c.possede && c.attelee === v && c.g && SORTIE.v !== c) { const att = _lk.copy(v.p).addScaledVector(v.f, -(v.D.hd + 0.6)), d = new V3().subVectors(c.p, att); tangent(att, d, d); surSol(new V3().copy(att).addScaledVector(d, 2.6), 0, c.p); c.f.copy(d).negate(); poserVehicule(c); c.obs.inactif = true; }
+  }
+  // Le transporteur lourd : tournées automatiques entre les dépôts, les quais et le collecteur.
+  const t = FLOTTE.transporteur;
+  if (t.possede && SORTIE.v !== t) {
+    const a = t.auto; a.t += dt;
+    if (a.etat === 'repos') { if (a.t > 2) { a.t = 0; let best = null; for (const p of GRILLE.values()) if ((p.cle === 'collecteur' || p.cle === 'quai') && p.stock.length >= 5 && (!best || p.stock.length > best.stock.length)) best = p; if (best) { a.cible = best; a.etat = 'aller'; a.bloque = 0; } } }
+    else if (a.etat === 'aller') { if (!GRILLE.has(a.cible.id)) a.etat = 'retour'; else if (t.p.distanceTo(a.cible.pos) < 6.5) { t.v = 0; if (a.t > 2) { chargerVehicule(t); a.etat = 'retour'; a.bloque = 0; } } else { a.t = 0; if (!versCible(t, a.cible.pos, dt)) a.bloque += dt; if (a.bloque > 10) a.etat = 'retour'; } }
+    else { if (t.p.distanceTo(PARKING.p) < 7) { t.v = 0; viderCuves(t); a.etat = 'repos'; a.t = 0; } else if (!versCible(t, PARKING.p, dt)) { a.bloque += dt; if (a.bloque > 20) { t.p.copy(surSol(placeParvis('transporteur'))); a.bloque = 0; } } }
+    for (const w of t.g.userData.roues) w.rotation.x -= t.v * dt / 0.5;
+    poserVehicule(t);
+  }
+  for (const cle of ORDRE_VEHICULES) { const w = FLOTTE[cle]; if (w.g && w.g.userData.ecran && w.affiche !== Math.round(w.charge)) { w.affiche = Math.round(w.charge); ecrireEcran(w.g.userData.ecran, `${w.affiche} / ${Math.round(capacite(w))} kg`); } }
+  M_PARK.color.set(v && bienGare(v) ? 0x4fd6e3 : ORANGE);
+}
+MAJ.push(majVehicules);
+MAJ.push(() => { if (joueur.enVehicule) majCamera(); });   // la caméra se recale sur l'œil du conducteur
+PASTILLE.push(() => joueur.enVehicule ? { nom: joueur.enVehicule.D.nom, charge: joueur.enVehicule.charge, max: Math.round(capacite(joueur.enVehicule)) } : null);
+
+// --- L'intérieur : plateformes tournantes, bornes, pont élévateur, pneus, établi, distributeur de boissons. ---
+const BORNES_VEH = [];
+{
+  const g = CONCESSION, F = g.userData.salle.F;
+  ORDRE_VEHICULES.forEach((cle, n) => {
+    const x = -4.4 + n * 3.1, z = -2.0, D = VEHICULES[cle];
+    placer(g, cylindre(1.35, 1.4, 0.14, M.graphite, 32), x, F + 0.07, z); placer(g, cylindre(1.42, 1.42, 0.03, M.seve, 32), x, F + 0.03, z);
+    const pl = new THREE.Group(); pl.userData.garder = true; placer(g, pl, x, F + 0.14, z); placer(pl, cylindre(1.25, 1.25, 0.1, M.blanc, 32), 0, 0.05, 0); placer(pl, cylindre(1.27, 1.27, 0.025, M.seve, 32), 0, 0.085, 0);
+    const modele = fabriquerVehicule(cle); modele.scale.setScalar(Math.min(0.62, 1.15 / D.hd)); modele.position.y = 0.1; pl.add(modele); modele.traverse((o) => { if (o.isMesh) o.userData.matOrigine = o.material; });
+    OBSTACLES.push({ p: monde(g, x, 0, z), r: 1.4 });
+    // La borne sur pied : écran (nom, prix, trois barres), bouton d'achat, quatre boutons d'amélioration.
+    const e = ecranDyn(256, 320), bx = x, bz = 0.25;
+    placer(g, tube(0.05, 0.07, 1.0, M.graphite), bx, F + 0.5, bz); placer(g, cylindre(0.2, 0.24, 0.06, M.graphite, 16), bx, F + 0.03, bz);
+    const tete = new THREE.Group(); placer(g, tete, bx, F + 1.25, bz); tete.rotation.x = -0.35;
+    placer(tete, boite(0.62, 0.78, 0.07, M.graphite, 0.03), 0, 0, 0); const ec = placer(tete, new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.66), e.mat), 0, 0.02, 0.04); ec.userData.garder = true;
+    placer(g, bouton(), bx, F + 0.72, bz + 0.1).scale.setScalar(0.75);
+    CLES_AMELIO.forEach((a, k) => { const b = placer(g, bouton(), bx - 0.3 + k * 0.2, F + 0.52, bz + 0.08); b.scale.setScalar(0.32); INTER.push({ p: monde(g, bx - 0.3 + k * 0.2, F + 0.52, bz + 0.14), r: 1.9, get etiquette() { const pr = prixAmelioVeh(cle, FLOTTE[cle].niv[a]); return `${AMELIO_VEH[a]} · ${pr ? pr.toLocaleString('fr-FR') : 'max'}`; }, cache: () => !FLOTTE[cle].possede, agir() { const v = FLOTTE[cle], prix = prixAmelioVeh(cle, v.niv[a]); if (!prix || S.credits < prix) { sons.refus(); return; } S.credits -= prix; v.niv[a]++; sons.achat(); refaireVehicule(v); sauverBientot(); } }); });
+    INTER.push({ p: monde(g, bx, F + 1.25, bz + 0.1), r: 2.4, get etiquette() { return FLOTTE[cle].possede ? null : `Acheter · ${VEHICULES[cle].prix.toLocaleString('fr-FR')}`; }, agir: () => acheterVehicule(cle) });
+    OBSTACLES.push({ p: monde(g, bx, 0, bz), r: 0.25 });
+    BORNES_VEH.push({ cle, e, pl, modele, sig: '' });
+  });
+  // Pont élévateur avec un véhicule en entretien, pneus empilés, établi, distributeur de boissons.
+  for (const s of [-1, 1]) { placer(g, boite(0.3, 2.6, 0.4, M.lisere, 0.04), -7.5 + s * 1.5, F + 1.3, -3.4); placer(g, boite(0.5, 0.08, 0.6, M.graphite, 0.02), -7.5 + s * 1.5, F + 0.04, -3.4); placer(g, boite(1.1, 0.1, 0.25, M.graphite, 0.03), -7.5 + s * 0.85, F + 1.25, -3.4); }
+  const entretien = fabriquerVehicule('quad'); entretien.scale.setScalar(0.95); placer(g, entretien, -7.5, F + 0.85, -3.4, Math.PI / 2);
+  OBSTACLES.push(boiteDe(g, 1.8, 1.0, {}, -7.5, -3.6));
+  for (let k = 0; k < 7; k++) placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.13, 10, 22).rotateX(Math.PI / 2), M_PNEU), -5.3 + (k > 3 ? 0.75 : 0), F + 0.13 + (k % 4) * 0.26, -4.2);
+  OBSTACLES.push(boiteDe(g, 0.85, 0.45, {}, -4.95, -4.2));
+  meuble(g, comptoirMeuble(0.8, 2.4, 0.92), 9.2, F, -3.0, 0.45, 1.25); placer(g, boite(0.4, 0.07, 0.11, M.blanc, 0.025), 9.15, F + 0.96, -3.3, 0.5); placer(g, new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.09, 8, 18).rotateX(Math.PI / 2), M_PNEU), 9.2, F + 1.02, -2.4); placer(g, boite(0.05, 0.8, 2.2, M.graphite, 0.02), 9.7, F + 1.7, -3.0);
+  const dist = new THREE.Group(); placer(dist, boite(0.9, 1.9, 0.7, M.blanc, 0.05), 0, 0.95, 0); placer(dist, boite(0.7, 1.0, 0.04, M_VITRE, 0.02), -0.05, 1.25, 0.35); placer(dist, boite(0.92, 0.3, 0.72, M.lisere, 0.04), 0, 1.75, 0); placer(dist, boite(0.5, 0.16, 0.06, M.graphite, 0.02), -0.05, 0.4, 0.35); for (let k = 0; k < 6; k++) placer(dist, cylindre(0.045, 0.045, 0.16, k % 2 ? M.seve : M.lisere, 10), -0.28 + (k % 3) * 0.22, 1.02 + Math.floor(k / 3) * 0.32, 0.3); placer(dist, boite(0.92, 0.02, 0.5, M.seve, 0.008), 0, 0.02, 0.2);
+  meuble(g, dist, 9.1, F, 3.6, 0.5, 0.45, -Math.PI / 2);
+  decor(g, [['caisses', 8.9, -0.6, 0.3], ['chariot', 7.4, 3.9, 0.4], ['escabeau', -9.2, 2.0, 0.2], ['extincteur', 2.0, 4.5, Math.PI], ['affiche', 0.5, -4.71, 0, F + 1.9], ['plante', -1.7, 4.2], ['plante', 1.7, 4.2]]);
+  fusionner(g);
+}
+MAJ.push((dt) => {
+  const pres = joueur.p.distanceTo(CONCESSION.position) < 50;
+  for (const b of BORNES_VEH) {
+    if (pres) b.pl.rotation.y += dt * 0.35;
+    const v = FLOTTE[b.cle], D = v.D, cher = !v.possede && S.credits < D.prix, sig = [v.possede, cher, ...CLES_AMELIO.map((a) => v.niv[a]), CLES_AMELIO.map((a) => S.credits >= prixAmelioVeh(b.cle, v.niv[a])).join()].join();
+    if (sig === b.sig || !pres) continue; b.sig = sig;
+    b.modele.traverse((o) => { if (o.isMesh) o.material = cher ? M_GRIS : o.userData.matOrigine; });
+    const e = b.e, g = e.g; fond(e); g.textAlign = 'center'; g.fillStyle = '#edeae4'; g.font = '800 22px system-ui'; g.fillText(D.nom.toUpperCase(), 128, 26);
+    g.font = '800 32px system-ui'; g.fillStyle = v.possede ? '#4fd6e3' : cher ? '#f08a24' : '#f08a24'; g.fillText(v.possede ? 'ACQUIS' : `${D.prix.toLocaleString('fr-FR')} cr`, 128, 68);
+    const barres = [['VITESSE', D.vmax * MULT_VEH.moteur[v.niv.moteur] / 16], ['CHARGE', Math.sqrt((D.remorque ? 6000 : D.cap * MULT_VEH.chassis[v.niv.chassis]) / 9000)], ['TRAVAIL', D.auto ? 1 : D.remorque ? 0.1 : (D.largeur || 0.15) / 3]];
+    g.textAlign = 'left'; g.font = '800 15px system-ui'; barres.forEach(([nom, val], k) => { const y = 108 + k * 34; g.fillStyle = '#c9c3b6'; g.fillText(nom, 16, y); g.fillStyle = '#3a3f45'; g.fillRect(100, y - 7, 140, 14); g.fillStyle = '#4fd6e3'; g.fillRect(100, y - 7, 140 * clamp(val, 0.04, 1), 14); });
+    g.font = '800 12px system-ui'; CLES_AMELIO.forEach((a, k) => { const x = 10 + k * 61, niv = v.niv[a], prix = prixAmelioVeh(b.cle, niv); g.fillStyle = '#c9c3b6'; g.fillText(AMELIO_VEH[a], x, 222); for (let n = 0; n < 3; n++) { g.fillStyle = n < niv ? '#f08a24' : '#3a3f45'; g.fillRect(x + n * 17, 236, 14, 9); } g.fillStyle = !v.possede ? '#6c7076' : !prix ? '#4fd6e3' : S.credits >= prix ? '#f08a24' : '#f08a24'; g.fillText(!prix ? 'MAX' : prix.toLocaleString('fr-FR'), x, 266); });
+    e.maj();
+  }
+});

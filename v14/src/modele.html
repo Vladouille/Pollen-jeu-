@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#cfe6f7">
+<title>POLLEN planète</title>
+<!-- Fichier généré par v10/construire.mjs à partir de v10/src : ne pas modifier à la main. -->
+<!--
+  POLLEN v10 : la planète. Une sphère de 500 m de rayon, des tuiles hexagonales, six secteurs d'Azurelles, quatre
+  bâtiments où l'on entre, un concessionnaire, cinq véhicules, un mode construction (touche B) et une carte-globe (M).
+  ?mode=pc ou ?mode=mobile pour forcer l'appareil, ?debug pour les compteurs, ?neuf pour repartir de zéro.
+-->
+<style>
+  /* Charte POLLEN : blanc cassé, graphite, jaune pollen, vert sève ; une seule police sans empattement, grasse. */
+  :root { --blanc: #edeae4; --graphite: #2e343a; --pollen: #f4b41a; --seve: #4fd6e3; --encre: #fffdf7; --voile: rgba(28, 31, 35, .55); --fond: #cfe6f7; color-scheme: light; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fond); overscroll-behavior: none; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; font: 800 14px/1.2 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: var(--encre); }
+  #jeu { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
+  #c { display: block; width: 100%; height: 100%; outline: none; cursor: crosshair; }
+  #reticule { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .85); box-shadow: 0 0 0 1px rgba(28, 31, 35, .35); pointer-events: none; }
+  .stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .6); background: rgba(28, 31, 35, .18); pointer-events: none; }
+  .stick b { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255, 253, 247, .85); }
+  .btn { position: absolute; border-radius: 50%; border: 2.5px solid rgba(255, 253, 247, .75); background: rgba(28, 31, 35, .3); color: var(--encre); font: 800 20px/1 inherit; display: grid; place-items: center; touch-action: none; padding: 0; }
+  #agir { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(110px + env(safe-area-inset-bottom, 0px)); width: 84px; height: 84px; }
+  #agir.appui { transform: scale(.92); background: rgba(244, 180, 26, .3); }
+  #inter { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
+  #debug { position: absolute; left: 10px; top: 60px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
+  #panne { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9; padding: 10px 14px; border-radius: 8px; background: rgba(47, 51, 56, .92); }
+
+  /* Interface : cinq plaques graphite translucides aux coins chanfreinés, chiffres en jaune pollen. Rien d'autre. */
+  #hud { position: absolute; inset: 0; pointer-events: none; --pad: 14px; }
+  .plaque { position: absolute; background: rgba(32, 35, 39, .58); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px); }
+  /* 1. Ruban de boussole, en haut au centre. */
+  #boussole { left: 50%; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); width: min(380px, 46vw); height: 30px; transform: translateX(-50%); overflow: hidden; }
+  #boussole::after { content: ''; position: absolute; left: 50%; top: 0; width: 2px; height: 9px; margin-left: -1px; background: var(--pollen); }
+  #bande { position: absolute; inset: 0; }
+  #bande i { position: absolute; left: 50%; bottom: 3px; width: 30px; margin-left: -15px; text-align: center; font: 800 12px/1 inherit; font-style: normal; color: var(--encre); }
+  #bande i.g::before { content: ''; display: block; width: 1px; height: 6px; margin: 0 auto; background: rgba(255, 253, 247, .5); }
+  #bande i.c { bottom: 8px; }
+  /* Le repère de la base : une maison orange sur le ruban, la distance juste dessous ; collé au bord si la base est derrière. */
+  #repBase { position: absolute; left: 50%; top: 2px; width: 14px; height: 13px; margin-left: -7px; background: #f08a24; clip-path: polygon(50% 0, 100% 45%, 100% 100%, 0 100%, 0 45%); }
+  #repBase.bord { opacity: .55; }
+  #distBase { position: absolute; left: 50%; top: calc(var(--pad) + 32px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); font-size: 11px; color: #f08a24; text-shadow: 0 1px 3px rgba(0, 0, 0, .7); white-space: nowrap; pointer-events: none; }
+  /* 2. Pourcentage du secteur, en haut à droite. */
+  #secteur { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 10px; }
+  #secteur .hex { width: 16px; height: 18px; background: #e8458b; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  #secP { font-size: 20px; color: var(--encre); }
+  #secteur.fin { animation: fin 0.6s ease-in-out 5; } #secteur.fin #secP { color: var(--seve); }   /* fin de secteur : le pourcentage pulse en vert */
+  @keyframes fin { 50% { transform: scale(1.18); box-shadow: 0 0 22px rgba(79, 214, 227, .7); } }
+  @media (prefers-reduced-motion: reduce) { #secteur.fin { animation: none; } }
+  /* 3. Outil et charge, en bas à gauche. */
+  #pastille { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); padding: 9px 15px; }
+  #pastille small { display: block; font-size: 11px; color: #c9c3b6; }
+  #charge { display: block; margin-top: 3px; font-size: 20px; color: var(--pollen); letter-spacing: .02em; }
+  /* 4. Ronds des outils, en bas au centre. */
+  #slots { position: absolute; left: 50%; bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 8px; pointer-events: auto; }
+  #slots button { width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .35); background: rgba(32, 35, 39, .6); display: grid; place-items: center; cursor: pointer; }
+  #slots button.actif { border-color: var(--pollen); background: rgba(47, 51, 56, .85); }
+  #slots svg { width: 24px; height: 24px; fill: none; stroke: var(--encre); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #slots button.actif svg { stroke: var(--pollen); }
+  /* Sauvegardes : une icône discrète en haut à droite, sous le pourcentage ; un panneau à trois emplacements. */
+  #sauvegardes { position: absolute; right: calc(var(--pad, 14px) + env(safe-area-inset-right, 0px)); top: calc(62px + env(safe-area-inset-top, 0px)); width: 30px; height: 30px; padding: 5px; border: 0; border-radius: 6px; background: rgba(32, 35, 39, .35); cursor: pointer; opacity: .7; }
+  #sauvegardes:hover, #sauvegardes:focus-visible { opacity: 1; outline: 2px solid var(--pollen); }
+  #sauvegardes svg { width: 100%; height: 100%; fill: none; stroke: var(--encre); stroke-width: 1.7; stroke-linejoin: round; }
+  #panneauSauve { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 86vw); padding: 14px 16px; z-index: 5; pointer-events: auto; }
+  #panneauSauve h2 { margin: 0 0 10px; font-size: 15px; }
+  #panneauSauve ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  #panneauSauve li { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: rgba(255, 253, 247, .07); }
+  #panneauSauve li.actif { outline: 2px solid var(--pollen); }
+  #panneauSauve li strong { font-size: 18px; color: var(--pollen); text-align: center; }
+  #panneauSauve .info { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; } #panneauSauve .vide { color: #c9c3b6; }
+  #panneauSauve .actions { display: flex; gap: 6px; align-items: center; } #panneauSauve b.actif { font-size: 12px; color: var(--seve); }
+  #panneauSauve button { font: 800 12px/1 inherit; padding: 7px 10px; border-radius: 5px; border: 0; background: var(--pollen); color: var(--graphite); cursor: pointer; }
+  #panneauSauve button.suppr { background: #6c7076; color: var(--blanc); }
+  #panneauSauve .bas { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; } #panneauSauve #fermerSauve { background: #6c7076; color: var(--blanc); }
+  #annonce { position: absolute; left: 50%; top: 60px; transform: translateX(-50%); width: min(520px, 86vw); padding: 10px 14px; font-size: 13px; z-index: 6; }
+  .mobile #sauvegardes { top: calc(58px + env(safe-area-inset-top, 0px)); }
+  /* La carte et le mode construction : deux boutons discrets, une barre en bas. */
+  .outilHud { position: absolute; right: calc(var(--pad, 14px) + env(safe-area-inset-right, 0px)); width: 30px; height: 30px; padding: 5px; border: 0; border-radius: 6px; background: rgba(32, 35, 39, .35); cursor: pointer; opacity: .7; }
+  .outilHud:hover, .outilHud:focus-visible { opacity: 1; outline: 2px solid var(--pollen); }
+  .outilHud svg { width: 100%; height: 100%; fill: none; stroke: var(--encre); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+  #carte { top: calc(98px + env(safe-area-inset-top, 0px)); } #construire { top: calc(134px + env(safe-area-inset-top, 0px)); } #rappel { top: calc(170px + env(safe-area-inset-top, 0px)); }
+  .ext #reticule { display: none; }
+  #reticule.carte { width: 34px; height: 34px; margin: -17px 0 0 -17px; border-color: rgba(79, 214, 227, .9); }
+  #barreCons { position: absolute; left: 50%; bottom: calc(var(--pad, 14px) + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(880px, 94vw); padding: 8px 10px; background: rgba(20, 30, 44, .78); border: 1px solid rgba(79, 214, 227, .5); border-radius: 8px; pointer-events: auto; }
+  #barreCons .cats, #barreCons .items { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  #barreCons .items { margin-top: 7px; }
+  #barreCons button { font: 800 12px/1.1 inherit; color: var(--encre); padding: 7px 10px; border-radius: 5px; border: 1px solid rgba(255, 253, 247, .25); background: rgba(46, 52, 58, .8); cursor: pointer; }
+  #barreCons .cats button { text-transform: uppercase; letter-spacing: .04em; } #barreCons .cats i { font-style: normal; color: var(--seve); margin-right: 6px; }
+  #barreCons button.actif { border-color: #f08a24; background: #f08a24; color: #1c1f22; } #barreCons button.actif i { color: #1c1f22; }
+  #barreCons .items b { display: block; margin-top: 3px; color: var(--pollen); } #barreCons .items button.actif b { color: #1c1f22; }
+  #barreCons .bas { display: flex; align-items: center; gap: 8px; margin-top: 7px; min-height: 26px; }
+  #barreCons #consSuppr.actif { border-color: #e0452f; background: #e0452f; color: #fffdf7; }
+  .suppr #barreCons { border-color: rgba(224, 69, 47, .8); }
+  #consRaison { flex: 1; color: #ff8d7a; font-size: 13px; text-align: center; }
+  .cons #pastille { bottom: auto; top: calc(var(--pad) + env(safe-area-inset-top, 0px)); } .cons #credits { bottom: auto; top: calc(62px + env(safe-area-inset-top, 0px)); right: calc(56px + env(safe-area-inset-right, 0px)); }
+  /* 5. Argent, en bas à droite. */
+  #credits { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 9px; padding: 9px 15px 9px 11px; }
+  .piece { width: 24px; height: 24px; background: var(--pollen); clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%); position: relative; }
+  .piece::after { content: ''; position: absolute; inset: 6px; background: #c78f00; clip-path: inherit; }
+  #cr { font-size: 22px; color: var(--encre); min-width: 2ch; }
+  /* L'élan : niveau et contrats en haut à gauche, multiplicateur sous le réticule, nombres qui s'envolent, bandeau. */
+  #progression { left: calc(var(--pad) + env(safe-area-inset-left, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); width: min(272px, 38vw); padding: 8px 11px 9px; }
+  #progression .tete { display: flex; align-items: center; gap: 9px; }
+  #niv { width: 28px; height: 31px; display: grid; place-items: center; background: var(--pollen); color: var(--graphite); font-size: 14px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  #progression .xp { flex: 1; height: 7px; border-radius: 4px; background: rgba(255, 253, 247, .15); overflow: hidden; }
+  #xpBar { display: block; height: 100%; background: var(--pollen); transform-origin: left; transition: transform .25s; }
+  #contrats { list-style: none; margin: 7px 0 0; padding: 0; display: grid; gap: 4px; }
+  #contrats li { position: relative; display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 0 5px; }
+  #contrats li em { font-style: normal; color: var(--pollen); white-space: nowrap; }
+  #contrats li i { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--seve); transform-origin: left; transition: transform .3s; }
+  #contrats li.fait { color: var(--seve); animation: fait .4s ease-in-out 3; }
+  #contrats li.achat { margin-top: 3px; padding-top: 7px; border-top: 1px solid rgba(255, 253, 247, .15); color: #c9c3b6; }
+  #contrats li.achat i { background: var(--pollen); }
+  #contrats li.pret { color: var(--pollen); }
+  @keyframes fait { 50% { transform: translateX(4px); } }
+  #elan { position: absolute; left: 50%; top: calc(50% + 30px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #elan.actif { opacity: 1; }
+  #elanX { font-size: 18px; color: var(--pollen); text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+  #elan span { width: 56px; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, .35); overflow: hidden; }
+  #elanBar { display: block; height: 100%; background: var(--pollen); transform-origin: left; }
+  #elan.palier #elanX { animation: palier .45s ease-out; }
+  @keyframes palier { 40% { transform: scale(1.6); color: #fffdf7; } }
+  #flottants span { position: absolute; left: 0; top: 0; font-size: 15px; color: var(--encre); text-shadow: 0 1px 3px rgba(0, 0, 0, .7); opacity: 0; white-space: nowrap; will-change: transform; }
+  #flottants .fort { color: var(--pollen); font-size: 17px; }
+  #flottants .or { color: #ffd23a; font-size: 23px; }
+  #bandeau { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+  #bandeau b { display: block; font-size: 30px; color: var(--pollen); text-shadow: 0 2px 8px rgba(0, 0, 0, .6); }
+  #bandeau small { font-size: 15px; text-shadow: 0 1px 4px rgba(0, 0, 0, .7); }
+  #bandeau.vu { animation: bandeau 3.2s ease forwards; }
+  @keyframes bandeau { 0% { opacity: 0; transform: translate(-50%, 12px) scale(.9); } 10%, 80% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; } }
+  .bourrasque #hud { box-shadow: inset 0 0 140px rgba(244, 180, 26, .32); }
+  #charges { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); bottom: calc(var(--pad) + 52px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px; font-size: 12px; color: #f4b41a; }
+  #charges.impaye { color: #fffdf7; background: rgba(224, 69, 47, .85); }
+  .cons #charges { display: none; }
+  #credits.gain { animation: gain .35s ease-out; } @keyframes gain { 40% { transform: scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { #bandeau.vu, #credits.gain, #elan.palier #elanX, #contrats li.fait { animation: none; } }
+  .mobile #progression { width: min(230px, 34vw); padding: 6px 9px 7px; } .mobile #contrats li { font-size: 11px; }
+  .mobile #slots button { width: 44px; height: 44px; }
+  .mobile #boussole { width: min(300px, 40vw); }
+</style>
+<script>
+  function panne(m) { var p = document.getElementById('panne'); if (p) { p.hidden = false; p.textContent = m; } }
+  window.addEventListener('error', function (e) { panne('Erreur : ' + (e.message || e.type)); });
+</script>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="jeu">
+  <canvas id="c" tabindex="0" aria-label="POLLEN, une petite planète à polliniser"></canvas>
+  <div id="reticule"></div>
+  <div class="stick" hidden><b></b></div>
+  <button id="agir" class="btn" type="button" hidden aria-label="Action">●</button>
+  <button id="inter" class="btn" type="button" hidden aria-label="Interagir">E</button>
+  <div id="hud">
+    <div id="boussole" class="plaque"><div id="bande"></div><b id="repBase" aria-hidden="true"></b></div><small id="distBase" aria-hidden="true"></small>
+    <div id="secteur" class="plaque"><span class="hex" aria-hidden="true"></span><strong id="secP">0 %</strong></div>
+    <div id="pastille" class="plaque"><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div>
+    <div id="slots"></div>
+    <div id="credits" class="plaque"><span class="piece" aria-hidden="true"></span><strong id="cr">0</strong></div>
+    <small id="charges" class="plaque" hidden></small>
+    <div id="progression" class="plaque"><div class="tete"><b id="niv">1</b><div class="xp"><i id="xpBar"></i></div></div><ul id="contrats"></ul></div>
+    <div id="elan" aria-hidden="true"><b id="elanX">×1,0</b><span><i id="elanBar"></i></span></div>
+    <div id="flottants" aria-hidden="true"></div>
+    <div id="bandeau" role="status" hidden></div>
+  </div>
+  <button id="sauvegardes" type="button" data-tactile aria-label="Sauvegardes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
+  <button id="carte" class="outilHud" type="button" data-tactile aria-label="Carte"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3.2 3 3.2 14 0 17M12 3.5c-3.2 3-3.2 14 0 17"/></svg></button>
+  <button id="construire" class="outilHud" type="button" data-tactile aria-label="Construire"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l8-8"/><path d="M10.5 6.5l7 7 3-3-7-7z"/></svg></button>
+  <button id="rappel" class="outilHud" type="button" data-tactile aria-label="Faire venir mon véhicule (V)" title="Faire venir mon véhicule (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15l2-6h10l4 4h2v2"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/><path d="M9 16.5h6"/></svg></button>
+  <div id="barreCons" hidden data-tactile>
+    <div class="cats"></div><div class="items"></div>
+    <div class="bas"><button type="button" id="consTourner" data-tactile>Tourner</button><button type="button" id="consVerrou" data-tactile>Verrou</button><button type="button" id="consSuppr" data-tactile>Supprimer (X)</button><span id="consRaison" role="status"></span><button type="button" id="consFermer" data-tactile>Fermer</button></div>
+  </div>
+  <div id="panneauSauve" class="plaque" hidden data-tactile>
+    <h2>Sauvegardes</h2>
+    <ul></ul>
+    <div class="bas"><button type="button" id="exporter">Exporter</button><button type="button" id="importer">Importer</button><button type="button" id="fermerSauve">Fermer</button></div>
+    <input type="file" id="fichierSauve" accept=".json,application/json" hidden>
+  </div>
+  <div id="annonce" class="plaque" hidden></div>
+  <pre id="debug" hidden></pre>
+</div>
+<div id="panne" hidden></div>
+<script type="module">
+/*__CODE__*/
+</script>
+</body>
+</html>

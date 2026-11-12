@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#cfe6f7">
+<title>POLLEN socle</title>
+<!-- Fichier généré par v12/construire.mjs à partir de v12/src : ne pas modifier à la main. -->
+<!--
+  POLLEN v12, brique 1 : le socle. Une planète de 500 m pavée d'hexagones, la gravité vers le centre, la vue à la
+  première personne et son ombre, le ciel noir étoilé et le soleil qui tourne. Rien d'autre.
+  ?mode=pc ou ?mode=mobile pour forcer l'appareil, ?debug pour les compteurs.
+-->
+<style>
+  :root { --orange: #f08a24; --encre: #fffdf7; color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; overscroll-behavior: none; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; font: 800 14px/1.2 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: var(--encre); }
+  #jeu { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; transform-origin: 0 0; }
+  #c { display: block; width: 100%; height: 100%; outline: none; cursor: crosshair; }
+  .stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255, 253, 247, .6); background: rgba(28, 31, 35, .18); pointer-events: none; }
+  .stick b { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(255, 253, 247, .85); }
+  #debug { position: absolute; left: 10px; top: 10px; margin: 0; padding: 6px 9px; border-radius: 6px; background: rgba(0, 0, 0, .45); font: 12px/1.35 ui-monospace, monospace; white-space: pre; pointer-events: none; }
+  #panne { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9; padding: 10px 14px; border-radius: 8px; background: rgba(47, 51, 56, .92); }
+</style>
+<script>
+  function panne(m) { var p = document.getElementById('panne'); if (p) { p.hidden = false; p.textContent = m; } }
+  window.addEventListener('error', function (e) { panne('Erreur : ' + (e.message || e.type)); });
+</script>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="jeu">
+  <canvas id="c" tabindex="0" aria-label="POLLEN, une petite planète à parcourir"></canvas>
+  <div class="stick" hidden><b></b></div>
+  <button id="agir" type="button" hidden aria-label="Action"></button>
+  <button id="inter" type="button" hidden aria-label="Interagir"></button>
+  <pre id="debug" hidden></pre>
+</div>
+<div id="panne" hidden></div>
+<script type="module">
+/*__CODE__*/
+</script>
+</body>
+</html>
