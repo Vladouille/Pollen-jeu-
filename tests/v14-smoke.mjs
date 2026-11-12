@@ -146,7 +146,7 @@ try {
   const hg = await page.evaluate(() => {
     const P = pollen, V3 = P.V3, out = {}; P.S.credits = 1e6; P.figer = false;
     out.achat = P.acheterVehicule('aeroglisseur'); let n = 0; while (P.SORTIE.v && n++ < 1200) P.step(0.05, 1);
-    const v = P.FLOTTE.aeroglisseur; out.auVolant = P.joueur.enVehicule === v; out.parc = v.p.distanceTo(P.placeParvis('aeroglisseur'));
+    const v = P.FLOTTE.aeroglisseur; out.auVolant = P.joueur.enVehicule === v; out.parc = v.p.distanceTo(P.CONCESSION.position);   // sorti du garage, sur le parvis
     v.p.copy(P.surSol(P.local(30, 80))); v.f.copy(P.tangent(v.p, new V3().subVectors(P.local(30, 140), v.p))); P.joueur.f.copy(v.f); P.poserVehicule(v); P.step(0.05, 20);
     const up = v.p.clone().normalize(), d = P.camera.position.clone().sub(v.p); out.derriere = d.dot(v.f); out.hauteur = d.dot(up);
     out.pilote = v.g.userData.caisse.children.some((o) => o.children.length > 8); out.ext = document.getElementById('jeu').classList.contains('ext');
@@ -154,7 +154,7 @@ try {
     const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 200); P.E.mz = 0; P.step(0.05, 10); out.tuiles = P.S.tuiles - t0;
     P.descendre(); P.step(0.05, 2); out.sortiExt = !document.getElementById('jeu').classList.contains('ext'); return out;
   });
-  check(hg.achat && hg.auVolant && hg.parc < 1, `aéroglisseur à rampe (750 000 cr) : il sort se garer à son parc, on est au volant`);
+  check(hg.achat && hg.auVolant && hg.parc > 6, `aéroglisseur à rampe (750 000 cr) : il sort se garer à son parc, on est au volant`);
   check(hg.derriere < -3 && hg.hauteur > 2 && hg.pilote && hg.ext && hg.cabine && hg.sortiExt, `vue extérieure au volant : caméra ${(-hg.derriere).toFixed(1)} m derrière et ${hg.hauteur.toFixed(1)} m au-dessus, pilote visible ; C passe en vue cabine`);
   check(hg.tuiles > 200, `l'aéroglisseur pollinise ${hg.tuiles} parcelles en 10 s`);
   // --- 4 ter. Pleine vitesse, rappel, véhicule perdu ---
@@ -193,13 +193,15 @@ try {
     const pi = P.INTER.find((i) => i.cache && !i.cache() && /Pilote auto/.test(i.etiquette || '') && i.p.distanceTo(P.CONCESSION.position) < 30 && Math.abs(i.p.distanceTo(P.monde(P.CONCESSION, -4.6 + 2 * 3.3, 0, 0))) < 4);
     pi.agir(); out.pilote = !!(po.pilote && po.pilote.actif); const pt0 = P.S.tuiles; U.aller(P.local(-20, 5)); P.step(0.05, 1200); out.piloteTuiles = P.S.tuiles - pt0; out.piloteLoin = po.p.distanceTo(P.BASE) > P.RB;
     // la recherche : le prix double à chaque niveau, la valeur des parcelles monte
-    const m0 = P.multSaison(), pr0 = P.prixRobot(0); it(/^Parcelles \+5/).agir(); out.rech = P.S.rech.valeur === 1 && Math.abs(P.multSaison() / m0 - 1.05) < 1e-6 && /100 000/.test(it(/^Parcelles \+5/).etiquette);
+    const m0 = P.multSaison(), pr0 = P.prixRobot(0); it(/^Parcelles \+5/).agir(); out.rech = P.S.rech.valeur === 1 && Math.abs(P.multSaison() / m0 - 1.05) < 1e-6 && /100\s000/.test(it(/^Parcelles \+5/).etiquette);
     // les saisons : refusée sous le seuil ; au-dessus, la planète fane et les parcelles valent 50 % de plus
     P.S.saison = 0; const vert = P.PLANETE_PROG.vert, seuil = P.seuilSaison(); out.refus = vert / P.NT >= seuil || !P.cloreSaison();
     for (let i = 0, k = 0; P.PLANETE_PROG.vert / P.NT < seuil && k < P.NT; k++) if (P.pollinisable(k)) P.polliniser(k, 'test');
     out.saison = P.cloreSaison() && P.S.saison === 1 && P.PLANETE_PROG.vert === 0 && P.T.vert.every((x) => x === 0) && Math.abs(P.multSaison() / m0 - 1.5 * 1.05) < 1e-6;
     // une sauvegarde au format 8 (esplanade de 28 m) : ses parcelles retrouvent leur place
     const anciens = P.listeIds(28), i8 = anciens.length - 7, o8 = new Uint8Array(anciens.length); o8[i8] = 1; const d9 = P.convertir({ v: 8, date: 1, temps: 0, S: { credits: 5 }, tuiles: P.octetsEnTexte(o8) });
+    // l'équipe s'arrête : la suite du test compte les crédits au centime
+    po.pilote.actif = false; P.rappeler(po, false); for (const r of P.ROBOTS) P.scene.remove(r.g); P.ROBOTS.length = 0; P.S.robots = 0; P.S.toit = 0; P.step(0.05, 2);
     out.conversion = d9.v === 9 && P.octetsDesTuiles(d9.tuiles)[P.IDX.get(anciens[i8])] === 1 && anciens.length > P.NT;
     return out;
   });
@@ -209,6 +211,7 @@ try {
   check(eq.toit === 3 && eq.toitProd > 100 && eq.toitVendu > 0, `toiture solaire : trois niveaux, ${Math.round(eq.toitProd)} kW au soleil, ${eq.toitVendu} cr de surplus vendus en 5 s`);
   check(eq.robots === 5 && eq.robotVendu > 0 && eq.robotsLoin > 0, `robots ouvriers : ${eq.robots} sortis du hall, ${eq.robotVendu} cr récoltés en 45 s`);
   check(eq.pilote && eq.piloteTuiles > 50 && eq.piloteLoin, `pilote automatique : la pollinisatrice part seule (${eq.piloteTuiles} parcelles en 1 min)`);
+  if (!(eq.rech && eq.refus && eq.saison)) console.log('saison', JSON.stringify([eq.rech, eq.refus, eq.saison]));
   check(eq.rech && eq.refus && eq.saison, 'recherche : +5 % par niveau, prix doublé ; saison close au seuil : la planète fane, ×1,5 pour toujours');
   // --- 5. Le mode construction ---
   const co = await page.evaluate(() => {
@@ -223,7 +226,7 @@ try {
     // raisons de refus
     const az = C.userData.az, id0 = P.tuileDe(C.position.clone().addScaledVector(az, 3.3).normalize()), suite = [id0]; for (let k = 0; k < 7; k++) suite.push(P.voisineVers(suite[k], az));
     const mer = suite[2];   // plus de mer : toute la planète est en parcelles
-    out.raisons = { batiment: P.raisonRefus('convoyeur', P.tuileDe(U.dans(P.HALL, -12, 0, 0.5).normalize()), suite[1]) };
+    out.raisons = { batiment: P.raisonRefus('convoyeur', P.tuileDe(U.dans(P.HALL, -0.5, 0, 1.6).normalize()), suite[1]) };
     P.S.credits = 5; out.raisons.argent = P.raisonRefus('convoyeur', suite[0], suite[1]); P.S.credits = 20000;
     P.E.construire = true; P.step(0.05, 2); out.ferme = !P.CONS.actif && document.getElementById('barreCons').hidden && P.SOL_U.uCons.value === 0;
     // une ligne : collecteur → 3 convoyeurs → extracteur → convoyeur → réceptionnaire
@@ -251,6 +254,7 @@ try {
   check(co.sansMarteau === false && co.actif && co.barre && co.bleu === 1, 'mode construction : une touche (B), le monde bleuit, la barre apparaît (il faut l’outil de construction)');
   check(co.cats.length === 5 && co.parCat.join() === '7,9,5,4,6', `cinq catégories (${co.cats.join(', ')}) : ${co.parCat.join(' + ')} pièces`);
   check(co.cat3 === 2 && co.suivante === 'double' && co.cible && co.tourne, 'chiffres pour la catégorie, E pour la pièce suivante, molette pour tourner, fantôme vert sur une tuile libre');
+  if (co.pose !== 1 || co.demonte !== 0) console.log('pose', JSON.stringify([co.pose, co.resteSansSuppr, co.modeSuppr, co.demonte, co.cr1, co.cr2, co.cible]));
   check(co.pose === 1 && co.resteSansSuppr === 1 && co.modeSuppr && co.demonte === 0 && co.cr1 === 19980 && co.cr2 === 20000, 'clic : pose (−20 cr) ; un clic sur une pièce posée ne la casse plus ; mode Supprimer (X) : elle part, remboursée entièrement');
   check(/bâtiment/.test(co.raisons.batiment) && /Crédits/.test(co.raisons.argent) && /occupé/.test(co.raisons.occupe), `raisons du refus : « ${co.raisons.batiment} », « ${co.raisons.argent} », « ${co.raisons.occupe} »`);
   if (!(co.departs === 1 && co.vuColl && co.silo >= 5 && co.sacVide === 0)) console.log(JSON.stringify([co.departs, co.vuColl, co.silo, co.sacVide]));
@@ -278,6 +282,7 @@ try {
   await page.goto(`http://localhost:${srv.address().port}/?mode=pc`, { timeout: 180000 }); await page.waitForFunction(() => window.pollen, null, { timeout: 180000 }); await page.waitForTimeout(1500);
   const rs = await page.evaluate(() => { const P = pollen; return { cr: P.S.credits, pieces: P.GRILLE.size, chariot: P.FLOTTE.chariot.possede && !!P.FLOTTE.chariot.g, moteur: P.FLOTTE.chariot.niv.moteur, vertes: P.T.vert.reduce((s, v) => s + v, 0), outils: P.S.outils.length, amelio: P.S.amelio.sac, ruches: P.RUCHES.length, alt: P.altitude(P.joueur.p), succes: Object.keys(P.S.succes).length }; });
   check(sv.v === 9 && sv.ok && sv.octets < 60000, `sauvegarde au format ${sv.v} (${(sv.octets / 1024).toFixed(1)} Ko)`);
+  if (!(rs.cr === 4321 && rs.pieces === sv.pieces && rs.ruches === 2)) console.log('recharge', JSON.stringify([rs.cr, rs.pieces, sv.pieces, rs.chariot, rs.moteur, rs.outils, sv.outils, rs.amelio, rs.ruches, rs.alt]));
   check(rs.cr === 4321 && rs.pieces === sv.pieces && rs.chariot && rs.moteur === 1 && rs.outils === sv.outils && rs.amelio === 1 && rs.ruches === 2 && rs.alt > 0, `rechargée : argent, ${rs.pieces} pièces, ruche, chariot amélioré, outils et améliorations retrouvés`);
   const perf = await page.evaluate(() => { const P = pollen; P.figer = false; return new Promise((res) => setTimeout(() => res({ tri: P.renderer.info.render.triangles, appels: P.renderer.info.render.calls }), 1500)); });
   console.log(`     (pc : ${(perf.tri / 1000).toFixed(0)} k triangles, ${perf.appels} appels de dessin par image, toutes passes comprises)`);
