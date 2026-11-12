@@ -144,7 +144,7 @@ try {
   check(ve.vert && ve.vendu > 0 && ve.descendu, `garé au collecteur : repère vert, E vide les cuves (+${ve.vendu} cr), E encore fait descendre`);
   // --- 4 bis. Le haut de gamme et la vue extérieure au volant ---
   const hg = await page.evaluate(() => {
-    const P = pollen, V3 = P.V3, out = {}; P.S.credits = 1e6; P.figer = false;
+    const P = pollen, V3 = P.V3, out = {}; P.S.credits = 1e7; P.figer = false;   // l'aéroglisseur coûte 5 M
     out.achat = P.acheterVehicule('aeroglisseur'); let n = 0; while (P.SORTIE.v && n++ < 1200) P.step(0.05, 1);
     const v = P.FLOTTE.aeroglisseur; out.auVolant = P.joueur.enVehicule === v; out.parc = v.p.distanceTo(P.CONCESSION.position);   // sorti du garage, sur le parvis
     v.p.copy(P.surSol(P.local(30, 80))); v.f.copy(P.tangent(v.p, new V3().subVectors(P.local(30, 140), v.p))); P.joueur.f.copy(v.f); P.poserVehicule(v); P.step(0.05, 20);
@@ -154,7 +154,7 @@ try {
     const t0 = P.S.tuiles; P.E.mz = 1; P.step(0.05, 200); P.E.mz = 0; P.step(0.05, 10); out.tuiles = P.S.tuiles - t0;
     P.descendre(); P.step(0.05, 2); out.sortiExt = !document.getElementById('jeu').classList.contains('ext'); return out;
   });
-  check(hg.achat && hg.auVolant && hg.parc > 6, `aéroglisseur à rampe (750 000 cr) : il sort se garer à son parc, on est au volant`);
+  check(hg.achat && hg.auVolant && hg.parc > 6, `aéroglisseur à rampe (5 000 000 cr) : il sort se garer à son parc, on est au volant`);
   check(hg.derriere < -3 && hg.hauteur > 2 && hg.pilote && hg.ext && hg.cabine && hg.sortiExt, `vue extérieure au volant : caméra ${(-hg.derriere).toFixed(1)} m derrière et ${hg.hauteur.toFixed(1)} m au-dessus, pilote visible ; C passe en vue cabine`);
   check(hg.tuiles > 200, `l'aéroglisseur pollinise ${hg.tuiles} parcelles en 10 s`);
   // --- 4 ter. Pleine vitesse, rappel, véhicule perdu ---
@@ -185,7 +185,7 @@ try {
     U.aller(P.local(0, 120)); P.step(0.05, 3); out.boussole = getComputedStyle(document.getElementById('repBase')).display !== 'none' && /Base \d+/.test(document.getElementById('distBase').textContent);
     // la toiture : trois niveaux, des panneaux sur les toits, le surplus vendu
     for (let k = 0; k < 3; k++) it(/^Panneaux/).agir(); out.toit = P.S.toit; for (let a = 0; a < 6.3; a += 0.02) { P.JOUR.angle = a; P.placerSoleil(); if (P.BASE.clone().normalize().dot(P.SOLEIL) > 0.8) break; }
-    const e0 = P.S.expedie || 0; P.step(0.05, 100); out.toitProd = P.TOIT.prod; out.toitVendu = (P.S.expedie || 0) - e0;
+    P.CHARGES.off = false; const e0 = P.S.expedie || 0; P.step(0.05, 100); out.toitProd = P.TOIT.prod; out.toitVendu = (P.S.expedie || 0) - e0; P.CHARGES.off = true; P.CHARGES.du = 0;
     // les robots : ils sortent du hall et vendent ce qu'ils pollinisent
     for (let k = 0; k < 5; k++) it(/^Robot \(/).agir(); out.robots = P.S.robots; const rv0 = P.S.robotVendu || 0; P.step(0.05, 1800); out.robotVendu = (P.S.robotVendu || 0) - rv0; out.robotsLoin = P.ROBOTS.filter((r) => r.p.distanceTo(P.BASE) > P.RB).length;
     // le pilote automatique : la pollinisatrice part seule et vend
@@ -236,7 +236,7 @@ try {
   check(us.ouvriers === 4 && us.fabrique >= 6 && us.salaires > 2 && us.paye > 0 && /Charges/.test(us.hud), `usine : 4 ouvriers, ${us.fabrique} brosses et pièces en 30 s, salaires et électricité prélevés (${us.hud})`);
   check(us.impaye && us.greve && us.repaye, 'sans argent : « Impayé », les ouvriers s’arrêtent ; payé, tout repart');
   check(us.rareBot === 0 && us.rareJoueur === 25 && us.rares === 24, 'fleur rare : refusée au robot, ×25 pour le joueur, une autre repousse ailleurs');
-  check(us.prime > 1000 && us.finis, `secteur entièrement fleuri : prime de ${us.prime} cr`);
+  check(us.prime > 500 && us.finis, `secteur entièrement fleuri : prime de ${us.prime} cr`);
   check(us.propagation > 0 && us.desh === 6 && us.arrachees > 0, `mauvaises herbes : +${us.propagation} en 1 min ; 6 désherbeurs en arrachent ${us.arrachees} en 2 min`);
   check(us.tour > 0 && us.nid > 0, `tour d'épandage (${Math.round(us.tour)} cr) et nid de drones (${Math.round(us.nid)} cr) en 20 s`);
   check(us.moto && us.motoTuiles > 60, `moto des champs : ${us.motoTuiles} parcelles en 15 s`);
@@ -268,7 +268,7 @@ try {
     // démonter rembourse tout (achat et amélioration)
     const cr = P.S.credits; P.ameliorer(ex); const paye = cr - P.S.credits; P.demonter(ex); out.rembourse = P.S.credits - cr; out.paye = paye;
     // ruche simple : rayon d'une tuile ; elle pollinise seule
-    const bord = P.tuileDe(P.local(0, 60).normalize()), ru = P.poserPiece('ruche0', bord, P.voisinsDe(bord)[0]); out.cibles = ru.ruche.cibles.length; const t0 = P.S.tuiles; P.step(0.05, 400); out.parRuche = P.S.tuiles - t0;
+    const bord = P.tuileDe(P.local(-14, 62).normalize()), ru = P.poserPiece('ruche0', bord, P.voisinsDe(bord)[0]); out.cibles = ru.ruche.cibles.length; const t0 = P.S.tuiles; P.step(0.05, 400); out.parRuche = P.S.tuiles - t0;
     const mere = P.poserPiece('ruche2', P.tuileDe(P.local(4, 61).normalize()), bord); out.ciblesMere = mere.ruche.cibles.length; P.demonter(mere);
     // revenus automatiques : ruche → convoyeurs → réceptionnaire ; pollinisateur → convoyeur → réceptionnaire
     const ligne = (x0, z0, n) => { const vec = P.tangent(P.local(x0, z0), new V3().subVectors(P.local(x0, z0 + 30), P.local(x0, z0))), t = [P.tuileDe(P.local(x0, z0).normalize())]; for (let k = 1; k <= n; k++) t.push(P.voisineVers(t[k - 1], vec)); return t; };

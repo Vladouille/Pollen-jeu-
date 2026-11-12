@@ -3816,15 +3816,15 @@ SECTEUR_FINI.push((s) => {
 MAJ.push(() => { if (S.saison !== saisonVue) { saisonVue = S.saison; FINIS = new Set(); S.finis = finisRef = []; } });
 
 // --- Les mauvaises herbes : elles gagnent les parcelles fanées voisines ; leurs instances à part de celles du départ. ---
-const HERBES = { off: false, ens: new Set(), slots: new Map(), libres: [], t: 0 }, MAX_HERBES = 3000;
+const HERBES = { off: false, ens: new Set(), slots: new Map(), libres: [], t: 0, max: 0 }, MAX_HERBES = 3000;
 const herbesMesh = new THREE.InstancedMesh(chardonGeo, chardons.material, MAX_HERBES * 2);
 for (let j = MAX_HERBES * 2 - 1; j >= 0; j--) { herbesMesh.setMatrixAt(j, _m.makeScale(0, 0, 0)); HERBES.libres.push(j); }
-herbesMesh.frustumCulled = false; herbesMesh.castShadow = true; scene.add(herbesMesh);
+herbesMesh.count = 0; herbesMesh.frustumCulled = false; herbesMesh.castShadow = true; scene.add(herbesMesh);   // on ne dessine que jusqu'au dernier emplacement servi
 function poserHerbe(k) {
   if (HERBES.slots.has(k) || slotsChardon.has(k) || HERBES.libres.length < 2) return;
   const R = mulberry(k * 17 + 3), l = [], { est, nord } = repere(T.pos[k]);
-  for (let c = 0; c < 2; c++) { const a = R() * 6.28, d = R() * 0.6, sc = 0.9 + R() * 0.5, j = HERBES.libres.pop(); surSol(_p.copy(T.pos[k]).addScaledVector(est, Math.cos(a) * d).addScaledVector(nord, Math.sin(a) * d), 0, _p); herbesMesh.setMatrixAt(j, _m.compose(_p, qHaut(T.dir[k], _q), _s.set(sc, sc, sc))); l.push(j); }
-  HERBES.slots.set(k, l); herbesMesh.instanceMatrix.needsUpdate = true;
+  for (let c = 0; c < 2; c++) { const a = R() * 6.28, d = R() * 0.6, sc = 0.9 + R() * 0.5, j = HERBES.libres.pop(); surSol(_p.copy(T.pos[k]).addScaledVector(est, Math.cos(a) * d).addScaledVector(nord, Math.sin(a) * d), 0, _p); herbesMesh.setMatrixAt(j, _m.compose(_p, qHaut(T.dir[k], _q), _s.set(sc, sc, sc))); l.push(j); HERBES.max = Math.max(HERBES.max, j + 1); }
+  herbesMesh.count = HERBES.max; HERBES.slots.set(k, l); herbesMesh.instanceMatrix.needsUpdate = true;
 }
 function planterHerbe(k) { if (k < 0 || T.sorte[k] !== 0 || T.vert[k] || HERBES.slots.size >= MAX_HERBES) return false; changerSorte(k, 1); poserHerbe(k); HERBES.ens.add(k); return true; }
 APRES_DESHERBER.push((k) => { const l = HERBES.slots.get(k); if (l) { for (const j of l) { herbesMesh.setMatrixAt(j, _m.makeScale(0, 0, 0)); HERBES.libres.push(j); } herbesMesh.instanceMatrix.needsUpdate = true; HERBES.slots.delete(k); } HERBES.ens.delete(k); });
