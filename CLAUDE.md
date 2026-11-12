@@ -111,6 +111,9 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   +250 kW) = fermes au sol derrière l'usine puis le garage (`FERMES`). Robots avancés (`ROBOTS2`, 60 000 × 1,3^n,
   20 au plus, 3,2 m/s, trois parcelles en 1,2 s, une brosse pour 60 parcelles, borne devant l'usine). Sauvegarde :
   `ville`, `robots2` ; l'absence compte les robots avancés.
+  Corrigé au passage : un commentaire avalait le calcul de l'électricité (facture NaN, usine en impayé) ; charges coupées
+  (`CHARGES.off`) = pas de réseau extérieur ; désherbeurs partis de la sortie du hall ; `debloquer` (14-equipe) : un
+  robot qui n'approche plus de son but en 3 s change de cible.
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

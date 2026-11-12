@@ -216,7 +216,7 @@ function chercherHerbe(p, rmax = 90) {
   return -1;
 }
 MAJ.push((dt) => {
-  while (DESHERBEURS.length < Math.min(S.desherbeurs, MAX_DESH)) { const r = { g: fabriquerDesherbeur(), p: PORTE_USINE(), f: versBase(PORTE_USINE()), k: -1, t: 0, etat: 'cherche', phase: Math.random() * 6 }; scene.add(r.g); DESHERBEURS.push(r); }
+  while (DESHERBEURS.length < Math.min(S.desherbeurs, MAX_DESH)) { const r = { g: fabriquerDesherbeur(), p: surSol(SORTIE_HALL().addScaledVector(new V3().randomDirection(), 0.8)), f: versBase(SORTIE_HALL()).negate(), k: -1, t: 0, etat: 'cherche', phase: Math.random() * 6 }; scene.add(r.g); DESHERBEURS.push(r); }
   for (const r of DESHERBEURS) {
     r.phase += dt;
     if (r.k >= 0 && T.sorte[r.k] !== 1) { RESERVEES.delete(r.k); r.k = -1; r.etat = 'cherche'; }
@@ -226,7 +226,7 @@ MAJ.push((dt) => {
     if (but) {
       const d = r.p.distanceTo(but);
       if (r.etat === 'va' && d < 0.9) { r.etat = 'arrache'; r.t = 0; } else if (r.etat === 'explore' && d < 2) r.etat = 'cherche';
-      else { tangent(r.p, _rd.subVectors(but, r.p), _rd); r.f.lerp(_rd, 1 - Math.exp(-dt * 6)).normalize(); surSol(_vp.copy(r.p).addScaledVector(_rd, Math.min(d, vitRobot() * dt)), 0, r.p); const rp = repousser(r.p, 0.3); surSol(rp.p, 0, r.p); }
+      else { tangent(r.p, _rd.subVectors(but, r.p), _rd); r.f.lerp(_rd, 1 - Math.exp(-dt * 6)).normalize(); surSol(_vp.copy(r.p).addScaledVector(_rd, Math.min(d, vitRobot() * dt)), 0, r.p); const rp = repousser(r.p, 0.3); surSol(rp.p, 0, r.p); debloquer(r, d, but, dt); }
     }
     if (r.etat === 'arrache') { r.t += dt; if (r.t >= 2.6) { if (T.sorte[r.k] === 1) { desherber(r.k); consommer('brosses', 1 / 40); expedier(2, 'graines'); if (r.p.distanceTo(joueur.p) < 30) bouffee(T.pos[r.k], 10, 0x8c8794); } RESERVEES.delete(r.k); r.k = -1; r.etat = 'cherche'; } }
     if (r.p.distanceTo(joueur.p) < 120) { poserSur(r.g, r.p, r.f); const m = r.etat === 'va' || r.etat === 'explore'; r.g.userData.corps.position.y = m ? Math.abs(Math.sin(r.phase * 9)) * 0.06 : 0; r.g.userData.bras.rotation.x = r.etat === 'arrache' ? Math.sin(r.phase * 10) * 0.6 - 0.4 : 0; r.g.visible = true; } else r.g.visible = false;

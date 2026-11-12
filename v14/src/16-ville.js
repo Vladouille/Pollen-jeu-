@@ -136,7 +136,7 @@ MAJ.push((dt) => {
     if (but) {
       const d = r.p.distanceTo(but);
       if (r.etat === 'va' && d < 1.0) { r.etat = 'travaille'; r.t = 0; } else if (r.etat === 'explore' && d < 2) r.etat = 'cherche';
-      else { tangent(r.p, _rd.subVectors(but, r.p), _rd); r.f.lerp(_rd, 1 - Math.exp(-dt * 7)).normalize(); surSol(_vp.copy(r.p).addScaledVector(_rd, Math.min(d, 3.2 * (1 + 0.05 * S.rech.robots) * dt)), 0, r.p); const rp = repousser(r.p, 0.35); surSol(rp.p, 0, r.p); }
+      else { tangent(r.p, _rd.subVectors(but, r.p), _rd); r.f.lerp(_rd, 1 - Math.exp(-dt * 7)).normalize(); surSol(_vp.copy(r.p).addScaledVector(_rd, Math.min(d, 3.2 * (1 + 0.05 * S.rech.robots) * dt)), 0, r.p); const rp = repousser(r.p, 0.35); surSol(rp.p, 0, r.p); debloquer(r, d, but, dt); }
     }
     if (r.etat === 'travaille') {
       r.t += dt;

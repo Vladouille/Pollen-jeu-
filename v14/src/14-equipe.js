@@ -49,7 +49,7 @@ function toitureSolaire(dt) {   // appelée par le réseau électrique : ce qui 
   TOIT.prod = kwToit() * lisse(-0.05, 0.3, _c.copy(BASE).normalize().dot(SOLEIL));
   let besoin = 0; const sans = []; for (const p of GRILLE.values()) { const d = PIECES[p.cle]; if (d.conso && !p.courant && (p.veut || d.tapis)) { besoin += d.conso; sans.push(p); } }
   TOIT.besoin = besoin;
-  const couvert = TOIT.prod >= besoin || !CHARGES.impaye; for (const p of sans) p.courant = couvert;
+  const couvert = TOIT.prod >= besoin || (!CHARGES.off && !CHARGES.impaye);   // charges coupées (tests) : pas de réseau extérieur for (const p of sans) p.courant = couvert;
 }
 const BORNE_TOIT = borneAccueil(-8.0, 0.1, 'TOITURE SOLAIRE');
 function dessinerToit() {
@@ -89,6 +89,12 @@ function chercherTuile(p, rmax = 70, fA = null) {   // la parcelle fanée la plu
   return -1;
 }
 const _rd = new V3();
+function debloquer(r, d, but, dt) {   // un ouvrier qui n'approche plus de son but en 3 s (un mur, une borne) laisse sa cible et part ailleurs
+  if (r.butPrec !== but) { r.butPrec = but; r.dPrec = d; r.tb = 0; return false; }
+  r.tb += dt; if (r.tb < 3) return false; r.tb = 0;
+  if (r.dPrec - d > 0.5) { r.dPrec = d; return false; }
+  if (r.k >= 0) RESERVEES.delete(r.k); r.k = -1; r.etat = 'explore'; r.but = surSol(new V3().copy(r.p).addScaledVector(tangent(r.p, new V3().randomDirection()), 25)); r.butPrec = null; return true;
+}
 MAJ.push((dt) => {
   while (ROBOTS.length < Math.min(S.robots, MAX_ROBOTS)) nouveauRobot();
   for (const r of ROBOTS) {
@@ -101,7 +107,7 @@ MAJ.push((dt) => {
       const d = r.p.distanceTo(but);
       if (r.etat === 'va' && d < 0.9) { r.etat = 'travaille'; r.t = 0; }
       else if (r.etat === 'explore' && d < 2) r.etat = 'cherche';
-      else { tangent(r.p, _rd.subVectors(but, r.p), _rd); r.f.lerp(_rd, 1 - Math.exp(-dt * 6)).normalize(); surSol(_vp.copy(r.p).addScaledVector(_rd, Math.min(d, vitRobot() * dt)), 0, r.p); const rp = repousser(r.p, 0.3); surSol(rp.p, 0, r.p); }
+      else { tangent(r.p, _rd.subVectors(but, r.p), _rd); r.f.lerp(_rd, 1 - Math.exp(-dt * 6)).normalize(); surSol(_vp.copy(r.p).addScaledVector(_rd, Math.min(d, vitRobot() * dt)), 0, r.p); const rp = repousser(r.p, 0.3); surSol(rp.p, 0, r.p); debloquer(r, d, but, dt); }
     }
     if (r.etat === 'travaille') {
       r.t += dt;
