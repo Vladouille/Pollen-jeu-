@@ -152,7 +152,8 @@ MAJ.push((dt) => {
   if (CHARGES.off) return;
   const demande = kwDemande(), prod = TOIT.prod || 0;
   CHARGES.kwAchat = CHARGES.impaye ? 0 : Math.max(0, demande - prod);   // impayé : plus de réseau, plus de salaires qui courent
-  CHARGES.salaires = CHARGES.impaye ? 0 : S.ouvriers * SALAIRE + (S.ville ? POPULATION * SALAIRE_VILLE : 0);   // les habitants, logés, touchent moitié moins CHARGES.elec = CHARGES.kwAchat * PRIX_KW; CHARGES.vente = Math.max(0, prod - demande) * VENTE_KW;
+  CHARGES.salaires = CHARGES.impaye ? 0 : S.ouvriers * SALAIRE + (S.ville ? POPULATION * SALAIRE_VILLE : 0);   // les habitants, logés, touchent moitié moins
+  CHARGES.elec = CHARGES.kwAchat * PRIX_KW; CHARGES.vente = Math.max(0, prod - demande) * VENTE_KW;
   CHARGES.du += (CHARGES.salaires + CHARGES.elec) * dt; TOIT.cumul += CHARGES.vente * dt;
   if (TOIT.cumul >= 25) { TOIT.vendu += expedier(TOIT.cumul, 'energie'); TOIT.cumul = 0; }
   CHARGES.t += dt; if (CHARGES.t < 2) return; CHARGES.t = 0;

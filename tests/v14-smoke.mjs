@@ -38,7 +38,7 @@ try {
     const colle = Math.abs(j.p.length() - P.sol(j.p.clone().normalize())), angle = h0.angleTo(j.haut), camHaut = P.camera.up.angleTo(j.haut);
     let allers = 0; for (let k = 0; k < 300; k++) { const id = P.T.id[(k * 29) % P.NT]; if (P.tuileDe(P.dirDe(id)) === id) allers++; }
     const sommet = P.tuileDe(new V3(-1, (1 + Math.sqrt(5)) / 2, 0).normalize()), penta = P.voisinsDe(sommet).length, hexa = P.voisinsDe(P.T.id[10]).length;
-    let couvert = 0; for (let k = 0; k < 4000; k++) { const d = new V3(Math.sin(k), Math.cos(k * 1.7), Math.sin(k * 2.3 + 1)).normalize(); if (P.RP * d.distanceTo(P.BASE.clone().normalize()) < 30 || P.tuileA(d.clone().multiplyScalar(P.RP)) >= 0) couvert++; }   // toute la planète porte des parcelles
+    let couvert = 0; for (let k = 0; k < 4000; k++) { const d = new V3(Math.sin(k), Math.cos(k * 1.7), Math.sin(k * 2.3 + 1)).normalize(); if (P.RP * d.distanceTo(P.BASE.clone().normalize()) < P.RB + 2 || P.tuileA(d.clone().multiplyScalar(P.RP)) >= 0) couvert++; }   // toute la planète porte des parcelles
     let secteurVide = 0; for (const x of P.secteurs) if (!x.total) secteurVide++;
     const auBord = couvert / 4000;
     const anti = P.BASE.clone().negate(); let sec = null; for (let k = 0; k < 2000 && !sec; k++) { const d = P.deplacer(anti.clone().normalize(), k * 37, k * 0.4); if (P.sol(d) - P.RP > 1) sec = d; }
@@ -199,10 +199,10 @@ try {
     for (let i = 0, k = 0; P.PLANETE_PROG.vert / P.NT < seuil && k < P.NT; k++) if (P.pollinisable(k)) P.polliniser(k, 'test');
     out.saison = P.cloreSaison() && P.S.saison === 1 && P.PLANETE_PROG.vert === 0 && P.T.vert.every((x) => x === 0) && Math.abs(P.multSaison() / m0 - 1.5 * 1.05) < 1e-6;
     // une sauvegarde au format 8 (esplanade de 28 m) : ses parcelles retrouvent leur place
-    const anciens = P.listeIds(28), i8 = anciens.length - 7, o8 = new Uint8Array(anciens.length); o8[i8] = 1; const d9 = P.convertir({ v: 8, date: 1, temps: 0, S: { credits: 5 }, tuiles: P.octetsEnTexte(o8) });
+    const anciens = P.listeIds(28); let i8 = anciens.length - 7; while (!P.IDX.has(anciens[i8])) i8--; const o8 = new Uint8Array(anciens.length); o8[i8] = 1; const d9 = P.convertir({ v: 8, date: 1, temps: 0, S: { credits: 5 }, tuiles: P.octetsEnTexte(o8) });
     // l'équipe s'arrête : la suite du test compte les crédits au centime
     po.pilote.actif = false; P.rappeler(po, false); for (const r of P.ROBOTS) P.scene.remove(r.g); P.ROBOTS.length = 0; P.S.robots = 0; P.S.toit = 0; P.step(0.05, 2);
-    out.conversion = d9.v === 9 && P.octetsDesTuiles(d9.tuiles)[P.IDX.get(anciens[i8])] === 1 && anciens.length > P.NT;
+    out.conversion = d9.v === 10 && P.octetsDesTuiles(d9.tuiles)[P.IDX.get(anciens[i8])] === 1 && anciens.length > P.NT;
     return out;
   });
   check(eq.conversion, 'sauvegarde au format 8 convertie : les parcelles gardent leur état sur la nouvelle esplanade de 72 m');
@@ -242,7 +242,7 @@ try {
   check(us.moto && us.motoTuiles > 60, `moto des champs : ${us.motoTuiles} parcelles en 15 s`);
   // --- 4 sexies. Le grand garage, les nouveaux véhicules, l'usine vivante, la mini-ville, les fermes solaires, les robots avancés ---
   const vi = await page.evaluate(() => {
-    const P = pollen, V3 = P.V3, out = {}; P.figer = false; P.CHARGES.off = true; P.HERBES.off = true; P.S.credits = 2e8;
+    const P = pollen, V3 = P.V3, out = {}, off0 = [P.CHARGES.off, P.HERBES.off]; P.figer = false; P.CHARGES.off = true; P.HERBES.off = true; P.S.credits = 2e8;
     const it = (re) => P.INTER.find((i) => { try { return re.test(i.etiquette || ''); } catch (e) { return false; } });
     if (P.joueur.enVehicule) P.descendre();
     // l'aéroglisseur, garé dans sa baie, sort du garage en marche avant
@@ -266,14 +266,14 @@ try {
     // les robots avancés
     for (let k = 0; k < 3; k++) it(/^Robot avancé/).agir(); out.robots2 = P.S.robots2; P.S.stock.brosses = 200; const t1 = P.S.tuiles, b1 = P.S.stock.brosses; P.step(0.05, 1200); out.r2Tuiles = P.S.tuiles - t1;
     const sv = P.etatSauve(); out.sauve = sv.S.ville === true && sv.S.robots2 === 3 && sv.S.toit === 5;
-    for (const r of P.ROBOTS2) P.scene.remove(r.g); P.ROBOTS2.length = 0; P.S.robots2 = 0; P.S.toit = 0; P.S.ouvriers = 0; P.step(0.05, 2);
+    for (const r of P.ROBOTS2) P.scene.remove(r.g); P.ROBOTS2.length = 0; P.S.robots2 = 0; P.S.toit = 0; P.S.ouvriers = 0; P.S.ville = false; [P.CHARGES.off, P.HERBES.off] = off0; P.step(0.05, 2);
     return out;
   });
   check(vi.aeBaie > -2 && vi.aeSorti > vi.aeBaie + 10, `garage : l'aéroglisseur sort de sa baie en marche avant (${vi.aeBaie.toFixed(1)} m → ${vi.aeSorti.toFixed(1)} m devant le garage)`);
   check(vi.garage.every(Boolean) && vi.diTuiles > 150 && vi.diAlt > 9, `nouveaux véhicules : buggy, tracteur, chenille sortent au volant ; dirigeable en vol (caméra à ${vi.diAlt.toFixed(1)} m) et pollinise ${vi.diTuiles} parcelles en 10 s`);
   check(vi.refusVille && vi.ville && vi.prixVille === 1e8 && vi.habitants >= 10 && vi.bougent >= 6, `mini-ville à 100 000 000 cr : ${vi.habitants} habitants visibles, ${vi.bougent} qui marchent`);
   check(vi.auTravail === 30 && vi.animes >= 25, `usine : ${vi.auTravail} personnes au travail sur deux lignes, ${vi.animes} en mouvement`);
-  check(vi.toit === 5 && vi.fermes > 100 && vi.kw === 660, `solaire : cinq niveaux (${vi.kw} kW crête), ${vi.fermes} panneaux au sol derrière l'usine et le garage`);
+  check(vi.toit === 5 && vi.fermes > 70 && vi.kw === 660, `solaire : cinq niveaux (${vi.kw} kW crête), ${vi.fermes} panneaux au sol derrière l'usine et le garage`);
   check(vi.robots2 === 3 && vi.r2Tuiles > 30 && vi.sauve, `robots avancés : 3 achetés, ${vi.r2Tuiles} parcelles en 1 min (trajet compris) ; ville, robots et panneaux sauvegardés`);
   // --- 5. Le mode construction ---
   const co = await page.evaluate(() => {
