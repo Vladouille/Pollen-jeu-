@@ -98,13 +98,14 @@ for (let k = 0; k < NT; k++) { secteurs[T.sect[k]].total++; secteurs[T.sect[k]].
 const majProgres = (s) => { if (s === undefined) { for (let k = 0; k < NSECT; k++) PROG[k] = secteurs[k].vert / secteurs[k].total; } else PROG[s] = secteurs[s].vert / secteurs[s].total; PROG_TEX.needsUpdate = true; };
 const FIN_SECTEUR = [];   // la fête : toutes les 500 parcelles rendues à la vie
 const APRES_POLLEN = [], APRES_VENTE = [];   // (k, par, valeur) → valeur, et (crédits) : l'élan s'y branche
+const multSaison = () => (1 + 0.5 * (S.saison || 0)) * (1 + 0.05 * ((S.rech && S.rech.valeur) || 0));   // multiplicateur permanent : +50 % par saison close, +5 % par niveau de recherche « valeur »
 function polliniser(k, par = 'joueur') {   // rend une tuile à la vie ; renvoie la valeur de son pollen
   if (!pollinisable(k)) return 0;
   fleurirTuile(k, gt); secteurs[T.sect[k]].vert++; S.tuiles++; majProgres(T.sect[k]);
   bouffee(T.pos[k], par === 'joueur' ? 16 : 8, CHARTE.pollen);
   const s = T.sect[k];
   PLANETE_PROG.vert++; if (PLANETE_PROG.vert % 500 === 0) for (const f of FIN_SECTEUR) f(s);
-  let v = prixTuile(k); for (const f of APRES_POLLEN) v = f(k, par, v);
+  let v = prixTuile(k) * multSaison(); for (const f of APRES_POLLEN) v = f(k, par, v);
   return v;
 }
 // L'action de l'outil en main : on la maintient sur la cible pendant la durée de l'outil. Relâcher, ou changer de cible,

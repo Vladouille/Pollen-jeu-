@@ -18,6 +18,8 @@ Puis : moissonneuse géante et aéroglisseur à rampe, vue extérieure au volant
 (X), ruches et pollinisateur automatique reliés par convoyeur à un réceptionnaire qui vend seul.
 Puis : les véhicules pollinisent à pleine vitesse, V fait venir son véhicule, ruches et pollinisateurs vendent seuls
 sans convoyeur ni courant.
+Puis : repère de la base sur la boussole, camion conduisible, esplanade de 50 m et grand garage, toiture solaire,
+robots ouvriers, pilotes automatiques, recherche sans fin, saisons (la 30e sauve la planète).
 
 ## Version courante : v10 (`v10/index.html`)
 

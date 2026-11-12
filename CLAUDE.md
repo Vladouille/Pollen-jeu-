@@ -64,6 +64,19 @@ Lis-le entièrement avant de coder. Réponds en français, phrases courtes.
   ramène un véhicule hors du sol. Ruches et pollinisateur automatique autonomes : sans convoyeur ils vendent eux-mêmes
   (`venteDirecte`), le pollinisateur ne consomme plus de courant ; l'absence compte aussi le miel, la cire et les
   pollinisateurs.
+  Puis : « repère de la base sur la boussole ; des bots qui marchent et conduisent seuls ; le camion où l'on ne peut
+  pas monter ; un garage plus grand ; des panneaux solaires sur les bâtiments ; addictif, 100 h au moins » →
+  boussole : maison orange au cap de la base, distance dessous. Camion conduisible (siège, pilote, rampe arrière de
+  5 voies), ses tournées seulement quand il est seul. Esplanade de 50 m (RB ; les bandes gardent leur repère à 34 m) ;
+  sauvegarde format 9 (CONVERSIONS[8] range les parcelles dans le nouvel ordre avec `listeIds(RB_ANCIEN)`). Grand
+  garage HANGAR (30 × 13 m, local(37, -2), ouvert vers le hall) : une baie par véhicule (`PARCS`, `BAIES`), rampe de
+  l'aéroglisseur repliable (`ailes`). `14-equipe.js` : toiture solaire (trois niveaux, InstancedMesh sur le hall puis
+  le garage, alimente ce qui manque de courant, surplus vendu 0,4 cr/kW/s) ; robots ouvriers (40 au plus, prix
+  2 500 × 1,35^n) ; pilote automatique par véhicule (30 % du prix, bouton à la borne ; part du sud de la base, revient
+  vider au quai) ; recherche sans fin (robots, pilotes, valeur ; prix ×2 par niveau) ; saisons (seuil 2 % × 1,5^s,
+  toute la planète dès la 10e ; ×1,5 par saison ; la 30e sauve la planète). Durée estimée par `tools/sim-duree.py` (joueur qui
+  optimise tout) : ~50 h jusqu'à la saison 30, donc bien plus pour un joueur réel ; à confirmer en jouant. L'absence
+  compte aussi robots et pilotes (`absenceEquipe`).
 - **v10** (`v10/index.html`), base de la v14. Le fondateur : « le jeu ne marche pas, garde juste la version avant la
   modification des blocs et rends les blocs plus petits comme au début » → retour à la v10 (parcelles de 2 m).
   La v13 ne marchait pas chez lui (panne non reproduite ici : même démarrage que la v10, console sans erreur) ;

@@ -210,7 +210,7 @@ const ECRAN_VARIETES = ecranDyn(1024, 512);
   meuble(g, globe, -6.0, F, 3.0, 1.0, 1.0);   // l'ouest de l'accueil expose le haut de gamme
   const banc = () => { const b = new THREE.Group(); placer(b, boite(2.0, 0.1, 0.55, M.blanc, 0.04), 0, 0.45, 0); placer(b, boite(2.02, 0.04, 0.57, M.lisere, 0.015), 0, 0.39, 0); for (const s of [-1, 1]) placer(b, boite(0.1, 0.4, 0.5, M.graphite, 0.03), s * 0.8, 0.2, 0); return b; };
   for (const [x, z, r] of [[-14, 8.0, Math.PI], [-6.0, 6.3, Math.PI]]) meuble(g, banc(), x, F, z, 1.0, 0.35, r);
-  decor(g, [['plante', -19.2, 8.2], ['plante', -19.2, -0.6], ['plante', -0.8, 7.9], ['caisses', -19.3, 4.0, 0.3], ['extincteur', -5.0, 8.62, Math.PI], ['affiche', -19.82, 2.0, Math.PI / 2, F + 1.8]]);
+  decor(g, [['plante', -19.2, 8.2], ['plante', -0.8, 7.9], ['caisses', -19.3, 4.0, 0.3], ['extincteur', -5.0, 8.62, Math.PI], ['affiche', -19.82, 2.0, Math.PI / 2, F + 1.8]]);
   fusionner(g);
 }
 // Les portes s'ouvrent à l'approche ; dedans, la lampe de la pièce s'allume et l'ambiance sonore devient plus sourde.

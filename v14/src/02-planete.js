@@ -72,7 +72,7 @@ const VARIETES = [   // pétales, hauteur de tige (m), rayon des pointes, profon
   { nom: 'Azurelle de nuit', petales: 6, h: 0.35, rr: 0.09, pf: 0.1, prix: 70, ferme: true },
   { nom: 'Azurelle mère', petales: 8, h: 0.5, rr: 0.15, pf: 0.1, prix: 150 },
 ];
-const RB = 28;   // rayon de l’esplanade de la base (sans fleurs)
+const RB = 50, RB_ANCIEN = 28;   // rayon de l’esplanade de la base (sans fleurs) ; 28 m jusqu'à la sauvegarde au format 8
 const BASE_DIR = new V3(0.45, 0.35, 0.82).normalize();
 function deplacer(dir, capDeg, dist) {   // la direction atteinte en partant de dir, au cap donné (0 = nord, 90 = est), après dist mètres
   const { up, est, nord } = repere(dir), a = capDeg * Math.PI / 180, t = new V3().addScaledVector(nord, Math.cos(a)).addScaledVector(est, Math.sin(a)), w = dist / RP;
@@ -81,7 +81,7 @@ function deplacer(dir, capDeg, dist) {   // la direction atteinte en partant de 
 // Toute la planète est découpée en secteurs, sans vide : des bandes parallèles de 24 m de large (repère B0/BT/BN, B0 au
 // bord sud de la base), coupées tous les ~110 m. Chaque secteur est donc un long rectangle de fleurs. Ils s'ouvrent
 // dans l'ordre de leur distance à la base : le premier part de la base vers le sud, les suivants sont à côté.
-const B0 = deplacer(BASE_DIR, 180, RB + 6), BT = repere(B0).nord.negate(), BN = new V3().crossVectors(B0, BT).normalize();
+const B0 = deplacer(BASE_DIR, 180, RB_ANCIEN + 6), BT = repere(B0).nord.negate(), BN = new V3().crossVectors(B0, BT).normalize();
 const LARG_B = 24, LONG_B = 110, BMAX = Math.ceil((Math.PI / 2 * RP + LARG_B / 2) / LARG_B), SEGMAX = Math.round(2 * Math.PI * RP / LONG_B);
 const nSeg = (b) => Math.max(1, Math.round(2 * Math.PI * RP * Math.cos(clamp(b * LARG_B / RP, -Math.PI / 2, Math.PI / 2)) / LONG_B));
 function cleSecteur(d) {   // (bande, tronçon) → clé
@@ -122,18 +122,23 @@ const versBase = (p) => tangent(p, new V3().subVectors(BASE, p));   // le vecteu
 // --- Les parcelles : toute la planète, sauf l'esplanade de la base (≈ 655 000). Tableaux compacts, jamais un objet par
 //     parcelle. Sortes : 0 normale, 1 chardons, (2 aride : retirée avec l'eau), 3 mère sauvage, 4 nue. Aucune n'est fleurie au départ. ---
 const NTOT = 20 * N1 * N1;
+function listeIds(rb) {   // les parcelles de la planète, dans l'ordre des sauvegardes, hors d'une esplanade de rayon rb
+  const ids = [];
+  for (let f = 0; f < 20; f++) for (let i = 0; i <= NSUB; i++) for (let j = 0; j <= NSUB - i; j++) {
+    const id = idDe(f, i, j); if (canon(f, i, j) !== id) continue;   // chaque parcelle une seule fois, sous son nom canonique
+    if (RP * dirTuile(f, i, j, _d2).distanceTo(BASE_DIR) < rb + 1.3) continue;   // aucune parcelle ne déborde sur l'esplanade
+    ids.push(id);
+  }
+  return ids;
+}
 const IDXT = new Int32Array(NTOT).fill(-1);
 const IDX = { get: (id) => { const k = IDXT[id]; return k < 0 ? undefined : k; }, has: (id) => IDXT[id] >= 0 };   // id canonique → rang
 let NT = 0, NSECT = 0;
 const T = { n: 0 };
 const SECTEURS = [];
 {
-  const ids = [], cles = [], P = [];
-  for (let f = 0; f < 20; f++) for (let i = 0; i <= NSUB; i++) for (let j = 0; j <= NSUB - i; j++) {
-    const id = idDe(f, i, j); if (canon(f, i, j) !== id) continue;   // chaque parcelle une seule fois, sous son nom canonique
-    const d = dirTuile(f, i, j, _d2); if (RP * d.distanceTo(BASE_DIR) < RB + 1.3) continue;   // aucune parcelle ne déborde sur l'esplanade
-    const r = sol(d); ids.push(id); cles.push(cleSecteur(d)); P.push(d.x * r, d.y * r, d.z * r);
-  }
+  const ids = listeIds(RB), cles = [], P = [];
+  for (const id of ids) { const d = dirDe(id, _d2), r = sol(d); cles.push(cleSecteur(d)); P.push(d.x * r, d.y * r, d.z * r); }
   NT = T.n = ids.length;
   // Les secteurs non vides, rangés par distance à la base.
   const compte = new Map(); for (const c of cles) compte.set(c, (compte.get(c) || 0) + 1);

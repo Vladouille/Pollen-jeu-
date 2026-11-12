@@ -45,7 +45,7 @@ MAJ.push((dt) => {
     e.maj(); }
 });
 
-const VERSION_SAUVE = 8, NB_EMPL = 3;
+const VERSION_SAUVE = 9, NB_EMPL = 3;   // 9 : esplanade de 50 m
 const cleEmpl = (n) => `pollen-v14-emplacement-${n}`, cleSecours = (n) => `pollen-v14-emplacement-${n}-secours`;
 const stock = {   // le localStorage peut être refusé (navigation privée, stockage plein) : on joue alors sans sauvegarde
   lire(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -58,15 +58,16 @@ let EMPL = clamp(parseInt(stock.lire('pollen-v14-actif') || '1', 10) || 1, 1, NB
 const versBase64 = (o) => { let s = ''; for (let i = 0; i < o.length; i += 0x8000) s += String.fromCharCode.apply(null, o.subarray(i, i + 0x8000)); return btoa(s); };
 const depuisBase64 = (b) => { const s = atob(b), o = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) o[i] = s.charCodeAt(i); return o; };
 // 655 000 parcelles : on code par plages (valeur, longueur), la planète fanée tient en quelques kilo-octets.
-function tuilesEnOctets() {
+function octetsEnTexte(octets) {   // codage par plages (valeur, longueur)
   const out = []; let v0 = -1, n = 0; const pousser = () => { if (n) { out.push(v0); let x = n; while (x >= 128) { out.push((x & 127) | 128); x >>= 7; } out.push(x); } };
-  for (let i = 0; i < NT; i++) { const v = T.vert[i] | (T.sorte[i] << 1) | (T.irrigue[i] << 4) | (T.nectar[i] << 5); if (v === v0) n++; else { pousser(); v0 = v; n = 1; } }
+  for (let i = 0; i < octets.length; i++) { const v = octets[i]; if (v === v0) n++; else { pousser(); v0 = v; n = 1; } }
   pousser(); return 'P' + versBase64(Uint8Array.from(out));
 }
-function octetsDesTuiles(t) {   // l'inverse ; une chaîne sans « P » est l'ancien codage, un octet par parcelle
+function tuilesEnOctets() { const o = new Uint8Array(NT); for (let i = 0; i < NT; i++) o[i] = T.vert[i] | (T.sorte[i] << 1) | (T.irrigue[i] << 4) | (T.nectar[i] << 5); return octetsEnTexte(o); }
+function octetsDesTuiles(t, nt = NT) {   // l'inverse ; une chaîne sans « P » est l'ancien codage, un octet par parcelle
   const b = depuisBase64(t[0] === 'P' ? t.slice(1) : t); if (t[0] !== 'P') return b;
-  const o = new Uint8Array(NT); let i = 0, p = 0;
-  while (p < b.length && i < NT) { const v = b[p++]; let n = 0, sh = 0, x; do { x = b[p++]; n |= (x & 127) << sh; sh += 7; } while (x & 128); o.fill(v, i, Math.min(NT, i + n)); i += n; }
+  const o = new Uint8Array(nt); let i = 0, p = 0;
+  while (p < b.length && i < nt) { const v = b[p++]; let n = 0, sh = 0, x; do { x = b[p++]; n |= (x & 127) << sh; sh += 7; } while (x & 128); o.fill(v, i, Math.min(nt, i + n)); i += n; }
   return o;
 }
 const v3 = (p) => [+p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2)], dev3 = (a) => new V3(a[0], a[1], a[2]);
@@ -76,12 +77,12 @@ function etatSauve() {
   const v = joueur.enVehicule, p = v ? surSol(new V3().copy(v.p).addScaledVector(new V3().crossVectors(v.f, joueur.haut), -(v.D.hw + 0.9))) : joueur.p;   // au volant : on reprendra à côté du véhicule
   return {
     v: VERSION_SAUVE, date: Date.now(), temps: Math.round(S.temps || 0), nt: NT,
-    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh },
+    S: { credits: S.credits, sac: S.sac, outils: S.outils, tuiles: S.tuiles, ventes: S.ventes, silo: S.silo, expedie: S.expedie, amelio: S.amelio, succes: S.succes, recolte: Math.round(S.recolte), niveau: S.niveau, xp: +(S.xp || 0).toFixed(1), contrats: S.contrats, dorees: S.dorees || 0, dernierVeh: S.dernierVeh, toit: S.toit || 0, robots: S.robots || 0, robotVendu: Math.round(S.robotVendu || 0), saison: S.saison || 0, rech: S.rech },
     outil: outilEnMain === 'marteau' ? CONS.outilAvant : outilEnMain, ouverts: OUVERTS.value, tuiles: tuilesEnOctets(), jour: +JOUR.angle.toFixed(3),
     balises: BALISES.map((b) => b.active),
     pieces: [...GRILLE.values()].map((q) => [q.cle, q.id, q.avant, q.niveau, q.paye, Math.round(q.charge || 0), capsVers(q.stock), capsVers(q.entrees)]),
     capsules: CAPSULES.map((c) => [c.p.id, +c.t.toFixed(2), c.type, +c.valeur.toFixed(2)]),
-    flotte: Object.fromEntries(ORDRE_VEHICULES.map((c) => { const w = FLOTTE[c]; return [c, { possede: w.possede, p: v3(w.p), f: v3(w.f), charge: w.charge, valeur: +w.valeur.toFixed(2), niv: w.niv, attelee: w.attelee ? w.attelee.cle : undefined }]; })),
+    flotte: Object.fromEntries(ORDRE_VEHICULES.map((c) => { const w = FLOTTE[c]; return [c, { possede: w.possede, p: v3(w.p), f: v3(w.f), charge: w.charge, valeur: +w.valeur.toFixed(2), niv: w.niv, attelee: w.attelee ? w.attelee.cle : undefined, pilote: w.pilote ? { achete: !!w.pilote.achete, actif: !!w.pilote.actif } : undefined }]; })),
     colis: [...COLIS.map((c) => ({ p: v3(c.p), contenu: c.contenu })), ...(porte ? [{ p: v3(joueur.p), contenu: porte.contenu }] : [])],
     joueur: { p: v3(p), f: v3(joueur.f) },
   };
@@ -90,6 +91,14 @@ function etatSauve() {
 // --- Conversion des anciens formats. Les formats 2 à 5 sont ceux du terrain plat de la v9 : le monde ne se transpose
 //     pas sur la planète. On en garde ce qui appartient au joueur (argent, outils, temps de jeu, ventes). ---
 const CONVERSIONS = {};
+// Format 8 → 9 : l'esplanade passe de 28 à 50 m de rayon ; les parcelles gardent leur état, rangées dans le nouvel ordre
+// (celles qui sont maintenant sous la base disparaissent).
+CONVERSIONS[8] = (d) => {
+  if (!d.tuiles) return { ...d, v: 9 };
+  const anciens = listeIds(RB_ANCIEN), o = octetsDesTuiles(d.tuiles, anciens.length), n = new Uint8Array(NT);
+  for (let i = 0; i < anciens.length; i++) { const k = IDX.get(anciens[i]); if (k !== undefined) n[k] = o[i]; }
+  return { ...d, v: 9, nt: NT, tuiles: octetsEnTexte(n) };
+};
 for (const f of [2, 3, 4, 5, 6, 7]) CONVERSIONS[f] = (d) => ({ v: 8, date: d.date, temps: d.temps || (d.S && d.S.temps) || 0, monde: 'neuf', S: { credits: (d.S && d.S.credits) || 0, outils: ((d.S && d.S.outils) || ['pinceau']).filter((o) => OUTILS_DEF[o]), ventes: (d.S && d.S.ventes) || 0, tuiles: 0 }, ouverts: 1, tuiles: '' });
 function convertir(d) {
   if (!d || typeof d !== 'object' || typeof d.v !== 'number') throw new Error('pas une sauvegarde POLLEN');
@@ -119,7 +128,7 @@ function charger(d) {
   (d.balises || []).forEach((a, k) => { if (a && BALISES[k]) activerBalise(BALISES[k], false); });
   for (const [cle, id, avant, niveau, paye, charge, st, ent] of d.pieces || []) if (PIECES[cle] && !GRILLE.has(id)) { const q = poserPiece(cle, id, avant, true, niveau || 0); q.paye = paye || PIECES[cle].prix; q.charge = charge || 0; q.stock = capsDepuis(st); q.entrees = capsDepuis(ent); }
   for (const [id, t, type, valeur] of d.capsules || []) { const q = GRILLE.get(id); if (q && estTapis(q)) CAPSULES.push({ p: q, t, type, valeur, bloque: 0 }); }
-  for (const c of ORDRE_VEHICULES) { const w = FLOTTE[c], e = d.flotte && d.flotte[c]; if (!e || !e.possede) continue; w.possede = true; w.p.copy(dev3(e.p)); w.f.copy(dev3(e.f)); w.charge = e.charge || 0; w.valeur = e.valeur || 0; Object.assign(w.niv, e.niv || {}); refaireVehicule(w); }
+  for (const c of ORDRE_VEHICULES) { const w = FLOTTE[c], e = d.flotte && d.flotte[c]; if (!e || !e.possede) continue; w.possede = true; w.p.copy(dev3(e.p)); w.f.copy(dev3(e.f)); w.charge = e.charge || 0; w.valeur = e.valeur || 0; if (e.pilote) w.pilote = { ...e.pilote, etat: 'travail', t: 0, bloque: 0 }; Object.assign(w.niv, e.niv || {}); refaireVehicule(w); }
   for (const c of ORDRE_VEHICULES) { const e = d.flotte && d.flotte[c]; if (e && e.attelee && FLOTTE[e.attelee]) FLOTTE[c].attelee = FLOTTE[e.attelee]; }
   for (const c of d.colis || []) creerColis(c.contenu, surSol(dev3(c.p)));
   if (d.joueur) { surSol(repousser(surSol(dev3(d.joueur.p)), 0.4).p, 0, joueur.p); joueur.haut.copy(joueur.p).normalize(); tangent(joueur.p, dev3(d.joueur.f), joueur.f); }
@@ -209,7 +218,7 @@ MAJ.push((dt) => { NUAGE.t += dt; if (NUAGE.t >= 60) { NUAGE.t = 0; envoyerNuage
       if (d) {
         const ecrit = stock.ecrire(cleEmpl(EMPL), m.texte) && stock.lire(cleEmpl(EMPL)) === m.texte;
         if (DEMARRAGE.repris && ecrit) { SUPPRIME.v = true; location.reload(); return; }   // une partie locale tourne déjà : on recharge sur la copie en ligne
-        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); retourAbsence(d.date); }
+        if (!DEMARRAGE.repris) { charger(d); DEMARRAGE.repris = true; DEMARRAGE.date = d.date || 1; NUAGE.envoye = m.texte; montrerAnnonce('Partie reprise là où tu l’avais laissée.'); retourAbsence(d.date); absenceEquipe(d.date); }
       }
     }
     NUAGE.pret = true; NUAGE.etat = 'en ligne'; envoyerNuage();

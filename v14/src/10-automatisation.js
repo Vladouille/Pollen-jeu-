@@ -297,6 +297,7 @@ function majEnergie(dt) {
     ENERGIE.prod += r.prod; ENERGIE.conso += r.conso;
   }
   for (const p of GRILLE.values()) if (PIECES[p.cle].conso) p.courant = p.reseau >= 0 && R[p.reseau].ok;
+  toitureSolaire(dt);   // la toiture du hall comble ce qui manque, vend le reste
 }
 let tSilo = 0;
 MAJ.push((dt) => {

@@ -40,6 +40,10 @@
   #bande i { position: absolute; left: 50%; bottom: 3px; width: 30px; margin-left: -15px; text-align: center; font: 800 12px/1 inherit; font-style: normal; color: var(--encre); }
   #bande i.g::before { content: ''; display: block; width: 1px; height: 6px; margin: 0 auto; background: rgba(255, 253, 247, .5); }
   #bande i.c { bottom: 8px; }
+  /* Le repère de la base : une maison orange sur le ruban, la distance juste dessous ; collé au bord si la base est derrière. */
+  #repBase { position: absolute; left: 50%; top: 2px; width: 14px; height: 13px; margin-left: -7px; background: #f08a24; clip-path: polygon(50% 0, 100% 45%, 100% 100%, 0 100%, 0 45%); }
+  #repBase.bord { opacity: .55; }
+  #distBase { position: absolute; left: 50%; top: calc(var(--pad) + 32px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); font-size: 11px; color: #f08a24; text-shadow: 0 1px 3px rgba(0, 0, 0, .7); white-space: nowrap; pointer-events: none; }
   /* 2. Pourcentage du secteur, en haut à droite. */
   #secteur { right: calc(var(--pad) + env(safe-area-inset-right, 0px)); top: calc(var(--pad) + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 10px; }
   #secteur .hex { width: 16px; height: 18px; background: #e8458b; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
@@ -151,7 +155,7 @@
   <button id="agir" class="btn" type="button" hidden aria-label="Action">●</button>
   <button id="inter" class="btn" type="button" hidden aria-label="Interagir">E</button>
   <div id="hud">
-    <div id="boussole" class="plaque"><div id="bande"></div></div>
+    <div id="boussole" class="plaque"><div id="bande"></div><b id="repBase" aria-hidden="true"></b></div><small id="distBase" aria-hidden="true"></small>
     <div id="secteur" class="plaque"><span class="hex" aria-hidden="true"></span><strong id="secP">0 %</strong></div>
     <div id="pastille" class="plaque"><small id="nomOutil">Pinceau</small><strong id="charge">0,0 / 6 KG</strong></div>
     <div id="slots"></div>

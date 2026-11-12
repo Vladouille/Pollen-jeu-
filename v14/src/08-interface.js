@@ -7,7 +7,7 @@
 // =====================================================================
 const $ = (id) => document.getElementById(id);
 if (MOBILE) jeu.classList.add('mobile');
-const hud = { bande: $('bande'), secP: $('secP'), nomOutil: $('nomOutil'), charge: $('charge'), slots: $('slots'), cr: $('cr'), hex: document.querySelector('#secteur .hex') };
+const hud = { repBase: $('repBase'), distBase: $('distBase'), bande: $('bande'), secP: $('secP'), nomOutil: $('nomOutil'), charge: $('charge'), slots: $('slots'), cr: $('cr'), hex: document.querySelector('#secteur .hex') };
 const fmtKg = (v) => v.toFixed(1).replace('.', ',');
 const fmtCr = (v) => Math.round(v).toLocaleString('fr-FR');
 // Boussole : un ruban de ±90° autour du cap, graduations tous les 15°, lettres cardinales. Le nord est le pôle de la planète.
@@ -21,6 +21,9 @@ let tSlots = '', dernierHUD = -1;
 function majHUD() {
   const c = cap(), L = hud.bande.parentNode.clientWidth || 360, px = L / 180;
   for (const m of marques) { const r = angle(m.a - c); m.el.style.display = Math.abs(r) > 92 ? 'none' : ''; m.el.style.transform = `translateX(${r * px}px)`; }
+  { const { est, nord } = repere(joueur.p), vb = _c.subVectors(BASE, joueur.p), d = joueur.p.distanceTo(BASE), r = angle(Math.atan2(vb.dot(est), vb.dot(nord)) * 180 / Math.PI - c), x = clamp(r, -86, 86) * px;   // la base sur la boussole
+    const loin = d > RB + 4; hud.repBase.style.display = hud.distBase.style.display = loin ? '' : 'none';
+    if (loin) { hud.repBase.style.transform = `translateX(${x}px)`; hud.repBase.classList.toggle('bord', Math.abs(r) > 86); hud.distBase.style.transform = `translateX(calc(-50% + ${x}px))`; hud.distBase.textContent = `Base ${d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(1).replace('.', ',') + ' km'}`; } }
   const s = { vert: PLANETE_PROG.vert, total: NT };   // l'objectif : toute la planète
   hud.secP.textContent = `${(s.vert / s.total * 100).toFixed(2).replace('.', ',')} %`;   // la planète entière, au centième
   let pa = { nom: porte ? 'Colis' : outilDef().nom, charge: porte ? kgSac(porte.contenu) : kgSac(), max: chargeMax() }; for (const f of PASTILLE) { const r = f(); if (r) { pa = r; break; } }
